@@ -1,6 +1,7 @@
-import { fail, ok } from "@/lib/http";
+import { ok } from "@/lib/http";
 import { getServerEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/supabase/admin";
+import { buildTelegramCode } from "@/lib/telegram-code";
 
 function normalizePhone(value: string) {
   return `+${value.replace(/\D/g, "")}`;
@@ -20,15 +21,6 @@ async function sendTelegramMessage(chatId: string, text: string, keyboard?: unkn
 }
 
 export async function POST(req: Request) {
-  const env = getServerEnv();
-
-  // MVP fallback: do not hard-block webhook when secret headers are misconfigured on platform.
-  // If header exists and explicitly mismatches, keep warning path only.
-  const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
-  if (secretHeader && env.TELEGRAM_WEBHOOK_SECRET && secretHeader !== env.TELEGRAM_WEBHOOK_SECRET) {
-    console.warn("Telegram webhook secret mismatch; accepting update in fallback mode");
-  }
-
   const payload = await req.json().catch(() => null);
   const message = payload?.message;
 
@@ -67,7 +59,7 @@ export async function POST(req: Request) {
   if (contactPhone && telegramUserId) {
     const { data } = await supabaseAdmin
       .from("telegram_verifications")
-      .select("id, phone")
+      .select("id, phone, token")
       .eq("telegram_user_id", telegramUserId)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
@@ -80,9 +72,13 @@ export async function POST(req: Request) {
         .update({ status: "verified", verified_phone: contactPhone })
         .eq("id", data.id);
 
-      await sendTelegramMessage(chatId, "✅ Номер подтвержден. Возвращайся в приложение.", {
-        remove_keyboard: true,
-      });
+      const code = buildTelegramCode(data.token);
+
+      await sendTelegramMessage(
+        chatId,
+        `✅ Номер подтвержден.\nТвой код входа в Meetap: ${code}\nВведите его на сайте в шаге "Код из Telegram".`,
+        { remove_keyboard: true },
+      );
     } else {
       await sendTelegramMessage(chatId, "❌ Этот номер не совпадает с введенным в приложении.");
     }

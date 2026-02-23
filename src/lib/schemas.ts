@@ -20,7 +20,8 @@ export const startVerificationSchema = z.object({
 
 export const completeRegistrationSchema = z.object({
   token: z.string().uuid(),
-  name: z.string().min(2).max(40),
+  code: z.string().regex(/^\d{6}$/, "Код должен состоять из 6 цифр"),
+  name: z.string().min(2).max(40).optional(),
 });
 
 export const createDailyDuoSchema = z.object({

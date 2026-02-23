@@ -18,5 +18,17 @@ export async function GET(req: NextRequest) {
     return fail("Verification not found", 404);
   }
 
-  return ok(data);
+  let existingUser = false;
+
+  if (data.status === "verified" && data.verified_phone) {
+    const { data: existing } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("phone", data.verified_phone)
+      .maybeSingle();
+
+    existingUser = Boolean(existing?.id);
+  }
+
+  return ok({ ...data, existingUser });
 }

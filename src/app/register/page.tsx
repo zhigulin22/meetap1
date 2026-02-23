@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api-client";
 
-type Step = "phone" | "wait_verification" | "name";
+type Step = "phone" | "wait_verification" | "code" | "name";
 
 function isPhoneLikelyValid(phone: string) {
   const cleaned = phone.replace(/[\s()-]/g, "");
@@ -20,31 +20,39 @@ export default function RegisterPage() {
   const router = useRouter();
   const [phone, setPhone] = useState("+");
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [deepLink, setDeepLink] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
+  const [existingUser, setExistingUser] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const step: Step = useMemo(() => {
     if (!token) return "phone";
     if (!verified) return "wait_verification";
-    return "name";
-  }, [token, verified]);
+    if (existingUser) return "code";
+    return name.trim().length > 0 ? "name" : "code";
+  }, [token, verified, existingUser, name]);
 
   useEffect(() => {
     if (!token || verified) return;
 
     const t = setInterval(async () => {
       try {
-        const res = await api<{ status: string }>(`/api/auth/check-verification?token=${token}`);
+        const res = await api<{ status: string; existingUser?: boolean }>(`/api/auth/check-verification?token=${token}`);
         if (res.status === "verified") {
           setVerified(true);
-          toast.success("Телефон подтвержден в Telegram");
+          setExistingUser(Boolean(res.existingUser));
+          toast.success(
+            res.existingUser
+              ? "Телефон подтвержден. Введи код из Telegram для входа"
+              : "Телефон подтвержден. Введи код из Telegram",
+          );
         }
       } catch {
         // ignore polling errors
       }
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(t);
   }, [token, verified]);
@@ -74,24 +82,38 @@ export default function RegisterPage() {
     }
   }
 
-  async function completeRegistration() {
+  async function submitCode(withName = false) {
     if (!token || !verified) {
       toast.error("Сначала подтверди телефон в Telegram");
       return;
     }
 
-    if (name.trim().length < 2) {
+    if (!/^\d{6}$/.test(code)) {
+      toast.error("Введи 6-значный код из Telegram");
+      return;
+    }
+
+    if (withName && name.trim().length < 2) {
       toast.error("Введите корректное имя");
       return;
     }
 
     try {
       setLoading(true);
-      await api("/api/auth/complete-registration", {
-        method: "POST",
-        body: JSON.stringify({ token, name: name.trim() }),
-      });
-      toast.success("Регистрация завершена");
+      const res = await api<{ userId?: string; needsName?: boolean; mode?: string }>(
+        "/api/auth/complete-registration",
+        {
+          method: "POST",
+          body: JSON.stringify({ token, code, name: withName ? name.trim() : undefined }),
+        },
+      );
+
+      if (res.needsName) {
+        toast.message("Похоже это новый аккаунт. Укажи имя для завершения регистрации");
+        return;
+      }
+
+      toast.success(res.mode === "login" ? "Вход выполнен" : "Регистрация завершена");
       router.push("/feed");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
@@ -104,6 +126,9 @@ export default function RegisterPage() {
     setToken(null);
     setDeepLink(null);
     setVerified(false);
+    setExistingUser(false);
+    setCode("");
+    setName("");
   }
 
   return (
@@ -111,9 +136,9 @@ export default function RegisterPage() {
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
         <Card>
           <CardContent className="space-y-4 p-5">
-            <h1 className="text-2xl font-semibold">Регистрация</h1>
+            <h1 className="text-2xl font-semibold">Вход / Регистрация</h1>
             <p className="text-sm text-muted">
-              Шаг 1: номер телефона и подтверждение через Telegram. Шаг 2: имя.
+              Номер → Telegram → Код из Telegram → Имя (только для новых).
             </p>
 
             {step === "phone" ? (
@@ -135,11 +160,7 @@ export default function RegisterPage() {
                   Номер сохранен: <span className="text-text">{phone}</span>
                 </p>
                 {deepLink ? (
-                  <a
-                    href={deepLink}
-                    target="_blank"
-                    className="block text-sm text-action underline"
-                  >
+                  <a href={deepLink} target="_blank" className="block text-sm text-action underline">
                     Открыть Telegram-бота
                   </a>
                 ) : null}
@@ -150,19 +171,23 @@ export default function RegisterPage() {
               </div>
             ) : null}
 
+            {step === "code" ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted">
+                  В Telegram пришёл 6-значный код. Введи его для {existingUser ? "входа" : "продолжения"}.
+                </p>
+                <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
+                <Button disabled={loading} onClick={() => submitCode(false)} className="w-full">
+                  Подтвердить код
+                </Button>
+              </div>
+            ) : null}
+
             {step === "name" ? (
               <div className="space-y-3">
-                <p className="text-sm text-muted">Телефон подтвержден. Теперь введи имя.</p>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Твое имя"
-                />
-                <Button
-                  disabled={loading || name.trim().length < 2}
-                  onClick={completeRegistration}
-                  className="w-full"
-                >
+                <p className="text-sm text-muted">Новый аккаунт. Введи имя для завершения регистрации.</p>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Твое имя" />
+                <Button disabled={loading || name.trim().length < 2} onClick={() => submitCode(true)} className="w-full">
                   Завершить регистрацию
                 </Button>
               </div>

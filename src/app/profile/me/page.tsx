@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, ChevronRight, UserRound, GraduationCap, BriefcaseBusiness, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -93,24 +94,96 @@ export default function MyProfilePage() {
     document.documentElement.classList.toggle("dark", next === "dark");
   }
 
+  const name = data?.profile?.name ?? "Пользователь";
+  const phone = data?.profile?.phone ?? "Номер не указан";
+  const level = data?.profile?.level ?? 1;
+  const xp = data?.profile?.xp ?? 0;
+
   return (
     <PageShell>
       <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Мой профиль</h1>
+        <h1 className="text-2xl font-semibold">Профиль</h1>
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
       </div>
 
+      <Card className="mb-3 overflow-hidden">
+        <div className="h-20 bg-gradient-to-r from-[#1f4ed8]/40 to-[#0f766e]/40" />
+        <CardContent className="-mt-8 space-y-3 p-4">
+          <div className="flex items-center gap-3">
+            <Image
+              src={form.avatar_url || "https://placehold.co/120"}
+              alt={name}
+              width={120}
+              height={120}
+              className="h-16 w-16 rounded-full border-2 border-[#0b0f2c] object-cover"
+              unoptimized
+            />
+            <div>
+              <p className="text-lg font-semibold">{name}</p>
+              <p className="text-sm text-muted">{phone}</p>
+              <p className="text-xs text-muted">Level {level} · XP {xp}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-black/10 p-3 text-sm text-muted">
+            Личный профиль как в мессенджере: коротко, чисто, легко читать и редактировать.
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3">
+        <CardContent className="p-2">
+          <button className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-white/5">
+            <span className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4" /> Аккаунт и приватность</span>
+            <ChevronRight className="h-4 w-4 text-muted" />
+          </button>
+          <button className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-white/5">
+            <span className="flex items-center gap-2 text-sm"><Sparkles className="h-4 w-4" /> Настроить рекомендации</span>
+            <ChevronRight className="h-4 w-4 text-muted" />
+          </button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="space-y-3 p-4">
-          <p className="text-sm text-muted">Заполни профиль, чтобы система точнее находила людей и подбирала релевантные мероприятия.</p>
-          <Input placeholder="Ссылка на фото профиля" value={form.avatar_url} onChange={(e) => setForm((s) => ({ ...s, avatar_url: e.target.value }))} />
-          <Input placeholder="ВУЗ (пример: ВШЭ)" value={form.university} onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))} />
-          <Input placeholder="Работа (пример: Product Designer)" value={form.work} onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))} />
-          <Input placeholder="Хобби через запятую (бег, кино, кофе)" value={form.hobbies} onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))} />
-          <Textarea placeholder="Интересы (минимум 3) через запятую: стартапы, дизайн, музыка" value={form.interests} onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))} />
-          <Textarea placeholder={`3 факта о себе (каждый с новой строки)\nНапример:\n- Путешествую каждый месяц\n- Люблю шахматы\n- Веду клуб чтения`} value={form.facts} onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))} />
+          <p className="text-sm text-muted">Заполни профиль, чтобы людям проще было знакомиться с тобой.</p>
+
+          <Input
+            placeholder="Ссылка на фото профиля"
+            value={form.avatar_url}
+            onChange={(e) => setForm((s) => ({ ...s, avatar_url: e.target.value }))}
+          />
+
+          <label className="text-xs text-muted">Учеба и работа</label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="relative">
+              <GraduationCap className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted" />
+              <Input className="pl-9" placeholder="ВУЗ" value={form.university} onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))} />
+            </div>
+            <div className="relative">
+              <BriefcaseBusiness className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted" />
+              <Input className="pl-9" placeholder="Работа" value={form.work} onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))} />
+            </div>
+          </div>
+
+          <Input
+            placeholder="Хобби через запятую (бег, кино, кофе)"
+            value={form.hobbies}
+            onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))}
+          />
+          <Textarea
+            placeholder="Интересы (минимум 3): стартапы, дизайн, музыка"
+            value={form.interests}
+            onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))}
+          />
+          <Textarea
+            placeholder={"3 факта о себе (каждый с новой строки)\nНапример:\nЛюблю пешие прогулки\nВеду канал про музыку\nХочу больше офлайн-знакомств"}
+            value={form.facts}
+            onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))}
+          />
+
           <Button className="w-full" onClick={save}>Сохранить</Button>
           <Button variant="secondary" className="w-full" onClick={logout}>Выйти</Button>
         </CardContent>
