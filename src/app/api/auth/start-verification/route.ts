@@ -9,13 +9,13 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? "local";
   const rate = checkRateLimit(`start-verification:${ip}`, 5, 10 * 60 * 1000);
   if (!rate.ok) {
-    return fail("Too many attempts, try later", 429);
+    return fail("Слишком много попыток. Попробуй позже", 429);
   }
 
   const body = await req.json().catch(() => null);
   const parsed = startVerificationSchema.safeParse(body);
   if (!parsed.success) {
-    return fail(parsed.error.message, 422);
+    return fail(parsed.error.issues[0]?.message ?? "Неверные данные", 422);
   }
 
   const token = crypto.randomUUID();
@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    if (
+      error.message.includes("telegram_verifications") ||
+      error.message.includes("schema cache")
+    ) {
+      return fail(
+        "Не настроена база: отсутствует таблица telegram_verifications. Выполни SQL миграцию в Supabase.",
+        500,
+      );
+    }
     return fail(error.message, 500);
   }
 
