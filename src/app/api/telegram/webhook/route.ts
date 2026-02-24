@@ -37,23 +37,44 @@ export async function POST(req: Request) {
 
   if (text.startsWith("/start")) {
     const token = text.split(" ")[1];
-    if (token) {
-      await supabaseAdmin
-        .from("telegram_verifications")
-        .update({ telegram_user_id: telegramUserId })
-        .eq("token", token)
-        .eq("status", "pending");
 
+    if (!token) {
       await sendTelegramMessage(
         chatId,
-        "Подтверди номер: нажми кнопку ниже и отправь контакт.",
-        {
-          keyboard: [[{ text: "Поделиться номером", request_contact: true }]],
-          resize_keyboard: true,
-          one_time_keyboard: true,
-        },
+        "Привет! Для подтверждения номера открой бота по ссылке из приложения Meetap после ввода телефона.",
       );
+      return ok({ received: true });
     }
+
+    const { data: verification } = await supabaseAdmin
+      .from("telegram_verifications")
+      .select("id, status")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (!verification || verification.status !== "pending") {
+      await sendTelegramMessage(
+        chatId,
+        "Токен недействителен или уже использован. Вернись в приложение и запроси подтверждение ещё раз.",
+      );
+      return ok({ received: true });
+    }
+
+    await supabaseAdmin
+      .from("telegram_verifications")
+      .update({ telegram_user_id: telegramUserId })
+      .eq("token", token)
+      .eq("status", "pending");
+
+    await sendTelegramMessage(
+      chatId,
+      "Подтверди номер: нажми кнопку ниже и отправь контакт.",
+      {
+        keyboard: [[{ text: "Поделиться номером", request_contact: true }]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    );
   }
 
   if (contactPhone && telegramUserId) {
@@ -76,7 +97,7 @@ export async function POST(req: Request) {
 
       await sendTelegramMessage(
         chatId,
-        `✅ Номер подтвержден.\nТвой код входа в Meetap: ${code}\nВведите его на сайте в шаге "Код из Telegram".`,
+        `✅ Номер подтвержден.\nТвой код входа в Meetap: ${code}\nВведите его на сайте в шаге \"Код из Telegram\".`,
         { remove_keyboard: true },
       );
     } else {
