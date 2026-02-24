@@ -17,10 +17,11 @@ import {
   Bell,
   Shield,
   Languages,
-  Cloud,
   HelpCircle,
   Brain,
   Camera,
+  Lock,
+  Smartphone,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 
 type PsychProfile = {
-  instrument?: string;
   style?: string;
   traits?: {
     openness: number;
@@ -42,10 +42,32 @@ type PsychProfile = {
   recommendations?: string[];
 };
 
-function SettingsRow({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+type PanelKey = "account" | "privacy" | "notifications" | "language" | "help" | "security";
+
+function SettingsRow({
+  icon,
+  title,
+  subtitle,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
-    <button className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-black/10 px-3 py-3 text-left hover:bg-white/5">
-      <div className="rounded-xl border border-white/20 bg-black/20 p-2 text-muted">{icon}</div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all ${
+        active
+          ? "border-[#52cc83]/45 bg-[#52cc83]/12"
+          : "border-border/70 bg-black/10 hover:border-white/20 hover:bg-white/5"
+      }`}
+    >
+      <div className="rounded-xl border border-white/15 bg-black/25 p-2 text-muted">{icon}</div>
       <div className="flex-1">
         <p className="text-sm font-medium">{title}</p>
         <p className="text-xs text-muted">{subtitle}</p>
@@ -63,6 +85,7 @@ export default function MyProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [panel, setPanel] = useState<PanelKey>("account");
 
   const [form, setForm] = useState({
     university: "",
@@ -80,7 +103,16 @@ export default function MyProfilePage() {
 
   const sessionsQuery = useQuery({
     queryKey: ["sessions"],
-    queryFn: () => api<{ items: Array<{ id: string; device_label: string; created_at: string; last_active_at: string; revoked_at: string | null }> }>("/api/auth/sessions"),
+    queryFn: () =>
+      api<{
+        items: Array<{
+          id: string;
+          device_label: string;
+          created_at: string;
+          last_active_at: string;
+          revoked_at: string | null;
+        }>;
+      }>("/api/auth/sessions"),
   });
 
   useEffect(() => {
@@ -115,6 +147,7 @@ export default function MyProfilePage() {
       });
       setForm((s) => ({ ...s, avatar_url: res.url }));
       await refetch();
+      toast.success("Фото профиля обновлено");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось загрузить фото");
     } finally {
@@ -122,9 +155,16 @@ export default function MyProfilePage() {
     }
   }
 
-  async function save() {
-    const interests = form.interests.split(",").map((x) => x.trim()).filter(Boolean);
-    const facts = form.facts.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 3);
+  async function saveProfile() {
+    const interests = form.interests
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const facts = form.facts
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 3);
 
     if (interests.length < 3) {
       toast.error("Нужно минимум 3 интереса");
@@ -142,15 +182,19 @@ export default function MyProfilePage() {
         body: JSON.stringify({
           university: form.university,
           work: form.work,
-          hobbies: form.hobbies.split(",").map((x) => x.trim()).filter(Boolean),
+          hobbies: form.hobbies
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean),
           interests,
           facts,
           avatar_url: form.avatar_url || undefined,
         }),
       });
       await refetch();
+      toast.success("Профиль сохранён");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
     }
   }
 
@@ -173,6 +217,7 @@ export default function MyProfilePage() {
       setPassword("");
       setPasswordConfirm("");
       await refetch();
+      toast.success("Пароль обновлён");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка установки пароля");
     } finally {
@@ -187,6 +232,7 @@ export default function MyProfilePage() {
 
   async function revokeAllSessions() {
     await api("/api/auth/sessions", { method: "POST" });
+    toast.success("Все сессии закрыты");
     router.push("/login");
   }
 
@@ -202,14 +248,14 @@ export default function MyProfilePage() {
   return (
     <PageShell>
       <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Настройки</h1>
+        <h1 className="text-2xl font-semibold">Профиль и настройки</h1>
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
       </div>
 
       <Card className="mb-3 overflow-hidden border-white/15">
-        <div className="h-24 bg-[linear-gradient(120deg,rgba(8,14,47,0.95),rgba(82,204,131,0.35),rgba(73,111,236,0.55))]" />
+        <div className="h-24 bg-[linear-gradient(120deg,rgba(4,12,38,0.95),rgba(82,204,131,0.33),rgba(58,104,255,0.48))]" />
         <CardContent className="-mt-10 p-4">
           <div className="flex items-end gap-3">
             <button onClick={() => fileRef.current?.click()} className="relative" aria-label="Загрузить фото профиля">
@@ -218,7 +264,7 @@ export default function MyProfilePage() {
                 alt={profile?.name ?? "avatar"}
                 width={120}
                 height={120}
-                className="h-20 w-20 rounded-2xl border-2 border-white/70 object-cover shadow-xl"
+                className="h-20 w-20 rounded-3xl border-2 border-white/70 object-cover shadow-xl"
                 unoptimized
               />
               <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/60 p-1.5">
@@ -259,6 +305,206 @@ export default function MyProfilePage() {
         </CardContent>
       </Card>
 
+      <Card className="mb-3 border-white/15">
+        <CardContent className="space-y-2 p-3">
+          <SettingsRow
+            icon={<UserRound className="h-4 w-4" />}
+            title="Аккаунт"
+            subtitle="Имя, био, интересы, фото"
+            active={panel === "account"}
+            onClick={() => setPanel("account")}
+          />
+          <SettingsRow
+            icon={<Shield className="h-4 w-4" />}
+            title="Конфиденциальность"
+            subtitle="Видимость и границы контактов"
+            active={panel === "privacy"}
+            onClick={() => setPanel("privacy")}
+          />
+          <SettingsRow
+            icon={<Bell className="h-4 w-4" />}
+            title="Уведомления"
+            subtitle="Комментарии, события, коннекты"
+            active={panel === "notifications"}
+            onClick={() => setPanel("notifications")}
+          />
+          <SettingsRow
+            icon={<Lock className="h-4 w-4" />}
+            title="Безопасность"
+            subtitle="Пароль и активные устройства"
+            active={panel === "security"}
+            onClick={() => setPanel("security")}
+          />
+          <SettingsRow
+            icon={<Languages className="h-4 w-4" />}
+            title="Язык"
+            subtitle="Локализация интерфейса"
+            active={panel === "language"}
+            onClick={() => setPanel("language")}
+          />
+          <SettingsRow
+            icon={<HelpCircle className="h-4 w-4" />}
+            title="Помощь"
+            subtitle="Поддержка и правила"
+            active={panel === "help"}
+            onClick={() => setPanel("help")}
+          />
+        </CardContent>
+      </Card>
+
+      {panel === "account" ? (
+        <Card className="mb-3 border-white/15">
+          <CardContent className="space-y-3 p-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="flex items-center gap-1 text-xs text-muted">
+                  <GraduationCap className="h-3.5 w-3.5" /> ВУЗ
+                </label>
+                <Input
+                  value={form.university}
+                  onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))}
+                  placeholder="Университет"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-1 text-xs text-muted">
+                  <BriefcaseBusiness className="h-3.5 w-3.5" /> Работа
+                </label>
+                <Input
+                  value={form.work}
+                  onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))}
+                  placeholder="Компания / роль"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted">Хобби</label>
+              <Input
+                value={form.hobbies}
+                onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))}
+                placeholder="кофе, бег, кино"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <Sparkles className="h-3.5 w-3.5" /> Интересы (минимум 3)
+              </label>
+              <Textarea
+                value={form.interests}
+                onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))}
+                placeholder="дизайн, маркетинг, музыка"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <UserRound className="h-3.5 w-3.5" /> 3 факта о себе
+              </label>
+              <Textarea
+                value={form.facts}
+                onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))}
+                placeholder={"Люблю офлайн встречи\nХожу на концерты\nРазвиваю pet-проекты"}
+              />
+            </div>
+
+            <Button className="w-full" onClick={saveProfile}>Сохранить профиль</Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {panel === "privacy" ? (
+        <Card className="mb-3 border-white/15">
+          <CardContent className="space-y-2 p-4 text-sm">
+            <p className="font-medium">Режим приватности</p>
+            <p className="text-muted">В MVP доступна базовая логика: профиль виден участникам, если у вас есть активность в ленте.</p>
+            <p className="text-muted">Скоро: скрытие последнего визита, ограничения по аудитории и персональные списки допуска.</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {panel === "notifications" ? (
+        <Card className="mb-3 border-white/15">
+          <CardContent className="space-y-2 p-4 text-sm">
+            <p className="font-medium">Уведомления</p>
+            <p className="text-muted">Системные тосты активны для комментариев, лайков, подключений и участия в ивентах.</p>
+            <p className="text-muted">Дальше добавим granular переключатели и Telegram-напоминания.</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {panel === "language" ? (
+        <Card className="mb-3 border-white/15">
+          <CardContent className="space-y-2 p-4 text-sm">
+            <p className="font-medium">Язык</p>
+            <p className="text-muted">Сейчас основной язык интерфейса: русский.</p>
+            <p className="text-muted">Поддержка EN будет вынесена в отдельный переключатель.</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {panel === "help" ? (
+        <Card className="mb-3 border-white/15">
+          <CardContent className="space-y-2 p-4 text-sm">
+            <p className="font-medium">Помощь</p>
+            <p className="text-muted">Если что-то не работает, напиши в поддержку и приложи скрин + шаги воспроизведения.</p>
+            <p className="text-muted">Мы используем эти отчеты для приоритезации фиксов.</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {panel === "security" ? (
+        <>
+          <Card className="mb-3 border-white/15">
+            <CardContent className="space-y-3 p-4">
+              <p className="text-sm font-semibold">Быстрый вход по номеру и паролю</p>
+              <p className="text-xs text-muted">
+                {profile?.has_password
+                  ? "Пароль уже установлен. Можно обновить его здесь."
+                  : "Установи пароль один раз и входи по номеру + паролю с любого устройства."}
+              </p>
+
+              <Input
+                type="password"
+                placeholder="Новый пароль"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Input
+                type="password"
+                placeholder="Повтори пароль"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+              />
+
+              <Button className="w-full" onClick={savePassword} disabled={savingPassword}>
+                {savingPassword ? "Сохраняем..." : "Сохранить пароль"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-3 border-white/15">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-action" />
+                <p className="text-sm font-semibold">Активные устройства</p>
+              </div>
+              {(sessionsQuery.data?.items ?? []).map((s) => (
+                <div key={s.id} className="rounded-2xl border border-border bg-black/10 p-3">
+                  <p className="text-sm">{s.device_label}</p>
+                  <p className="text-xs text-muted">Последняя активность: {new Date(s.last_active_at).toLocaleString("ru-RU")}</p>
+                </div>
+              ))}
+              {!sessionsQuery.data?.items?.length ? <p className="text-xs text-muted">Сессий пока нет</p> : null}
+              <Button variant="secondary" className="w-full" onClick={revokeAllSessions}>
+                Закрыть все сессии
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
+
       {psychProfile ? (
         <Card className="mb-3 border-white/15">
           <CardContent className="space-y-2 p-4">
@@ -274,83 +520,6 @@ export default function MyProfilePage() {
           </CardContent>
         </Card>
       ) : null}
-
-      <Card className="mb-3 border-white/15">
-        <CardContent className="space-y-2 p-3">
-          <SettingsRow icon={<UserRound className="h-4 w-4" />} title="Аккаунт" subtitle="Имя, номер, username, фото" />
-          <SettingsRow icon={<Shield className="h-4 w-4" />} title="Конфиденциальность" subtitle="Кто видит профиль и активность" />
-          <SettingsRow icon={<Bell className="h-4 w-4" />} title="Уведомления" subtitle="Сообщения, лайки, события" />
-          <SettingsRow icon={<Cloud className="h-4 w-4" />} title="Данные и хранилище" subtitle="Фото, кэш, медиаданные" />
-          <SettingsRow icon={<Languages className="h-4 w-4" />} title="Язык" subtitle="Русский" />
-          <SettingsRow icon={<HelpCircle className="h-4 w-4" />} title="Помощь" subtitle="FAQ, поддержка, политика" />
-        </CardContent>
-      </Card>
-
-      <Card className="mb-3 border-white/15">
-        <CardContent className="space-y-3 p-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="flex items-center gap-1 text-xs text-muted"><GraduationCap className="h-3.5 w-3.5" /> ВУЗ</label>
-              <Input value={form.university} onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))} placeholder="Университет" />
-            </div>
-            <div className="space-y-1">
-              <label className="flex items-center gap-1 text-xs text-muted"><BriefcaseBusiness className="h-3.5 w-3.5" /> Работа</label>
-              <Input value={form.work} onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))} placeholder="Компания / роль" />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-muted">Хобби</label>
-            <Input value={form.hobbies} onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))} placeholder="кофе, бег, кино" />
-          </div>
-
-          <div className="space-y-1">
-            <label className="flex items-center gap-1 text-xs text-muted"><Sparkles className="h-3.5 w-3.5" /> Интересы (минимум 3)</label>
-            <Textarea value={form.interests} onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))} placeholder="дизайн, маркетинг, музыка" />
-          </div>
-
-          <div className="space-y-1">
-            <label className="flex items-center gap-1 text-xs text-muted"><UserRound className="h-3.5 w-3.5" /> 3 факта о себе</label>
-            <Textarea value={form.facts} onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))} placeholder={"Люблю офлайн встречи\nХожу на концерты\nРазвиваю pet-проекты"} />
-          </div>
-
-          <Button className="w-full" onClick={save}>Сохранить профиль</Button>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-3 border-white/15">
-        <CardContent className="space-y-3 p-4">
-          <p className="text-sm font-semibold">Активные устройства</p>
-          {(sessionsQuery.data?.items ?? []).map((s) => (
-            <div key={s.id} className="rounded-xl border border-border bg-black/10 p-2">
-              <p className="text-sm">{s.device_label}</p>
-              <p className="text-xs text-muted">Последняя активность: {new Date(s.last_active_at).toLocaleString("ru-RU")}</p>
-            </div>
-          ))}
-          {!sessionsQuery.data?.items?.length ? <p className="text-xs text-muted">Сессий пока нет</p> : null}
-          <Button variant="secondary" className="w-full" onClick={revokeAllSessions}>Закрыть все сессии</Button>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-3 border-white/15">
-        <CardContent className="space-y-3 p-4">
-          <p className="text-sm font-semibold">Быстрый вход по номеру и паролю</p>
-          <p className="text-xs text-muted">
-            {profile?.has_password
-              ? "Пароль уже установлен. Можно обновить его здесь."
-              : "Установи пароль, чтобы входить без повторной Telegram-верификации."}
-          </p>
-          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Новый пароль" />
-          <Input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} placeholder="Повтори пароль" />
-          <Button
-            onClick={savePassword}
-            disabled={savingPassword || password.length < 8 || passwordConfirm.length < 8}
-            className="w-full"
-          >
-            {savingPassword ? "Сохраняем..." : "Сохранить пароль"}
-          </Button>
-        </CardContent>
-      </Card>
     </PageShell>
   );
 }

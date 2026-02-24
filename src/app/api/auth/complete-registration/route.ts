@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     secure: true as const,
     sameSite: "lax" as const,
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 24 * 180,
   };
 
   cookieStore.set("meetap_user_id", userId, base);

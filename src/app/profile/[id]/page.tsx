@@ -27,6 +27,7 @@ export default function ProfilePage() {
       api<{
         profile: any;
         stats: { followers: number; publications: number; events: number };
+        status: string;
         positiveFact: string;
         content: { all: PostItem[]; videos: PostItem[]; photos: PostItem[] };
       }>(`/api/profile/${params.id}`),
@@ -62,7 +63,7 @@ export default function ProfilePage() {
   return (
     <PageShell>
       <Card className="mb-3 overflow-hidden border-white/15 bg-surface/90 backdrop-blur-xl">
-        <div className="h-24 bg-[linear-gradient(120deg,rgba(12,20,68,0.95),rgba(82,204,131,0.3),rgba(90,125,255,0.45))]" />
+        <div className="h-24 bg-[linear-gradient(120deg,rgba(10,18,60,0.95),rgba(82,204,131,0.3),rgba(90,125,255,0.45))]" />
         <CardContent className="space-y-4 p-4">
           <div className="-mt-10 flex items-end gap-3">
             <Image
@@ -70,7 +71,7 @@ export default function ProfilePage() {
               alt={p.name}
               width={120}
               height={120}
-              className="h-20 w-20 rounded-2xl border-2 border-white/70 object-cover"
+              className="h-20 w-20 rounded-3xl border-2 border-white/70 object-cover"
               unoptimized
             />
             <div className="pb-1">
@@ -79,26 +80,32 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          <div className="rounded-full border border-[#8eb8ff]/40 bg-[#8eb8ff]/10 px-3 py-1 text-xs text-[#cfe0ff]">
+            Статус: {data.status}
+          </div>
+
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-border bg-black/10 p-2 text-center">
+            <div className="rounded-2xl border border-border bg-black/10 p-2 text-center">
               <p className="text-sm font-semibold">{data.stats.followers}</p>
               <p className="text-[11px] text-muted">подписчиков</p>
             </div>
-            <div className="rounded-xl border border-border bg-black/10 p-2 text-center">
+            <div className="rounded-2xl border border-border bg-black/10 p-2 text-center">
               <p className="text-sm font-semibold">{data.stats.publications}</p>
               <p className="text-[11px] text-muted">публикаций</p>
             </div>
-            <div className="rounded-xl border border-border bg-black/10 p-2 text-center">
+            <div className="rounded-2xl border border-border bg-black/10 p-2 text-center">
               <p className="text-sm font-semibold">{data.stats.events}</p>
               <p className="text-[11px] text-muted">ивентов</p>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#52CC83]/35 bg-[#52CC83]/12 p-3 text-xs text-[#c8f7d8]">
+          <div className="rounded-2xl border border-[#52CC83]/35 bg-[#52CC83]/12 p-3 text-xs text-[#c8f7d8]">
             Плюс системы: {data.positiveFact}
           </div>
 
-          <p className="text-sm text-muted">{p.university || "ВУЗ не указан"} · {p.work || "Работа не указана"}</p>
+          <p className="text-sm text-muted">
+            {p.university || "ВУЗ не указан"} · {p.work || "Работа не указана"}
+          </p>
           <p className="text-sm text-muted">Интересы: {(p.interests || []).join(", ") || "Не заполнено"}</p>
         </CardContent>
       </Card>
@@ -124,23 +131,22 @@ export default function ProfilePage() {
       <div className="space-y-3 pb-2">
         {list.map((post) => {
           const first = post.photos[0]?.url;
-          const second = post.photos[1]?.url;
 
           return (
             <Card key={post.id} className="overflow-hidden">
               <CardContent className="space-y-2 p-3">
                 {post.type === "reel" ? (
-                  <video src={first} className="h-64 w-full rounded-xl object-cover" controls playsInline />
+                  <video src={first} className="h-64 w-full rounded-2xl object-cover" controls playsInline />
                 ) : (
-                  <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-xl">
+                  <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-2xl">
                     {post.photos.map((photo, idx) => (
                       <Image
                         key={`${post.id}-${idx}`}
-                        src={photo.url || first || second || "https://placehold.co/900x1200"}
+                        src={photo.url || "https://placehold.co/900x1200"}
                         alt="post"
                         width={900}
                         height={1200}
-                        className="h-64 w-full min-w-full snap-center rounded-xl object-cover"
+                        className="h-64 w-full min-w-full snap-center rounded-2xl object-cover"
                         unoptimized
                       />
                     ))}

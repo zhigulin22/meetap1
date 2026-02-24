@@ -76,10 +76,7 @@ export function PostCard({
     return () => observer.disconnect();
   }, [mediaUrl]);
 
-  const duoImages = useMemo(
-    () => [post.photos.front, post.photos.back].filter(Boolean) as string[],
-    [post.photos.front, post.photos.back],
-  );
+  const duoImages = useMemo(() => [post.photos.front, post.photos.back].filter(Boolean) as string[], [post.photos.front, post.photos.back]);
 
   return (
     <motion.article
@@ -88,7 +85,7 @@ export function PostCard({
       transition={{ duration: 0.3 }}
       className="snap-start"
     >
-      <div className="overflow-hidden rounded-[26px] border border-white/15 bg-surface/90 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+      <div className="overflow-hidden rounded-[28px] border border-white/15 bg-surface/90 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
           <div className="flex items-center gap-3">
             <Image
@@ -162,7 +159,7 @@ export function PostCard({
 
           {post.caption ? renderCaption(post.caption) : null}
 
-          <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="mt-3 grid grid-cols-[1fr_1fr_auto_1fr] gap-2">
             <Button
               variant="secondary"
               size="default"
@@ -179,9 +176,10 @@ export function PostCard({
 
             <Button
               variant="secondary"
-              size="default"
+              size="icon"
               onClick={() => onConnect(post)}
-              className={post.viewer.connected ? "h-11 border-[#8eb8ff]/50 bg-[#8eb8ff]/15 text-[#8eb8ff]" : "h-11"}
+              className={post.viewer.connected ? "h-11 w-11 border-[#8eb8ff]/50 bg-[#8eb8ff]/15 text-[#8eb8ff]" : "h-11 w-11"}
+              aria-label="Хочу познакомиться"
             >
               <Handshake className="h-4 w-4" />
             </Button>

@@ -20,10 +20,11 @@ const config: Config = {
         action: "#52CC83",
       },
       boxShadow: {
-        soft: "0 18px 50px rgba(0, 2, 41, 0.35)",
+        soft: "0 22px 64px rgba(0, 2, 41, 0.4)",
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
+        sans: ["var(--font-rubik)", "system-ui", "sans-serif"],
+        display: ["var(--font-manrope)", "var(--font-rubik)", "sans-serif"],
       },
     },
   },

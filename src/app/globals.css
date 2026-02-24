@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --bg: #ecf1f5;
-  --surface: rgba(255, 255, 255, 0.78);
-  --border: rgba(35, 53, 71, 0.18);
-  --text: #0f1d2e;
-  --muted: #5e7186;
+  --bg: #eef4f9;
+  --surface: rgba(255, 255, 255, 0.86);
+  --border: rgba(31, 53, 76, 0.16);
+  --text: #08111f;
+  --muted: #5a6b81;
 }
 
 .dark {
-  --bg: #070d13;
-  --surface: rgba(11, 18, 27, 0.8);
-  --border: rgba(136, 165, 196, 0.2);
-  --text: #edf4ff;
-  --muted: #95a7be;
+  --bg: #060b12;
+  --surface: rgba(10, 16, 26, 0.82);
+  --border: rgba(140, 168, 198, 0.24);
+  --text: #edf5ff;
+  --muted: #94a8c1;
 }
 
 html,
@@ -26,10 +26,17 @@ body {
 body {
   @apply bg-bg text-text antialiased;
   background-image:
-    radial-gradient(860px 520px at -5% -20%, rgba(82, 204, 131, 0.16), transparent),
-    radial-gradient(820px 500px at 100% -10%, rgba(44, 95, 148, 0.24), transparent),
-    radial-gradient(760px 480px at 50% 120%, rgba(15, 26, 38, 0.42), transparent),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.005));
+    radial-gradient(980px 540px at -8% -16%, rgba(82, 204, 131, 0.14), transparent),
+    radial-gradient(900px 520px at 104% -10%, rgba(30, 63, 118, 0.24), transparent),
+    radial-gradient(760px 540px at 48% 120%, rgba(8, 16, 28, 0.36), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.004));
+}
+
+h1,
+h2,
+h3,
+h4 {
+  @apply font-display tracking-[-0.02em];
 }
 
 main {
@@ -47,5 +54,5 @@ main {
 }
 
 input[type="file"]::file-selector-button {
-  @apply mr-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text;
+  @apply mr-3 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text;
 }

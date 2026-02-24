@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { Sparkles } from "lucide-react";
 import { DailyDuoDialog } from "@/components/daily-duo-dialog";
 import { PageShell } from "@/components/page-shell";
 import { PostCard } from "@/components/post-card";
@@ -42,7 +43,9 @@ type ConnectInsight = {
   messages: string[];
   topic: string;
   question: string;
+  vibeStatus?: string;
   profileSummary?: string;
+  firstMessages?: string[];
   approachTips?: string[];
   offlineIdeas?: string[];
   onlineIdeas?: string[];
@@ -172,9 +175,7 @@ export default function FeedPage() {
               key={x}
               onClick={() => setMode(x as typeof mode)}
               className={`rounded-full border px-3 py-1.5 text-xs capitalize ${
-                mode === x
-                  ? "border-action bg-action/20 text-action"
-                  : "border-border bg-white/5 text-muted"
+                mode === x ? "border-action bg-action/20 text-action" : "border-border bg-white/5 text-muted"
               }`}
             >
               {x === "all" ? "all" : x}
@@ -191,52 +192,82 @@ export default function FeedPage() {
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogHeader>
-          <DialogTitle>Как познакомиться с {connectData?.targetName}</DialogTitle>
+          <DialogTitle>Зона знакомства: {connectData?.targetName}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm">
+        <div className="max-h-[74vh] space-y-3 overflow-y-auto pr-1 text-sm">
+          {connectData?.insight.vibeStatus ? (
+            <div className="rounded-full border border-[#52cc83]/40 bg-[#52cc83]/15 px-3 py-1 text-xs text-[#aef0c8]">
+              {connectData.insight.vibeStatus}
+            </div>
+          ) : null}
+
           {connectData?.insight.profileSummary ? (
-            <div className="rounded-xl border border-border bg-white/5 p-3 text-muted">
+            <div className="rounded-2xl border border-border bg-white/5 p-3 text-muted">
               {connectData.insight.profileSummary}
             </div>
           ) : null}
 
-          <p className="text-muted">Тема: {connectData?.insight.topic}</p>
-          {connectData?.insight.messages.map((m) => (
-            <div key={m} className="rounded-xl border border-border bg-black/20 p-3">
-              {m}
-            </div>
-          ))}
+          <div className="rounded-2xl border border-border bg-black/20 p-3">
+            <p className="text-xs text-muted">Тема</p>
+            <p className="font-medium">{connectData?.insight.topic}</p>
+          </div>
 
-          {connectData?.insight.sharedSignals?.length ? (
-            <p className="text-xs text-muted">Общие сигналы: {connectData.insight.sharedSignals.join(", ")}</p>
+          {(connectData?.insight.firstMessages ?? []).length ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Варианты первого сообщения</p>
+              {connectData?.insight.firstMessages?.map((m) => (
+                <div key={m} className="rounded-2xl border border-[#8eb8ff]/40 bg-[#8eb8ff]/10 p-3 text-[13px]">
+                  {m}
+                </div>
+              ))}
+            </div>
           ) : null}
 
-          {connectData?.insight.approachTips?.length ? (
+          {(connectData?.insight.approachTips ?? []).length ? (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-text">Как лучше подойти:</p>
-              {connectData.insight.approachTips.map((tip) => (
+              <p className="text-xs font-medium">Как лучше подойти</p>
+              {connectData?.insight.approachTips?.map((tip) => (
                 <p key={tip} className="text-xs text-muted">• {tip}</p>
               ))}
             </div>
           ) : null}
 
-          {connectData?.insight.offlineIdeas?.length ? (
+          {(connectData?.insight.offlineIdeas ?? []).length ? (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-text">Идеи офлайн:</p>
-              {connectData.insight.offlineIdeas.map((tip) => (
+              <p className="text-xs font-medium">Оффлайн сценарии</p>
+              {connectData?.insight.offlineIdeas?.map((tip) => (
                 <p key={tip} className="text-xs text-muted">• {tip}</p>
               ))}
             </div>
           ) : null}
 
-          <p className="text-muted">Вопрос: {connectData?.insight.question}</p>
+          {(connectData?.insight.onlineIdeas ?? []).length ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium">Онлайн сценарии</p>
+              {connectData?.insight.onlineIdeas?.map((tip) => (
+                <p key={tip} className="text-xs text-muted">• {tip}</p>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-border bg-black/20 p-3">
+            <p className="mb-1 text-xs text-muted">Контрольный вопрос</p>
+            <p>{connectData?.insight.question}</p>
+          </div>
+
+          {(connectData?.insight.sharedSignals ?? []).length ? (
+            <div className="rounded-2xl border border-border bg-black/20 p-3">
+              <p className="mb-1 text-xs text-muted">Сигналы, на которых основана подсказка</p>
+              <p className="text-xs text-muted">{connectData?.insight.sharedSignals?.join(" · ")}</p>
+            </div>
+          ) : null}
         </div>
       </Dialog>
 
       <Dialog open={commentsOpen} onOpenChange={setCommentsOpen}>
         <DialogHeader>
-          <DialogTitle>Комментарии как чат</DialogTitle>
+          <DialogTitle>Комментарии</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-black/15 p-2 pr-1">
@@ -275,10 +306,11 @@ export default function FeedPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <Card className="overflow-hidden rounded-[24px]">
             <CardContent className="space-y-4 p-5 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-action/35 bg-action/15 text-action">
+                <Sparkles className="h-4 w-4" />
+              </div>
               <h2 className="text-xl font-semibold">Лента закрыта</h2>
-              <p className="text-sm text-muted">
-                Если не было публикаций больше 7 дней, нужно добавить новый Daily Duo.
-              </p>
+              <p className="text-sm text-muted">Если не было публикаций больше 7 дней, нужно добавить новый Daily Duo.</p>
               <Button onClick={() => setCreateOpen(true)} className="w-full">
                 Выложить фото
               </Button>
@@ -290,13 +322,7 @@ export default function FeedPage() {
       {!isLoading && !data?.locked ? (
         <div className="feed-scroll snap-y snap-mandatory space-y-3 overflow-y-auto pb-24">
           {filtered.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onReact={react}
-              onConnect={connect}
-              onOpenComments={openComments}
-            />
+            <PostCard key={post.id} post={post} onReact={react} onConnect={connect} onOpenComments={openComments} />
           ))}
           {!filtered.length ? (
             <Card>

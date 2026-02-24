@@ -21,6 +21,25 @@ function buildPositiveFact(input: {
   return "Открыт(а) к новым знакомствам и постепенно развивает профиль";
 }
 
+function buildStatus(userId: string, stats: { publications: number; events: number; followers: number }) {
+  const statuses = [
+    "На волне новых знакомств",
+    "Открыт к умным разговорам",
+    "Лучше раскрывается офлайн",
+    "Нравится активный социальный темп",
+    "Предпочитает спокойный формат общения",
+    "Любит совместные активности",
+  ];
+
+  const hash = [...userId].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const base = statuses[hash % statuses.length];
+
+  if (stats.events >= 5) return `${base} · Часто ходит на события`;
+  if (stats.followers >= 20) return `${base} · Быстро находит контакт с людьми`;
+  if (stats.publications >= 12) return `${base} · Регулярно делится контентом`;
+  return `${base} · Мягкий вход в общение`;
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const { data: profile } = await supabaseAdmin
     .from("users")
@@ -41,10 +60,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         .order("created_at", { ascending: false })
         .limit(60),
       supabaseAdmin.from("photos").select("post_id,kind,url"),
-      supabaseAdmin
-        .from("connections")
-        .select("id", { count: "exact", head: true })
-        .eq("to_user_id", params.id),
+      supabaseAdmin.from("connections").select("id", { count: "exact", head: true }).eq("to_user_id", params.id),
       supabaseAdmin.from("event_members").select("id").eq("user_id", params.id),
       supabaseAdmin
         .from("reactions")
@@ -88,6 +104,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return ok({
     profile,
     stats,
+    status: buildStatus(profile.id, stats),
     positiveFact,
     content: {
       all: feed,

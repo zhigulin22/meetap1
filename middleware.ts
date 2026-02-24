@@ -3,6 +3,7 @@ import { updateSession } from "@/supabase/middleware";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 
 const protectedRoutes = ["/feed", "/events", "/contacts", "/profile"];
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
 
 async function isSessionActive(userId: string, sessionId: string) {
   try {
@@ -10,7 +11,7 @@ async function isSessionActive(userId: string, sessionId: string) {
     const sec = getServerEnv();
 
     const url = new URL(`${pub.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_sessions`);
-    url.searchParams.set("select", "id,last_active_at");
+    url.searchParams.set("select", "id");
     url.searchParams.set("id", `eq.${sessionId}`);
     url.searchParams.set("user_id", `eq.${userId}`);
     url.searchParams.set("revoked_at", "is.null");
@@ -33,12 +34,37 @@ async function isSessionActive(userId: string, sessionId: string) {
   }
 }
 
+async function touchSession(userId: string, sessionId: string) {
+  try {
+    const pub = getPublicEnv();
+    const sec = getServerEnv();
+    const now = new Date().toISOString();
+
+    const url = new URL(`${pub.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_sessions`);
+    url.searchParams.set("id", `eq.${sessionId}`);
+    url.searchParams.set("user_id", `eq.${userId}`);
+    url.searchParams.set("revoked_at", "is.null");
+
+    await fetch(url.toString(), {
+      method: "PATCH",
+      headers: {
+        apikey: sec.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${sec.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ last_active_at: now }),
+      cache: "no-store",
+    });
+  } catch {
+    // no-op
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const response = await updateSession(request);
 
-  const isProtected = protectedRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route),
-  );
+  const isProtected = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
 
   if (!isProtected) {
     return response;
@@ -70,6 +96,30 @@ export async function middleware(request: NextRequest) {
     redirected.cookies.set("meetap_session_id", "", { path: "/", maxAge: 0 });
     return redirected;
   }
+
+  await touchSession(userId, sessionId);
+
+  response.cookies.set("meetap_user_id", userId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  });
+  response.cookies.set("meetap_verified", "1", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  });
+  response.cookies.set("meetap_session_id", sessionId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  });
 
   return response;
 }

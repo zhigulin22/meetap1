@@ -8,7 +8,25 @@ type UserLite = {
   name: string;
   interests: string[] | null;
   hobbies: string[] | null;
+  level?: number | null;
 };
+
+function pickStatus(user: UserLite, sharedCount: number) {
+  const catalog = [
+    "Открыт к легкому знакомству",
+    "Любит умные разговоры",
+    "Лучше раскрывается офлайн",
+    "Часто отвечает на короткие сообщения",
+    "Комфортен в дружелюбном темпе",
+    "Энергия: спокойный интроверт",
+    "Энергия: активный экстраверт",
+  ];
+
+  const key = [...user.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const base = catalog[key % catalog.length];
+  const overlay = sharedCount > 0 ? "Есть общие интересы" : "Подойдет мягкий первый заход";
+  return `${base} · ${overlay}`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -23,8 +41,8 @@ export async function POST(req: Request) {
 
     const [{ data: me }, { data: target }, { data: myEvents }, { data: targetEvents }, { data: myReactions }] =
       await Promise.all([
-        supabaseAdmin.from("users").select("id,name,interests,hobbies").eq("id", userId).single(),
-        supabaseAdmin.from("users").select("id,name,interests,hobbies").eq("id", targetUserId).single(),
+        supabaseAdmin.from("users").select("id,name,interests,hobbies,level").eq("id", userId).single(),
+        supabaseAdmin.from("users").select("id,name,interests,hobbies,level").eq("id", targetUserId).single(),
         supabaseAdmin.from("event_members").select("event_id").eq("user_id", userId),
         supabaseAdmin.from("event_members").select("event_id").eq("user_id", targetUserId),
         supabaseAdmin.from("reactions").select("reaction_type").eq("user_id", userId).limit(120),
@@ -62,14 +80,20 @@ export async function POST(req: Request) {
       status: "pending",
     });
 
+    const firstMessages = [
+      `Привет, ${targetUser.name}! Видел твой пост, зацепила тема ${common[0] || "оффлайн-встреч"}. Хочешь познакомиться?`,
+      `Привет! Я тоже интересуюсь ${common[1] || "новыми людьми"}. Как смотришь на короткий созвон/кофе?`,
+      `Привет, давай познакомимся. Что тебя сейчас больше заряжает: события, спорт или творчество?`,
+    ];
+
     const fallbackOffline = [
-      "Начни с короткой встречи на 20-30 минут в нейтральном месте",
-      "Опирайся на общий интерес из профиля и предложи конкретный формат",
+      "Предложи короткую встречу на 20-30 минут в месте с нейтральной атмосферой",
+      "Используй общий контекст (ивент/пост), не начинай с длинного рассказа о себе",
     ];
 
     const fallbackOnline = [
-      "Напиши коротко: кто ты и почему решил(а) познакомиться",
-      "Задай один открытый вопрос вместо длинного сообщения",
+      "1 сообщение = 1 мысль. Коротко и уважительно",
+      "Задай один открытый вопрос и подожди реакцию",
     ];
 
     return ok({
@@ -77,14 +101,16 @@ export async function POST(req: Request) {
       common,
       icebreaker: {
         ...ai,
+        vibeStatus: pickStatus(targetUser, common.length),
         profileSummary:
           common.length > 0
             ? `${targetUser.name} чаще откликается на темы: ${common.slice(0, 3).join(", ")}.`
-            : `${targetUser.name} любит новые знакомства, лучше начать с мягкого нейтрального вопроса.`,
+            : `${targetUser.name} лучше знакомится через мягкий, спокойный старт разговора.`,
+        firstMessages,
         sharedSignals: behaviorSignals,
         approachTips: [
           "Начни с контекста поста или события, а не с формального приветствия",
-          "Пиши короткими сообщениями, без перегруза",
+          "Пиши коротко, не более 2-3 предложений в первом сообщении",
           "Предложи понятный следующий шаг: кофе, прогулка или ивент",
         ],
         offlineIdeas: fallbackOffline,
