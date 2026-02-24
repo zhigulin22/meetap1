@@ -2,6 +2,7 @@ import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { getServerEnv } from "@/lib/env";
+import { trackEvent } from "@/server/analytics";
 
 async function sendTelegramMessage(chatId: string, text: string) {
   const env = getServerEnv();
@@ -36,6 +37,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         `Ты зарегистрирован(а) на мероприятие "${event.title}".\nДата: ${dateText}\nМы напомним ближе к началу.`,
       );
     }
+
+    await trackEvent({ eventName: "event_join_clicked", userId, path: "/events", properties: { eventId: params.id } });
 
     return ok({ success: true });
   } catch {

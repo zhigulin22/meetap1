@@ -302,6 +302,14 @@ export default function MyProfilePage() {
             </Link>
             <Button variant="secondary" onClick={logout}>Выйти</Button>
           </div>
+
+          {profile?.role === "admin" ? (
+            <div className="mt-2">
+              <Link href="/admin" className="block">
+                <Button className="w-full">Открыть Admin Panel</Button>
+              </Link>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

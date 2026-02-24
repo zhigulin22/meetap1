@@ -4,6 +4,7 @@ import { fail, ok } from "@/lib/http";
 import { verifyPassword } from "@/lib/password";
 import { detectDeviceLabel } from "@/lib/session";
 import { supabaseAdmin } from "@/supabase/admin";
+import { trackEvent } from "@/server/analytics";
 
 const phoneRegex = /^\+?[1-9]\d{9,14}$/;
 
@@ -73,6 +74,8 @@ export async function POST(req: Request) {
   if (session?.id) {
     store.set("meetap_session_id", session.id, base);
   }
+
+  await trackEvent({ eventName: "login_password", userId: user.id, path: "/login" });
 
   return ok({ success: true });
 }

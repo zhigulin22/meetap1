@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { validateFaces } from "@/server/ai";
+import { trackEvent } from "@/server/analytics";
 
 export async function POST(req: Request) {
   try {
@@ -92,6 +93,8 @@ export async function POST(req: Request) {
       .from("users")
       .update({ last_post_at: new Date().toISOString(), xp: 10 })
       .eq("id", userId);
+
+    await trackEvent({ eventName: "daily_duo_published", userId, path: "/feed", properties: { postId: post.id } });
 
     return ok({ success: true, postId: post.id });
   } catch {

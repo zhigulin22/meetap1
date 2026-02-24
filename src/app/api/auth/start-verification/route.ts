@@ -5,6 +5,7 @@ import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 import { buildTelegramCode } from "@/lib/telegram-code";
+import { trackEvent } from "@/server/analytics";
 
 async function sendTelegramMessage(chatId: string, text: string) {
   const env = getServerEnv();
@@ -50,10 +51,11 @@ export async function POST(req: NextRequest) {
     return fail(error.message, 500);
   }
 
-  // If this phone has linked telegram_user_id from previous sessions, send code immediately.
+  await trackEvent({ eventName: "register_started", path: "/register", properties: { phonePrefix: phone.slice(0, 4) } });
+
   const { data: existing } = await supabaseAdmin
     .from("users")
-    .select("telegram_user_id")
+    .select("telegram_user_id,id")
     .eq("phone", phone)
     .maybeSingle();
 
@@ -68,10 +70,8 @@ export async function POST(req: NextRequest) {
       .eq("token", token)
       .eq("status", "pending");
 
-    await sendTelegramMessage(
-      chatId,
-      `Код входа в Meetap: ${code}\nСрок действия 10 минут.`,
-    );
+    await sendTelegramMessage(chatId, `Код входа в Meetap: ${code}\nСрок действия 10 минут.`);
+    await trackEvent({ eventName: "telegram_verified", userId: existing?.id, path: "/register", properties: { immediate: true } });
   }
 
   const env = getPublicEnv();

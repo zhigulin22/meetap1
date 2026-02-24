@@ -2,6 +2,7 @@ import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { buildIcebreaker } from "@/server/ai";
+import { trackEvent } from "@/server/analytics";
 
 type UserLite = {
   id: string;
@@ -95,6 +96,8 @@ export async function POST(req: Request) {
       "1 сообщение = 1 мысль. Коротко и уважительно",
       "Задай один открытый вопрос и подожди реакцию",
     ];
+
+    await trackEvent({ eventName: "connect_clicked", userId, path: "/feed", properties: { targetUserId } });
 
     return ok({
       success: true,

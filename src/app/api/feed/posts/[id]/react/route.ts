@@ -1,6 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
+import { trackEvent } from "@/server/analytics";
 
 const allowed = new Set(["like", "connect", "star"]);
 
@@ -65,6 +66,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (error) {
       return fail(error.message, 500);
     }
+
+    await trackEvent({ eventName: `${reactionType}_clicked`, userId, path: "/feed", properties: { postId: params.id } });
 
     return ok({ success: true });
   } catch {

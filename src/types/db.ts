@@ -22,6 +22,10 @@ export type Database = {
           password_hash: string | null;
           personality_profile: Json | null;
           personality_updated_at: string | null;
+          role: string;
+          is_blocked: boolean;
+          blocked_reason: string | null;
+          blocked_until: string | null;
           created_at: string;
         };
       };
@@ -123,6 +127,40 @@ export type Database = {
           telegram_user_id: string | null;
           verified_phone: string | null;
           expires_at: string;
+          created_at: string;
+        };
+      };
+      analytics_events: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          event_name: string;
+          path: string | null;
+          properties: Json;
+          created_at: string;
+        };
+      };
+      user_flags: {
+        Row: {
+          id: string;
+          user_id: string;
+          source: string;
+          severity: string;
+          reason: string;
+          evidence: string | null;
+          status: string;
+          created_at: string;
+          resolved_at: string | null;
+        };
+      };
+      moderation_actions: {
+        Row: {
+          id: string;
+          admin_user_id: string | null;
+          target_user_id: string | null;
+          action: string;
+          reason: string | null;
+          metadata: Json;
           created_at: string;
         };
       };

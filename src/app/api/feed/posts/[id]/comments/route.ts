@@ -2,6 +2,7 @@ import { fail, ok } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
+import { createRiskFlag, detectRiskText, trackEvent } from "@/server/analytics";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -66,6 +67,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         return fail("Не применена миграция comments в Supabase", 500);
       }
       return fail(error.message, 500);
+    }
+
+    await trackEvent({ eventName: "comment_sent", userId, path: "/feed", properties: { postId: params.id } });
+
+    const risk = detectRiskText(content);
+    if (risk.risky) {
+      await createRiskFlag({
+        userId,
+        source: "comment",
+        severity: "high",
+        reason: "Potential prohibited content in comment",
+        evidence: content.slice(0, 280),
+      });
     }
 
     return ok({ success: true });

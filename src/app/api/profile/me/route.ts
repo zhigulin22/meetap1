@@ -12,7 +12,8 @@ const updateSchema = z.object({
   avatar_url: z.string().url().optional(),
 });
 
-const PROFILE_FIELDS = "id,phone,name,telegram_verified,telegram_user_id,last_post_at,xp,level,university,work,hobbies,interests,facts,avatar_url,personality_profile,personality_updated_at,password_hash";
+const PROFILE_FIELDS =
+  "id,phone,name,telegram_verified,telegram_user_id,last_post_at,xp,level,university,work,hobbies,interests,facts,avatar_url,personality_profile,personality_updated_at,password_hash,role,is_blocked,blocked_reason,blocked_until";
 
 function mapProfile(data: any) {
   if (!data) return null;

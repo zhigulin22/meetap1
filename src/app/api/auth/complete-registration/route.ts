@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { buildTelegramCode } from "@/lib/telegram-code";
 import { detectDeviceLabel } from "@/lib/session";
+import { trackEvent } from "@/server/analytics";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? "local";
@@ -120,6 +121,8 @@ export async function POST(req: Request) {
   if (session?.id) {
     cookieStore.set("meetap_session_id", session.id, base);
   }
+
+  await trackEvent({ eventName: "registration_completed", userId, path: "/register", properties: { mode: existing ? "login" : "register" } });
 
   return ok({ userId, mode: existing ? "login" : "register" });
 }

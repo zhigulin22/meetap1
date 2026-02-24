@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/supabase/middleware";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 
-const protectedRoutes = ["/feed", "/events", "/contacts", "/profile"];
+const protectedRoutes = ["/feed", "/events", "/contacts", "/profile", "/admin"];
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
 
 async function isSessionActive(userId: string, sessionId: string) {
@@ -34,6 +34,40 @@ async function isSessionActive(userId: string, sessionId: string) {
   }
 }
 
+async function getUserAccess(userId: string) {
+  try {
+    const pub = getPublicEnv();
+    const sec = getServerEnv();
+
+    const url = new URL(`${pub.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/users`);
+    url.searchParams.set("select", "id,role,is_blocked,blocked_until");
+    url.searchParams.set("id", `eq.${userId}`);
+    url.searchParams.set("limit", "1");
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        apikey: sec.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${sec.SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) return { role: "user", blocked: false };
+
+    const rows = (await res.json()) as Array<{ role?: string; is_blocked?: boolean; blocked_until?: string | null }>;
+    const row = rows[0];
+
+    if (!row) return { role: "user", blocked: false };
+
+    const blockedUntil = row.blocked_until ? new Date(row.blocked_until).getTime() : null;
+    const blocked = Boolean(row.is_blocked) && (!blockedUntil || blockedUntil > Date.now());
+
+    return { role: row.role ?? "user", blocked };
+  } catch {
+    return { role: "user", blocked: false };
+  }
+}
+
 async function touchSession(userId: string, sessionId: string) {
   try {
     const pub = getPublicEnv();
@@ -59,6 +93,12 @@ async function touchSession(userId: string, sessionId: string) {
   } catch {
     // no-op
   }
+}
+
+function clearCookies(res: NextResponse) {
+  res.cookies.set("meetap_user_id", "", { path: "/", maxAge: 0 });
+  res.cookies.set("meetap_verified", "", { path: "/", maxAge: 0 });
+  res.cookies.set("meetap_session_id", "", { path: "/", maxAge: 0 });
 }
 
 export async function middleware(request: NextRequest) {
@@ -91,10 +131,23 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirected = NextResponse.redirect(url);
-    redirected.cookies.set("meetap_user_id", "", { path: "/", maxAge: 0 });
-    redirected.cookies.set("meetap_verified", "", { path: "/", maxAge: 0 });
-    redirected.cookies.set("meetap_session_id", "", { path: "/", maxAge: 0 });
+    clearCookies(redirected);
     return redirected;
+  }
+
+  const access = await getUserAccess(userId);
+  if (access.blocked) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    const redirected = NextResponse.redirect(url);
+    clearCookies(redirected);
+    return redirected;
+  }
+
+  if (request.nextUrl.pathname.startsWith("/admin") && access.role !== "admin") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/feed";
+    return NextResponse.redirect(url);
   }
 
   await touchSession(userId, sessionId);
