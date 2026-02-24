@@ -1,46 +1,65 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Moon, Sun, UserRound, BriefcaseBusiness, GraduationCap, Sparkles, Brain } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  UserRound,
+  BriefcaseBusiness,
+  GraduationCap,
+  Sparkles,
+  ChevronRight,
+  Bell,
+  Shield,
+  Languages,
+  Cloud,
+  HelpCircle,
+  Brain,
+  Camera,
+} from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api-client";
 
-const PSYCH_QUESTIONS = [
-  { id: "new", label: "Мне нравится пробовать новое" },
-  { id: "culture", label: "Мне интересны культура и творчество" },
-  { id: "ideas", label: "Люблю обсуждать идеи и смыслы" },
-  { id: "people", label: "Легко знакомлюсь с новыми людьми" },
-  { id: "group", label: "Комфортно быть в центре группы" },
-  { id: "energy", label: "Меня заряжают живые мероприятия" },
-  { id: "listen", label: "Я внимательный слушатель" },
-  { id: "meaning", label: "Предпочитаю глубокие разговоры" },
-  { id: "care", label: "Чувствую настроение собеседника" },
-  { id: "fast", label: "Быстро перехожу от идеи к действию" },
-  { id: "plan", label: "Мне важна структура и план" },
-  { id: "initiative", label: "Чаще сам(а) предлагаю встречу" },
-] as const;
-
 type PsychProfile = {
-  style: string;
-  openness: number;
-  sociability: number;
-  depth: number;
-  pace: number;
-  recommendations: string[];
+  instrument?: string;
+  style?: string;
+  traits?: {
+    openness: number;
+    conscientiousness: number;
+    extraversion: number;
+    agreeableness: number;
+    neuroticism: number;
+  };
+  recommendations?: string[];
 };
+
+function SettingsRow({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+  return (
+    <button className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-black/10 px-3 py-3 text-left hover:bg-white/5">
+      <div className="rounded-xl border border-white/20 bg-black/20 p-2 text-muted">{icon}</div>
+      <div className="flex-1">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted">{subtitle}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted" />
+    </button>
+  );
+}
 
 export default function MyProfilePage() {
   const router = useRouter();
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [form, setForm] = useState({
     university: "",
     work: "",
@@ -49,12 +68,6 @@ export default function MyProfilePage() {
     facts: "",
     avatar_url: "",
   });
-
-  const [testOpen, setTestOpen] = useState(false);
-  const [testValues, setTestValues] = useState<Record<string, number>>(
-    Object.fromEntries(PSYCH_QUESTIONS.map((q) => [q.id, 3])),
-  );
-  const [savingTest, setSavingTest] = useState(false);
 
   const { data, refetch } = useQuery({
     queryKey: ["me"],
@@ -82,6 +95,24 @@ export default function MyProfilePage() {
 
   const psychProfile = useMemo(() => (data?.profile?.personality_profile ?? null) as PsychProfile | null, [data]);
 
+  async function uploadAvatar(file: File) {
+    try {
+      setUploadingAvatar(true);
+      const fd = new FormData();
+      fd.append("avatar", file);
+      const res = await api<{ url: string }>("/api/profile/avatar", {
+        method: "POST",
+        body: fd,
+      });
+      setForm((s) => ({ ...s, avatar_url: res.url }));
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось загрузить фото");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   async function save() {
     const interests = form.interests.split(",").map((x) => x.trim()).filter(Boolean);
     const facts = form.facts.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 3);
@@ -108,27 +139,9 @@ export default function MyProfilePage() {
           avatar_url: form.avatar_url || undefined,
         }),
       });
-      toast.success("Профиль обновлён");
-      refetch();
+      await refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
-    }
-  }
-
-  async function runPsychTest() {
-    setSavingTest(true);
-    try {
-      const answers = PSYCH_QUESTIONS.map((q) => ({ id: q.id, value: Number(testValues[q.id] ?? 3) }));
-      await api("/api/profile/psych-test", {
-        method: "POST",
-        body: JSON.stringify({ answers }),
-      });
-      setTestOpen(false);
-      refetch();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка теста");
-    } finally {
-      setSavingTest(false);
     }
   }
 
@@ -149,7 +162,7 @@ export default function MyProfilePage() {
   return (
     <PageShell>
       <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Профиль</h1>
+        <h1 className="text-2xl font-semibold">Настройки</h1>
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
@@ -159,26 +172,50 @@ export default function MyProfilePage() {
         <div className="h-24 bg-[linear-gradient(120deg,rgba(8,14,47,0.95),rgba(82,204,131,0.35),rgba(73,111,236,0.55))]" />
         <CardContent className="-mt-10 p-4">
           <div className="flex items-end gap-3">
-            <Image
-              src={form.avatar_url || "https://placehold.co/120"}
-              alt={profile?.name ?? "avatar"}
-              width={120}
-              height={120}
-              className="h-20 w-20 rounded-2xl border-2 border-white/70 object-cover shadow-xl"
-              unoptimized
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="relative"
+              aria-label="Загрузить фото профиля"
+            >
+              <Image
+                src={form.avatar_url || "https://placehold.co/120"}
+                alt={profile?.name ?? "avatar"}
+                width={120}
+                height={120}
+                className="h-20 w-20 rounded-2xl border-2 border-white/70 object-cover shadow-xl"
+                unoptimized
+              />
+              <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/60 p-1.5">
+                <Camera className="h-3.5 w-3.5" />
+              </span>
+            </button>
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadAvatar(file);
+              }}
             />
+
             <div className="pb-1">
               <p className="text-lg font-semibold">{profile?.name ?? "Пользователь"}</p>
               <p className="text-xs text-muted">{profile?.phone ?? "Номер не указан"}</p>
               <p className="text-xs text-muted">Level {profile?.level ?? 1} · XP {profile?.xp ?? 0}</p>
+              <p className="mt-1 text-xs text-action">{uploadingAvatar ? "Загружаем фото..." : "Нажми на фото, чтобы выбрать из галереи"}</p>
             </div>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setTestOpen(true)}>
-              <Brain className="mr-1 h-4 w-4" />
-              Психотест
-            </Button>
+            <Link href="/profile/psych-test" className="block">
+              <Button variant="secondary" className="w-full">
+                <Brain className="mr-1 h-4 w-4" />
+                Психотест
+              </Button>
+            </Link>
             <Button variant="secondary" onClick={logout}>Выйти</Button>
           </div>
         </CardContent>
@@ -187,8 +224,12 @@ export default function MyProfilePage() {
       {psychProfile ? (
         <Card className="mb-3 border-white/15">
           <CardContent className="space-y-2 p-4">
-            <p className="text-sm font-semibold">Психопрофиль: {psychProfile.style}</p>
-            <p className="text-xs text-muted">Open {psychProfile.openness}% · Social {psychProfile.sociability}% · Depth {psychProfile.depth}% · Pace {psychProfile.pace}%</p>
+            <p className="text-sm font-semibold">Психопрофиль: {psychProfile.style ?? "Не определен"}</p>
+            {psychProfile.traits ? (
+              <p className="text-xs text-muted">
+                O {psychProfile.traits.openness}% · C {psychProfile.traits.conscientiousness}% · E {psychProfile.traits.extraversion}% · A {psychProfile.traits.agreeableness}% · N {psychProfile.traits.neuroticism}%
+              </p>
+            ) : null}
             {psychProfile.recommendations?.map((x) => (
               <p key={x} className="text-xs text-muted">• {x}</p>
             ))}
@@ -197,12 +238,18 @@ export default function MyProfilePage() {
       ) : null}
 
       <Card className="mb-3 border-white/15">
-        <CardContent className="space-y-3 p-4">
-          <div className="space-y-1">
-            <label className="text-xs text-muted">Фото профиля</label>
-            <Input value={form.avatar_url} onChange={(e) => setForm((s) => ({ ...s, avatar_url: e.target.value }))} placeholder="https://..." />
-          </div>
+        <CardContent className="space-y-2 p-3">
+          <SettingsRow icon={<UserRound className="h-4 w-4" />} title="Аккаунт" subtitle="Имя, номер, username, фото" />
+          <SettingsRow icon={<Shield className="h-4 w-4" />} title="Конфиденциальность" subtitle="Кто видит профиль и активность" />
+          <SettingsRow icon={<Bell className="h-4 w-4" />} title="Уведомления" subtitle="Сообщения, лайки, события" />
+          <SettingsRow icon={<Cloud className="h-4 w-4" />} title="Данные и хранилище" subtitle="Фото, кэш, медиаданные" />
+          <SettingsRow icon={<Languages className="h-4 w-4" />} title="Язык" subtitle="Русский" />
+          <SettingsRow icon={<HelpCircle className="h-4 w-4" />} title="Помощь" subtitle="FAQ, поддержка, политика" />
+        </CardContent>
+      </Card>
 
+      <Card className="mb-3 border-white/15">
+        <CardContent className="space-y-3 p-4">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-1">
               <label className="flex items-center gap-1 text-xs text-muted"><GraduationCap className="h-3.5 w-3.5" /> ВУЗ</label>
@@ -232,38 +279,6 @@ export default function MyProfilePage() {
           <Button className="w-full" onClick={save}>Сохранить профиль</Button>
         </CardContent>
       </Card>
-
-      <Dialog open={testOpen} onOpenChange={setTestOpen}>
-        <DialogHeader>
-          <DialogTitle>Психотест для точного мэтчинга</DialogTitle>
-        </DialogHeader>
-
-        <div className="max-h-[62vh] space-y-3 overflow-y-auto pr-1">
-          {PSYCH_QUESTIONS.map((q) => (
-            <div key={q.id} className="rounded-xl border border-border bg-black/10 p-3">
-              <p className="mb-2 text-sm">{q.label}</p>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={testValues[q.id] ?? 3}
-                onChange={(e) => setTestValues((s) => ({ ...s, [q.id]: Number(e.target.value) }))}
-                className="w-full"
-              />
-              <p className="text-xs text-muted">Оценка: {testValues[q.id] ?? 3}/5</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => setTestOpen(false)}>
-            Отмена
-          </Button>
-          <Button className="flex-1" onClick={runPsychTest} disabled={savingTest}>
-            {savingTest ? "..." : "Сохранить тест"}
-          </Button>
-        </div>
-      </Dialog>
     </PageShell>
   );
 }

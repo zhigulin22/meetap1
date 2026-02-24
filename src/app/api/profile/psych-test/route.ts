@@ -4,47 +4,86 @@ import { supabaseAdmin } from "@/supabase/admin";
 
 type Answer = {
   id: string;
+  trait: "openness" | "conscientiousness" | "extraversion" | "agreeableness" | "neuroticism";
   value: number;
+  reverse?: boolean;
+};
+
+type OpenAnswers = {
+  social_goal?: string;
+  deal_breakers?: string;
+  conversation_topics?: string;
 };
 
 function clamp(v: number) {
-  return Math.max(1, Math.min(5, v));
+  return Math.max(1, Math.min(5, Math.round(v)));
 }
 
-function buildProfile(answers: Answer[]) {
-  const get = (id: string) => clamp(answers.find((x) => x.id === id)?.value ?? 3);
+function scoreAnswer(answer: Answer) {
+  const value = clamp(answer.value);
+  return answer.reverse ? 6 - value : value;
+}
 
-  const openness = Math.round(((get("new") + get("culture") + get("ideas")) / 15) * 100);
-  const sociability = Math.round(((get("people") + get("group") + get("energy")) / 15) * 100);
-  const depth = Math.round(((get("listen") + get("meaning") + get("care")) / 15) * 100);
-  const pace = Math.round(((get("fast") + get("plan") + get("initiative")) / 15) * 100);
+function buildProfile(answers: Answer[], openAnswers: OpenAnswers) {
+  const sum: Record<Answer["trait"], number> = {
+    openness: 0,
+    conscientiousness: 0,
+    extraversion: 0,
+    agreeableness: 0,
+    neuroticism: 0,
+  };
+  const count: Record<Answer["trait"], number> = {
+    openness: 0,
+    conscientiousness: 0,
+    extraversion: 0,
+    agreeableness: 0,
+    neuroticism: 0,
+  };
 
-  const style =
-    sociability > 70
-      ? "Активный социальный тип"
-      : depth > 70
-        ? "Глубокий эмпатичный тип"
-        : openness > 70
-          ? "Исследовательский тип"
-          : "Сбалансированный тип";
+  for (const a of answers) {
+    sum[a.trait] += scoreAnswer(a);
+    count[a.trait] += 1;
+  }
+
+  const percent = (trait: Answer["trait"]) =>
+    count[trait] ? Math.round(((sum[trait] / count[trait] - 1) / 4) * 100) : 50;
+
+  const traits = {
+    openness: percent("openness"),
+    conscientiousness: percent("conscientiousness"),
+    extraversion: percent("extraversion"),
+    agreeableness: percent("agreeableness"),
+    neuroticism: percent("neuroticism"),
+  };
+
+  let style = "Гибкий коммуникатор";
+  if (traits.extraversion > 68 && traits.openness > 55) style = "Социальный исследователь";
+  if (traits.agreeableness > 70 && traits.neuroticism < 45) style = "Тёплый эмпатичный собеседник";
+  if (traits.conscientiousness > 70) style = "Структурный надёжный партнёр по диалогу";
+
+  const recommendations = [
+    traits.extraversion > 60
+      ? "Начинай знакомство с живого контекста: событие, место, действие"
+      : "Лучше начинать с короткой переписки и затем переходить в офлайн",
+    traits.openness > 60
+      ? "Используй новые темы и нестандартные вопросы"
+      : "Используй понятные бытовые темы для первого контакта",
+    traits.neuroticism > 60
+      ? "Снижать темп: мягкие формулировки, меньше давления"
+      : "Можно быстрее предлагать конкретную встречу",
+  ];
 
   return {
+    instrument: "Big Five inspired short form",
+    taken_at: new Date().toISOString(),
     style,
-    openness,
-    sociability,
-    depth,
-    pace,
-    recommendations: [
-      sociability > 65
-        ? "Лучше знакомиться через живые групповые активности"
-        : "Лучше знакомиться через камерные встречи 1:1",
-      depth > 65
-        ? "Начинай разговор с личных смыслов и опыта"
-        : "Начинай с легкого контекста: событие, хобби, город",
-      pace > 65
-        ? "Предлагай конкретный следующий шаг сразу"
-        : "Дай время на переписку перед офлайн встречей",
-    ],
+    traits,
+    open_answers: {
+      social_goal: (openAnswers.social_goal ?? "").trim().slice(0, 500),
+      deal_breakers: (openAnswers.deal_breakers ?? "").trim().slice(0, 500),
+      conversation_topics: (openAnswers.conversation_topics ?? "").trim().slice(0, 500),
+    },
+    recommendations,
   };
 }
 
@@ -53,12 +92,25 @@ export async function POST(req: Request) {
     const userId = requireUserId();
     const body = await req.json().catch(() => null);
     const answers = (body?.answers ?? []) as Answer[];
+    const openAnswers = (body?.openAnswers ?? {}) as OpenAnswers;
 
-    if (!Array.isArray(answers) || answers.length < 9) {
-      return fail("Недостаточно ответов для теста", 422);
+    if (!Array.isArray(answers) || answers.length < 10) {
+      return fail("Недостаточно ответов для психотеста", 422);
     }
 
-    const profile = buildProfile(answers);
+    const valid = answers.every(
+      (x) =>
+        x &&
+        typeof x.id === "string" &&
+        ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"].includes(x.trait) &&
+        Number.isFinite(x.value),
+    );
+
+    if (!valid) {
+      return fail("Неверные данные теста", 422);
+    }
+
+    const profile = buildProfile(answers, openAnswers);
 
     const { error } = await supabaseAdmin
       .from("users")
