@@ -3,7 +3,17 @@ import { startVerificationSchema } from "@/lib/schemas";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
-import { getPublicEnv } from "@/lib/env";
+import { getPublicEnv, getServerEnv } from "@/lib/env";
+import { buildTelegramCode } from "@/lib/telegram-code";
+
+async function sendTelegramMessage(chatId: string, text: string) {
+  const env = getServerEnv();
+  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  }).catch(() => null);
+}
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? "local";
@@ -18,21 +28,20 @@ export async function POST(req: NextRequest) {
     return fail(parsed.error.issues[0]?.message ?? "Неверные данные", 422);
   }
 
+  const phone = parsed.data.phone;
   const token = crypto.randomUUID();
+  const code = buildTelegramCode(token);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
   const { error } = await supabaseAdmin.from("telegram_verifications").insert({
-    phone: parsed.data.phone,
+    phone,
     token,
     status: "pending",
     expires_at: expiresAt,
   });
 
   if (error) {
-    if (
-      error.message.includes("telegram_verifications") ||
-      error.message.includes("schema cache")
-    ) {
+    if (error.message.includes("telegram_verifications") || error.message.includes("schema cache")) {
       return fail(
         "Не настроена база: отсутствует таблица telegram_verifications. Выполни SQL миграцию в Supabase.",
         500,
@@ -41,10 +50,36 @@ export async function POST(req: NextRequest) {
     return fail(error.message, 500);
   }
 
+  // If this phone has linked telegram_user_id from previous sessions, send code immediately.
+  const { data: existing } = await supabaseAdmin
+    .from("users")
+    .select("telegram_user_id")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  let immediate = false;
+  const chatId = existing?.telegram_user_id ? String(existing.telegram_user_id) : null;
+
+  if (chatId) {
+    immediate = true;
+    await supabaseAdmin
+      .from("telegram_verifications")
+      .update({ status: "verified", telegram_user_id: chatId, verified_phone: phone })
+      .eq("token", token)
+      .eq("status", "pending");
+
+    await sendTelegramMessage(
+      chatId,
+      `Код входа в Meetap: ${code}\nСрок действия 10 минут.`,
+    );
+  }
+
   const env = getPublicEnv();
+
   return ok({
     token,
     expiresAt,
+    immediate,
     telegramDeepLink: `https://t.me/${env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}?start=${token}`,
   });
 }

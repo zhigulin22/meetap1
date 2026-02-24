@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Moon, Sun, ChevronRight, UserRound, GraduationCap, BriefcaseBusiness, Sparkles } from "lucide-react";
+import { Moon, Sun, UserRound, BriefcaseBusiness, GraduationCap, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ export default function MyProfilePage() {
   useEffect(() => {
     const t = (localStorage.getItem("theme") as "dark" | "light" | null) ?? "dark";
     setTheme(t);
-    if (t === "dark") document.documentElement.classList.add("dark");
+    document.documentElement.classList.toggle("dark", t === "dark");
   }, []);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function MyProfilePage() {
           avatar_url: form.avatar_url || undefined,
         }),
       });
-      toast.success("Профиль обновлен");
+      toast.success("Профиль обновлён");
       refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
@@ -94,10 +94,7 @@ export default function MyProfilePage() {
     document.documentElement.classList.toggle("dark", next === "dark");
   }
 
-  const name = data?.profile?.name ?? "Пользователь";
-  const phone = data?.profile?.phone ?? "Номер не указан";
-  const level = data?.profile?.level ?? 1;
-  const xp = data?.profile?.xp ?? 0;
+  const profile = data?.profile;
 
   return (
     <PageShell>
@@ -108,83 +105,89 @@ export default function MyProfilePage() {
         </Button>
       </div>
 
-      <Card className="mb-3 overflow-hidden">
-        <div className="h-20 bg-gradient-to-r from-[#1f4ed8]/40 to-[#0f766e]/40" />
-        <CardContent className="-mt-8 space-y-3 p-4">
-          <div className="flex items-center gap-3">
+      <Card className="mb-3 overflow-hidden border-white/15 bg-surface/90 backdrop-blur-xl">
+        <div className="h-24 bg-[linear-gradient(120deg,rgba(12,20,68,0.95),rgba(82,204,131,0.35),rgba(90,125,255,0.5))]" />
+        <CardContent className="-mt-10 p-4">
+          <div className="flex items-end gap-3">
             <Image
               src={form.avatar_url || "https://placehold.co/120"}
-              alt={name}
+              alt={profile?.name ?? "avatar"}
               width={120}
               height={120}
-              className="h-16 w-16 rounded-full border-2 border-[#0b0f2c] object-cover"
+              className="h-20 w-20 rounded-2xl border-2 border-white/70 object-cover shadow-xl"
               unoptimized
             />
-            <div>
-              <p className="text-lg font-semibold">{name}</p>
-              <p className="text-sm text-muted">{phone}</p>
-              <p className="text-xs text-muted">Level {level} · XP {xp}</p>
+            <div className="pb-1">
+              <p className="text-lg font-semibold">{profile?.name ?? "Пользователь"}</p>
+              <p className="text-xs text-muted">{profile?.phone ?? "Номер не указан"}</p>
+              <p className="text-xs text-muted">Level {profile?.level ?? 1} · XP {profile?.xp ?? 0}</p>
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-black/10 p-3 text-sm text-muted">
-            Личный профиль как в мессенджере: коротко, чисто, легко читать и редактировать.
+          <div className="mt-3 rounded-2xl border border-border bg-black/15 p-3 text-sm text-muted">
+            Профиль в стиле мессенджера: кратко, чисто, удобно для частого использования.
           </div>
         </CardContent>
       </Card>
 
-      <Card className="mb-3">
-        <CardContent className="p-2">
-          <button className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-white/5">
-            <span className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4" /> Аккаунт и приватность</span>
-            <ChevronRight className="h-4 w-4 text-muted" />
-          </button>
-          <button className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-white/5">
-            <span className="flex items-center gap-2 text-sm"><Sparkles className="h-4 w-4" /> Настроить рекомендации</span>
-            <ChevronRight className="h-4 w-4 text-muted" />
-          </button>
-        </CardContent>
-      </Card>
-
-      <Card>
+      <Card className="mb-3 border-white/15 bg-surface/90 backdrop-blur-xl">
         <CardContent className="space-y-3 p-4">
-          <p className="text-sm text-muted">Заполни профиль, чтобы людям проще было знакомиться с тобой.</p>
+          <div className="space-y-1">
+            <label className="text-xs text-muted">Фото профиля</label>
+            <Input
+              value={form.avatar_url}
+              onChange={(e) => setForm((s) => ({ ...s, avatar_url: e.target.value }))}
+              placeholder="https://..."
+            />
+          </div>
 
-          <Input
-            placeholder="Ссылка на фото профиля"
-            value={form.avatar_url}
-            onChange={(e) => setForm((s) => ({ ...s, avatar_url: e.target.value }))}
-          />
-
-          <label className="text-xs text-muted">Учеба и работа</label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="relative">
-              <GraduationCap className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted" />
-              <Input className="pl-9" placeholder="ВУЗ" value={form.university} onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))} />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="flex items-center gap-1 text-xs text-muted"><GraduationCap className="h-3.5 w-3.5" /> ВУЗ</label>
+              <Input
+                value={form.university}
+                onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))}
+                placeholder="Университет"
+              />
             </div>
-            <div className="relative">
-              <BriefcaseBusiness className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted" />
-              <Input className="pl-9" placeholder="Работа" value={form.work} onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))} />
+            <div className="space-y-1">
+              <label className="flex items-center gap-1 text-xs text-muted"><BriefcaseBusiness className="h-3.5 w-3.5" /> Работа</label>
+              <Input
+                value={form.work}
+                onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))}
+                placeholder="Компания / роль"
+              />
             </div>
           </div>
 
-          <Input
-            placeholder="Хобби через запятую (бег, кино, кофе)"
-            value={form.hobbies}
-            onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))}
-          />
-          <Textarea
-            placeholder="Интересы (минимум 3): стартапы, дизайн, музыка"
-            value={form.interests}
-            onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))}
-          />
-          <Textarea
-            placeholder={"3 факта о себе (каждый с новой строки)\nНапример:\nЛюблю пешие прогулки\nВеду канал про музыку\nХочу больше офлайн-знакомств"}
-            value={form.facts}
-            onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))}
-          />
+          <div className="space-y-1">
+            <label className="text-xs text-muted">Хобби</label>
+            <Input
+              value={form.hobbies}
+              onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))}
+              placeholder="кофе, бег, кино"
+            />
+          </div>
 
-          <Button className="w-full" onClick={save}>Сохранить</Button>
+          <div className="space-y-1">
+            <label className="flex items-center gap-1 text-xs text-muted"><Sparkles className="h-3.5 w-3.5" /> Интересы (минимум 3)</label>
+            <Textarea
+              value={form.interests}
+              onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))}
+              placeholder="дизайн, маркетинг, музыка"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="flex items-center gap-1 text-xs text-muted"><UserRound className="h-3.5 w-3.5" /> 3 факта о себе</label>
+            <Textarea
+              value={form.facts}
+              onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))}
+              placeholder={"Люблю офлайн встречи\nХожу на концерты\nРазвиваю pet-проекты"}
+            />
+          </div>
+
+          <Button className="w-full" onClick={save}>Сохранить профиль</Button>
           <Button variant="secondary" className="w-full" onClick={logout}>Выйти</Button>
         </CardContent>
       </Card>

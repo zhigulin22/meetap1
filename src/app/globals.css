@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --bg: #eef1ff;
-  --surface: rgba(255, 255, 255, 0.8);
-  --border: rgba(0, 2, 41, 0.14);
-  --text: #0b1232;
-  --muted: #4c567d;
+  --bg: #eef3ff;
+  --surface: rgba(255, 255, 255, 0.82);
+  --border: rgba(10, 23, 72, 0.16);
+  --text: #0b1336;
+  --muted: #59658f;
 }
 
 .dark {
-  --bg: #040618;
-  --surface: rgba(9, 12, 36, 0.8);
-  --border: rgba(120, 140, 210, 0.2);
-  --text: #f3f5ff;
-  --muted: #9aa6d7;
+  --bg: #060918;
+  --surface: rgba(8, 13, 35, 0.76);
+  --border: rgba(145, 168, 245, 0.2);
+  --text: #f4f7ff;
+  --muted: #9aa7d8;
 }
 
 html,
@@ -26,8 +26,23 @@ body {
 body {
   @apply bg-bg text-text antialiased;
   background-image:
-    radial-gradient(1000px 600px at 10% -20%, rgba(82, 204, 131, 0.16), transparent),
-    radial-gradient(900px 500px at 100% 0%, rgba(0, 2, 41, 0.35), transparent);
+    radial-gradient(1100px 600px at -10% -30%, rgba(82, 204, 131, 0.18), transparent),
+    radial-gradient(1000px 560px at 100% -10%, rgba(0, 2, 41, 0.46), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+}
+
+main {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.feed-scroll {
+  max-height: calc(100vh - 210px);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.feed-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 input[type="file"]::file-selector-button {

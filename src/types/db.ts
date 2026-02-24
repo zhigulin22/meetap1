@@ -50,6 +50,15 @@ export type Database = {
           created_at: string;
         };
       };
+      comments: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          content: string;
+          created_at: string;
+        };
+      };
       events: {
         Row: {
           id: string;

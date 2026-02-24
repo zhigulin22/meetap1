@@ -1,13 +1,9 @@
 import { ok } from "@/lib/http";
-import { getServerEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/supabase/admin";
 import { buildTelegramCode } from "@/lib/telegram-code";
+import { getServerEnv } from "@/lib/env";
 
-function normalizePhone(value: string) {
-  return `+${value.replace(/\D/g, "")}`;
-}
-
-async function sendTelegramMessage(chatId: string, text: string, keyboard?: unknown) {
+async function sendTelegramMessage(chatId: string, text: string) {
   const env = getServerEnv();
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: "POST",
@@ -15,7 +11,8 @@ async function sendTelegramMessage(chatId: string, text: string, keyboard?: unkn
     body: JSON.stringify({
       chat_id: chatId,
       text,
-      reply_markup: keyboard,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
     }),
   }).catch(() => null);
 }
@@ -31,79 +28,68 @@ export async function POST(req: Request) {
   const telegramUserId = String(message.from?.id ?? "");
   const chatId = String(message.chat?.id ?? telegramUserId);
   const text = String(message.text ?? "").trim();
-  const contactPhone = message.contact?.phone_number
-    ? normalizePhone(String(message.contact.phone_number))
-    : null;
 
-  if (text.startsWith("/start")) {
-    const token = text.split(" ")[1];
+  if (!text.startsWith("/start")) {
+    await sendTelegramMessage(
+      chatId,
+      "Открой регистрацию в Meetap, введи номер и нажми подтверждение. Я пришлю код автоматически.",
+    );
+    return ok({ received: true });
+  }
 
-    if (!token) {
-      await sendTelegramMessage(
-        chatId,
-        "Привет! Для подтверждения номера открой бота по ссылке из приложения Meetap после ввода телефона.",
-      );
-      return ok({ received: true });
-    }
+  const token = text.split(" ")[1];
 
-    const { data: verification } = await supabaseAdmin
-      .from("telegram_verifications")
-      .select("id, status")
-      .eq("token", token)
-      .maybeSingle();
+  if (!token) {
+    await sendTelegramMessage(
+      chatId,
+      "Чтобы получить код, сначала введи номер в приложении Meetap и нажми подтверждение.",
+    );
+    return ok({ received: true });
+  }
 
-    if (!verification || verification.status !== "pending") {
-      await sendTelegramMessage(
-        chatId,
-        "Токен недействителен или уже использован. Вернись в приложение и запроси подтверждение ещё раз.",
-      );
-      return ok({ received: true });
-    }
+  const { data: verification } = await supabaseAdmin
+    .from("telegram_verifications")
+    .select("id, phone, status, expires_at")
+    .eq("token", token)
+    .maybeSingle();
 
+  if (!verification || verification.status !== "pending") {
+    await sendTelegramMessage(
+      chatId,
+      "Токен не найден или уже использован. Запроси новый код в приложении.",
+    );
+    return ok({ received: true });
+  }
+
+  if (new Date(verification.expires_at).getTime() < Date.now()) {
     await supabaseAdmin
       .from("telegram_verifications")
-      .update({ telegram_user_id: telegramUserId })
-      .eq("token", token)
-      .eq("status", "pending");
+      .update({ status: "expired" })
+      .eq("id", verification.id);
 
     await sendTelegramMessage(
       chatId,
-      "Подтверди номер: нажми кнопку ниже и отправь контакт.",
-      {
-        keyboard: [[{ text: "Поделиться номером", request_contact: true }]],
-        resize_keyboard: true,
-        one_time_keyboard: true,
-      },
+      "Время кода вышло. Вернись в приложение и запроси код заново.",
     );
+    return ok({ received: true });
   }
 
-  if (contactPhone && telegramUserId) {
-    const { data } = await supabaseAdmin
-      .from("telegram_verifications")
-      .select("id, phone, token")
-      .eq("telegram_user_id", telegramUserId)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  await supabaseAdmin
+    .from("telegram_verifications")
+    .update({
+      status: "verified",
+      telegram_user_id: telegramUserId,
+      verified_phone: verification.phone,
+    })
+    .eq("id", verification.id)
+    .eq("status", "pending");
 
-    if (data && normalizePhone(data.phone) === contactPhone) {
-      await supabaseAdmin
-        .from("telegram_verifications")
-        .update({ status: "verified", verified_phone: contactPhone })
-        .eq("id", data.id);
+  const code = buildTelegramCode(token);
 
-      const code = buildTelegramCode(data.token);
-
-      await sendTelegramMessage(
-        chatId,
-        `✅ Номер подтвержден.\nТвой код входа в Meetap: ${code}\nВведите его на сайте в шаге \"Код из Telegram\".`,
-        { remove_keyboard: true },
-      );
-    } else {
-      await sendTelegramMessage(chatId, "❌ Этот номер не совпадает с введенным в приложении.");
-    }
-  }
+  await sendTelegramMessage(
+    chatId,
+    `Код для входа в Meetap: <b>${code}</b>\nДействует 10 минут. Введи его на шаге "Код".`,
+  );
 
   return ok({ received: true });
 }

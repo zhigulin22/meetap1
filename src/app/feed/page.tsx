@@ -4,14 +4,14 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { PageShell } from "@/components/page-shell";
 import { DailyDuoDialog } from "@/components/daily-duo-dialog";
+import { PageShell } from "@/components/page-shell";
 import { PostCard } from "@/components/post-card";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api-client";
 
 type FeedPost = {
@@ -22,6 +22,8 @@ type FeedPost = {
   user: { id: string; name: string; avatar_url: string | null } | null;
   photos: { front?: string; back?: string; cover?: string };
   reactions: { like: number; connect: number; star: number };
+  viewer: { liked: boolean; connected: boolean; starred: boolean };
+  comments_count: number;
 };
 
 type FeedResponse = {
@@ -29,20 +31,59 @@ type FeedResponse = {
   items: FeedPost[];
 };
 
+type CommentItem = {
+  id: string;
+  content: string;
+  created_at: string;
+  user: { id: string; name: string; avatar_url: string | null } | null;
+};
+
+type ConnectInsight = {
+  messages: string[];
+  topic: string;
+  question: string;
+  profileSummary?: string;
+  approachTips?: string[];
+  offlineIdeas?: string[];
+  onlineIdeas?: string[];
+  sharedSignals?: string[];
+};
+
+function mediaKind(post: FeedPost) {
+  if (post.type === "daily_duo") return "duo";
+  const media = post.photos.cover || post.photos.front || post.photos.back;
+  const video = Boolean(media?.match(/\.(mp4|webm|ogg)(\?.*)?$/i)) || Boolean(media?.includes("/video"));
+  return video ? "video" : "single";
+}
+
 export default function FeedPage() {
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState("reels");
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [connectData, setConnectData] = useState<{ targetName: string; messages: string[]; topic: string; question: string } | null>(null);
   const queryClient = useQueryClient();
+  const [mode, setMode] = useState<"all" | "video" | "duo" | "single">("all");
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [connectData, setConnectData] = useState<{ targetName: string; insight: ConnectInsight } | null>(null);
+
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsPost, setCommentsPost] = useState<FeedPost | null>(null);
+  const [commentInput, setCommentInput] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["feed"],
     queryFn: () => api<FeedResponse>("/api/feed/posts"),
   });
 
-  const reels = useMemo(() => (data?.items ?? []).filter((x) => x.type === "reel"), [data]);
-  const duo = useMemo(() => (data?.items ?? []).filter((x) => x.type === "daily_duo"), [data]);
+  const { data: commentsData, isLoading: commentsLoading } = useQuery({
+    queryKey: ["comments", commentsPost?.id],
+    queryFn: () => api<{ items: CommentItem[] }>(`/api/feed/posts/${commentsPost?.id}/comments`),
+    enabled: Boolean(commentsPost?.id && commentsOpen),
+  });
+
+  const filtered = useMemo(() => {
+    const items = data?.items ?? [];
+    if (mode === "all") return items;
+    return items.filter((item) => mediaKind(item) === mode);
+  }, [data, mode]);
 
   async function react(postId: string, reactionType: "like" | "star") {
     try {
@@ -52,7 +93,7 @@ export default function FeedPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["feed"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Reaction error");
+      toast.error(e instanceof Error ? e.message : "Ошибка реакции");
     }
   }
 
@@ -68,98 +109,193 @@ export default function FeedPage() {
         body: JSON.stringify({ reactionType: "connect" }),
       });
 
-      const res = await api<{ success: boolean; icebreaker: { messages: string[]; topic: string; question: string } }>(
-        "/api/contacts/connect",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            targetUserId: post.user.id,
-            context: `Контент в ленте: ${post.caption ?? "без подписи"}`,
-          }),
-        },
-      );
-
-      setConnectData({
-        targetName: post.user.name,
-        messages: res.icebreaker.messages,
-        topic: res.icebreaker.topic,
-        question: res.icebreaker.question,
+      const res = await api<{ icebreaker: ConnectInsight }>("/api/contacts/connect", {
+        method: "POST",
+        body: JSON.stringify({
+          targetUserId: post.user.id,
+          context: `Пост в ленте: ${post.caption ?? "без подписи"}`,
+        }),
       });
+
+      setConnectData({ targetName: post.user.name, insight: res.icebreaker });
       setConnectOpen(true);
       queryClient.invalidateQueries({ queryKey: ["feed"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось предложить знакомство");
+      toast.error(e instanceof Error ? e.message : "Не удалось сформировать инсайт");
+    }
+  }
+
+  function openComments(post: FeedPost) {
+    setCommentsPost(post);
+    setCommentsOpen(true);
+  }
+
+  async function sendComment() {
+    if (!commentsPost?.id || !commentInput.trim()) return;
+
+    try {
+      await api(`/api/feed/posts/${commentsPost.id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ content: commentInput.trim() }),
+      });
+      setCommentInput("");
+      queryClient.invalidateQueries({ queryKey: ["comments", commentsPost.id] });
+      queryClient.invalidateQueries({ queryKey: ["feed"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось отправить комментарий");
     }
   }
 
   return (
     <PageShell>
-      <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Feed</h1>
-        <Button size="sm" onClick={() => setOpen(true)}>New Duo</Button>
+      <div className="mb-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Лента</h1>
+            <p className="text-xs text-muted">Свайпай вверх: видео, одиночные фото и Daily Duo</p>
+          </div>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            Новый Duo
+          </Button>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {["all", "video", "single", "duo"].map((x) => (
+            <button
+              key={x}
+              onClick={() => setMode(x as typeof mode)}
+              className={`rounded-full border px-3 py-1.5 text-xs capitalize ${
+                mode === x
+                  ? "border-action bg-action/20 text-action"
+                  : "border-border bg-white/5 text-muted"
+              }`}
+            >
+              {x === "all" ? "all" : x}
+            </button>
+          ))}
+        </div>
       </div>
 
       <DailyDuoDialog
-        open={open}
-        onOpenChange={setOpen}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
         onDone={() => queryClient.invalidateQueries({ queryKey: ["feed"] })}
       />
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogHeader>
-          <DialogTitle>Знакомство: {connectData?.targetName}</DialogTitle>
+          <DialogTitle>Как познакомиться с {connectData?.targetName}</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-3 text-sm">
-          <p className="text-muted">Тема: {connectData?.topic}</p>
-          {connectData?.messages.map((m) => (
-            <div key={m} className="rounded-xl border border-border bg-black/10 p-2">{m}</div>
+          {connectData?.insight.profileSummary ? (
+            <div className="rounded-xl border border-border bg-white/5 p-3 text-muted">
+              {connectData.insight.profileSummary}
+            </div>
+          ) : null}
+
+          <p className="text-muted">Тема: {connectData?.insight.topic}</p>
+          {connectData?.insight.messages.map((m) => (
+            <div key={m} className="rounded-xl border border-border bg-black/20 p-3">
+              {m}
+            </div>
           ))}
-          <p className="text-muted">Вопрос: {connectData?.question}</p>
+
+          {connectData?.insight.sharedSignals?.length ? (
+            <p className="text-xs text-muted">Общие сигналы: {connectData.insight.sharedSignals.join(", ")}</p>
+          ) : null}
+
+          {connectData?.insight.approachTips?.length ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-text">Как лучше подойти:</p>
+              {connectData.insight.approachTips.map((tip) => (
+                <p key={tip} className="text-xs text-muted">• {tip}</p>
+              ))}
+            </div>
+          ) : null}
+
+          {connectData?.insight.offlineIdeas?.length ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-text">Идеи офлайн:</p>
+              {connectData.insight.offlineIdeas.map((tip) => (
+                <p key={tip} className="text-xs text-muted">• {tip}</p>
+              ))}
+            </div>
+          ) : null}
+
+          <p className="text-muted">Вопрос: {connectData?.insight.question}</p>
+        </div>
+      </Dialog>
+
+      <Dialog open={commentsOpen} onOpenChange={setCommentsOpen}>
+        <DialogHeader>
+          <DialogTitle>Комментарии</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
+            {commentsLoading ? <Skeleton className="h-16 w-full" /> : null}
+            {(commentsData?.items ?? []).map((comment) => (
+              <div key={comment.id} className="rounded-xl border border-border bg-white/5 p-3">
+                <p className="text-xs text-muted">{comment.user?.name ?? "Пользователь"}</p>
+                <p className="text-sm">{comment.content}</p>
+              </div>
+            ))}
+            {!commentsLoading && !(commentsData?.items ?? []).length ? (
+              <p className="text-sm text-muted">Пока нет комментариев</p>
+            ) : null}
+          </div>
+
+          <div className="flex gap-2">
+            <Input
+              value={commentInput}
+              onChange={(e) => setCommentInput(e.target.value)}
+              placeholder="Напиши комментарий"
+            />
+            <Button onClick={sendComment}>Отправить</Button>
+          </div>
         </div>
       </Dialog>
 
       {isLoading ? (
         <div className="space-y-3">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-[68vh] w-full rounded-[26px]" />
+          <Skeleton className="h-[68vh] w-full rounded-[26px]" />
         </div>
       ) : null}
 
       {!isLoading && data?.locked ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <Card>
+          <Card className="overflow-hidden rounded-[24px]">
             <CardContent className="space-y-4 p-5 text-center">
-              <h2 className="text-xl font-semibold">Лента заблокирована</h2>
-              <p className="text-sm text-muted">Ты не публиковал(а) контент больше 7 дней. Выложи новый Daily Duo, чтобы открыть ленту.</p>
-              <Button onClick={() => setOpen(true)} className="w-full">Выложить фото</Button>
+              <h2 className="text-xl font-semibold">Лента закрыта</h2>
+              <p className="text-sm text-muted">
+                Если не было публикаций больше 7 дней, нужно добавить новый Daily Duo.
+              </p>
+              <Button onClick={() => setCreateOpen(true)} className="w-full">
+                Выложить фото
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
       ) : null}
 
       {!isLoading && !data?.locked ? (
-        <Tabs value={mode} onValueChange={setMode}>
-          <TabsList className="mb-3 grid w-full grid-cols-2">
-            <TabsTrigger value="reels">Reels</TabsTrigger>
-            <TabsTrigger value="duo">Daily Duo</TabsTrigger>
-          </TabsList>
-          <TabsContent value="reels">
-            <div className="space-y-3">
-              {reels.map((post) => (
-                <PostCard key={post.id} post={post} onReact={react} onConnect={connect} />
-              ))}
-              {!reels.length ? <p className="text-sm text-muted">Пока нет reels.</p> : null}
-            </div>
-          </TabsContent>
-          <TabsContent value="duo">
-            <div className="space-y-3">
-              {duo.map((post) => (
-                <PostCard key={post.id} post={post} onReact={react} onConnect={connect} />
-              ))}
-              {!duo.length ? <p className="text-sm text-muted">Пока нет Daily Duo.</p> : null}
-            </div>
-          </TabsContent>
-        </Tabs>
+        <div className="feed-scroll snap-y snap-mandatory space-y-3 overflow-y-auto pb-24">
+          {filtered.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              onReact={react}
+              onConnect={connect}
+              onOpenComments={openComments}
+            />
+          ))}
+          {!filtered.length ? (
+            <Card>
+              <CardContent className="p-4 text-sm text-muted">По этому фильтру пока нет постов.</CardContent>
+            </Card>
+          ) : null}
+        </div>
       ) : null}
     </PageShell>
   );
