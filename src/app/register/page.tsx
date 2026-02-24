@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api-client";
+import Link from "next/link";
 
 type Step = "phone" | "code" | "name";
 
@@ -147,6 +148,9 @@ export default function RegisterPage() {
             <div>
               <h1 className="text-2xl font-semibold">Вход в Meetap</h1>
               <p className="text-sm text-muted">Как в Telegram: номер, код из бота, затем имя для нового аккаунта.</p>
+              <Link href="/login" className="mt-1 block text-sm text-action underline">
+                Войти по номеру и паролю
+              </Link>
             </div>
 
             {step === "phone" ? (

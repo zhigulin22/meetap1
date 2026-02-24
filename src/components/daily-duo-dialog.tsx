@@ -3,16 +3,65 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Paperclip, RefreshCw, RotateCcw } from "lucide-react";
-import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Camera, Check, Paperclip, RefreshCw, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api-client";
 
 type CaptureStep = "front" | "back";
+type Phase = "capture_front" | "capture_back" | "edit";
+
+type FilterPreset = {
+  id: string;
+  label: string;
+  css: string;
+};
+
+const FILTERS: FilterPreset[] = [
+  { id: "none", label: "Original", css: "none" },
+  { id: "soft", label: "Soft", css: "contrast(1.04) saturate(1.08) brightness(1.04)" },
+  { id: "film", label: "Film", css: "contrast(1.12) saturate(0.92) sepia(0.12)" },
+  { id: "cool", label: "Cool", css: "contrast(1.08) saturate(1.02) hue-rotate(8deg)" },
+  { id: "mono", label: "Mono", css: "grayscale(1) contrast(1.08)" },
+];
 
 function fileFromBlob(blob: Blob, name: string) {
   return new File([blob], name, { type: "image/jpeg" });
+}
+
+async function applyFilterToFile(file: File, cssFilter: string, namePrefix: string) {
+  if (cssFilter === "none") return file;
+
+  const src = URL.createObjectURL(file);
+  try {
+    const img = new window.Image();
+    img.src = src;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Image decode failed"));
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || 720;
+    canvas.height = img.naturalHeight || 1280;
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return file;
+
+    ctx.filter = cssFilter;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92),
+    );
+
+    if (!blob) return file;
+    return fileFromBlob(blob, `${namePrefix}-${Date.now()}.jpg`);
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(src);
+  }
 }
 
 export function DailyDuoDialog({
@@ -25,19 +74,21 @@ export function DailyDuoDialog({
   onDone: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-
   const [captureStep, setCaptureStep] = useState<CaptureStep>("front");
+  const [phase, setPhase] = useState<Phase>("capture_front");
   const [facing, setFacing] = useState<"user" | "environment">("user");
+
   const [front, setFront] = useState<File | null>(null);
   const [back, setBack] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState<string>("none");
   const [loading, setLoading] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
 
   const frontPreview = useMemo(() => (front ? URL.createObjectURL(front) : null), [front]);
   const backPreview = useMemo(() => (back ? URL.createObjectURL(back) : null), [back]);
+  const activeFilter = FILTERS.find((f) => f.id === selectedFilter) ?? FILTERS[0];
 
   useEffect(() => {
     return () => {
@@ -46,36 +97,6 @@ export function DailyDuoDialog({
     };
   }, [frontPreview, backPreview]);
 
-  async function startCamera(nextFacing: "user" | "environment") {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraReady(false);
-      return;
-    }
-
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: nextFacing },
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-        },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => null);
-      }
-      setCameraReady(true);
-    } catch {
-      setCameraReady(false);
-      toast.error("Нет доступа к камере. Используй скрепку для загрузки из галереи.");
-    }
-  }
-
   useEffect(() => {
     if (!open) {
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -83,30 +104,74 @@ export function DailyDuoDialog({
       return;
     }
 
-    startCamera(facing);
+    setPhase("capture_front");
+    setCaptureStep("front");
+    setFacing("user");
+    setFront(null);
+    setBack(null);
+    setCaption("");
+    setSelectedFilter("none");
+  }, [open]);
 
-    return () => {
+  useEffect(() => {
+    if (!open) return;
+    if (phase === "edit") {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
-    };
-  }, [open, facing]);
-
-  async function capture() {
-    const video = videoRef.current;
-    if (!video || !cameraReady) {
-      toast.error("Камера не готова");
       return;
     }
+
+    let cancelled = false;
+
+    async function start() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        toast.error("Камера недоступна");
+        return;
+      }
+
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facing },
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
+          },
+          audio: false,
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => null);
+        }
+      } catch {
+        toast.error("Нет доступа к камере. Используй скрепку для галереи.");
+      }
+    }
+
+    start();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, phase, facing]);
+
+  async function capturePhoto() {
+    const video = videoRef.current;
+    if (!video) return;
 
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 720;
     canvas.height = video.videoHeight || 1280;
-
     const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      toast.error("Ошибка камеры");
-      return;
-    }
+    if (!ctx) return;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -114,37 +179,71 @@ export function DailyDuoDialog({
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92),
     );
 
-    if (!blob) {
-      toast.error("Не удалось сделать фото");
-      return;
-    }
+    if (!blob) return;
 
     if (captureStep === "front") {
       setFront(fileFromBlob(blob, `front-${Date.now()}.jpg`));
       setCaptureStep("back");
+      setPhase("capture_back");
       setFacing("environment");
-      await startCamera("environment");
-    } else {
-      setBack(fileFromBlob(blob, `back-${Date.now()}.jpg`));
-    }
-  }
-
-  async function submit() {
-    if (!front || !back) {
-      toast.error("Нужно 2 фото: front и back");
       return;
     }
 
+    setBack(fileFromBlob(blob, `back-${Date.now()}.jpg`));
+    setPhase("edit");
+  }
+
+  function onGalleryPick(file?: File) {
+    if (!file) return;
+    if (captureStep === "front") {
+      setFront(file);
+      setCaptureStep("back");
+      setPhase("capture_back");
+      setFacing("environment");
+      return;
+    }
+
+    setBack(file);
+    setPhase("edit");
+  }
+
+  function resetTo(step: CaptureStep) {
+    if (step === "front") {
+      setFront(null);
+      setBack(null);
+      setCaptureStep("front");
+      setPhase("capture_front");
+      setFacing("user");
+      return;
+    }
+
+    setBack(null);
+    setCaptureStep("back");
+    setPhase("capture_back");
+    setFacing("environment");
+  }
+
+  async function publish() {
+    if (!front || !back) {
+      toast.error("Нужны 2 фото");
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
+      const frontOut = await applyFilterToFile(front, activeFilter.css, "front");
+      const backOut = await applyFilterToFile(back, activeFilter.css, "back");
+
       const fd = new FormData();
-      fd.append("front", front);
-      fd.append("back", back);
+      fd.append("front", frontOut);
+      fd.append("back", backOut);
       fd.append("caption", caption);
+
       await api<{ success: boolean }>("/api/feed/posts/create-daily-duo", {
         method: "POST",
         body: fd,
       });
+
       onOpenChange(false);
       onDone();
     } catch (e) {
@@ -154,128 +253,131 @@ export function DailyDuoDialog({
     }
   }
 
-  function pickFromGallery() {
-    fileInputRef.current?.click();
-  }
-
-  function onGallerySelected(file?: File) {
-    if (!file) return;
-    if (captureStep === "front") {
-      setFront(file);
-      setCaptureStep("back");
-      setFacing("environment");
-      startCamera("environment");
-    } else {
-      setBack(file);
-    }
-  }
-
-  function retake(which: CaptureStep) {
-    if (which === "front") {
-      setFront(null);
-      setCaptureStep("front");
-      setFacing("user");
-      startCamera("user");
-      return;
-    }
-    setBack(null);
-    setCaptureStep("back");
-    setFacing("environment");
-    startCamera("environment");
-  }
-
-  async function switchCamera() {
-    const next = facing === "user" ? "environment" : "user";
-    setFacing(next);
-    await startCamera(next);
-  }
+  if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader>
-        <DialogTitle>DUO Camera</DialogTitle>
-      </DialogHeader>
+    <div className="fixed inset-0 z-[60] bg-[#03070f] text-white">
+      {phase !== "edit" ? (
+        <>
+          <div className="relative h-full w-full overflow-hidden">
+            <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
+            <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
+              <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">Закрыть</button>
+              <div className="rounded-full bg-black/45 px-3 py-1 text-xs">
+                {phase === "capture_front" ? "Сделай первый кадр" : "Сделай второй кадр"}
+              </div>
+              <button
+                onClick={() => setFacing((x) => (x === "user" ? "environment" : "user"))}
+                className="grid h-10 w-10 place-items-center rounded-full bg-black/45"
+                aria-label="Сменить камеру"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
 
-      <div className="space-y-3">
-        <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-black/40">
-          <video ref={videoRef} playsInline muted className="h-[46vh] w-full object-cover" />
-          <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/50 px-3 py-1 text-xs text-white">
-            Шаг: {captureStep === "front" ? "1/2 Front" : "2/2 Back"}
+            <div className="absolute bottom-5 left-0 right-0 px-4 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+              <div className="mx-auto flex max-w-sm items-center justify-between rounded-3xl border border-white/20 bg-black/40 px-4 py-3 backdrop-blur-xl">
+                <button
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="grid h-12 w-12 place-items-center rounded-full border border-white/35 bg-white/10"
+                >
+                  <Paperclip className="h-5 w-5" />
+                </button>
+
+                <button
+                  onClick={capturePhoto}
+                  className="grid h-20 w-20 place-items-center rounded-full border-4 border-white/75 bg-[#52CC83] text-[#051810] shadow-[0_16px_40px_rgba(82,204,131,0.45)]"
+                >
+                  <Camera className="h-8 w-8" />
+                </button>
+
+                <button
+                  onClick={() => resetTo("front")}
+                  className="grid h-12 w-12 place-items-center rounded-full border border-white/35 bg-white/10"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onGalleryPick(e.target.files?.[0] ?? undefined)}
+          />
+        </>
+      ) : (
+        <div className="mx-auto h-full w-full max-w-md overflow-y-auto px-4 pb-28 pt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <button onClick={() => resetTo("front")} className="rounded-full border border-white/20 px-3 py-1 text-sm">
+              Переснять
+            </button>
+            <p className="text-sm text-white/90">DUO Editor</p>
+            <button onClick={() => onOpenChange(false)} className="rounded-full border border-white/20 px-3 py-1 text-sm">
+              Закрыть
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
+                {frontPreview ? (
+                  <Image src={frontPreview} alt="front" width={600} height={900} className="h-60 w-full object-cover" style={{ filter: activeFilter.css }} unoptimized />
+                ) : null}
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
+                {backPreview ? (
+                  <Image src={backPreview} alt="back" width={600} height={900} className="h-60 w-full object-cover" style={{ filter: activeFilter.css }} unoptimized />
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/15 bg-white/5 p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm text-white/90">
+                <WandSparkles className="h-4 w-4" /> Фильтры
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setSelectedFilter(f.id)}
+                    className={`rounded-full border px-3 py-1.5 text-xs ${
+                      f.id === selectedFilter
+                        ? "border-[#52CC83]/75 bg-[#52CC83]/20 text-[#bdf5d0]"
+                        : "border-white/20 bg-white/5 text-white/80"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Textarea
+              placeholder="Расскажи коротко, что за момент, можешь отметить человека через @"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              className="border-white/20 bg-white/5 text-white placeholder:text-white/55"
+            />
+          </div>
+
+          <div className="fixed inset-x-0 bottom-0 z-[65] mx-auto w-full max-w-md border-t border-white/15 bg-[#040812]/95 p-3 backdrop-blur-xl">
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => resetTo("back")} className="border-white/25 bg-white/10 text-white">
+                Переснять 2-й кадр
+              </Button>
+              <Button onClick={publish} disabled={loading || !front || !back}>
+                {loading ? "Публикуем..." : "Опубликовать"}
+                {!loading ? <Check className="ml-1 h-4 w-4" /> : null}
+              </Button>
+            </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-border bg-black/15 p-2">
-            <p className="mb-1 text-xs text-muted">Front</p>
-            {frontPreview ? (
-              <Image src={frontPreview} alt="front" width={300} height={400} className="h-24 w-full rounded-lg object-cover" unoptimized />
-            ) : (
-              <div className="grid h-24 place-items-center rounded-lg border border-dashed border-border text-xs text-muted">Нет фото</div>
-            )}
-            {front ? (
-              <button className="mt-1 text-xs text-action" onClick={() => retake("front")}>Переснять</button>
-            ) : null}
-          </div>
-
-          <div className="rounded-xl border border-border bg-black/15 p-2">
-            <p className="mb-1 text-xs text-muted">Back</p>
-            {backPreview ? (
-              <Image src={backPreview} alt="back" width={300} height={400} className="h-24 w-full rounded-lg object-cover" unoptimized />
-            ) : (
-              <div className="grid h-24 place-items-center rounded-lg border border-dashed border-border text-xs text-muted">Нет фото</div>
-            )}
-            {back ? (
-              <button className="mt-1 text-xs text-action" onClick={() => retake("back")}>Переснять</button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
-          <button
-            onClick={pickFromGallery}
-            className="grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-white/10"
-            aria-label="Загрузить из галереи"
-          >
-            <Paperclip className="h-5 w-5" />
-          </button>
-
-          <button
-            onClick={capture}
-            className="grid h-16 w-16 place-items-center rounded-full border-4 border-white/70 bg-[#52cc83] text-[#062114] shadow-[0_14px_36px_rgba(82,204,131,0.45)]"
-            aria-label="Сделать фото"
-          >
-            <Camera className="h-7 w-7" />
-          </button>
-
-          <button
-            onClick={switchCamera}
-            className="grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-white/10"
-            aria-label="Сменить камеру"
-          >
-            <RefreshCw className="h-5 w-5" />
-          </button>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => onGallerySelected(e.target.files?.[0] ?? undefined)}
-        />
-
-        <Textarea placeholder="Короткая подпись" value={caption} onChange={(e) => setCaption(e.target.value)} />
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={() => { setFront(null); setBack(null); setCaptureStep("front"); setFacing("user"); startCamera("user"); }}>
-            <RotateCcw className="mr-1 h-4 w-4" />
-            Сбросить
-          </Button>
-          <Button onClick={submit} disabled={loading || !front || !back}>
-            {loading ? "Публикуем..." : "Опубликовать DUO"}
-          </Button>
-        </div>
-      </div>
-    </Dialog>
+      )}
+    </div>
   );
 }

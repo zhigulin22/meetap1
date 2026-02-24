@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -67,6 +67,7 @@ export default function FeedPage() {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPost, setCommentsPost] = useState<FeedPost | null>(null);
   const [commentInput, setCommentInput] = useState("");
+  const commentsBottomRef = useRef<HTMLDivElement | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["feed"],
@@ -84,6 +85,11 @@ export default function FeedPage() {
     if (mode === "all") return items;
     return items.filter((item) => mediaKind(item) === mode);
   }, [data, mode]);
+
+  useEffect(() => {
+    if (!commentsOpen) return;
+    commentsBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [commentsOpen, commentsData?.items?.length]);
 
   async function react(postId: string, reactionType: "like" | "star") {
     try {
@@ -229,20 +235,21 @@ export default function FeedPage() {
 
       <Dialog open={commentsOpen} onOpenChange={setCommentsOpen}>
         <DialogHeader>
-          <DialogTitle>Комментарии</DialogTitle>
+          <DialogTitle>Комментарии как чат</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-black/15 p-2 pr-1">
             {commentsLoading ? <Skeleton className="h-16 w-full" /> : null}
             {(commentsData?.items ?? []).map((comment) => (
-              <div key={comment.id} className="rounded-xl border border-border bg-white/5 p-3">
+              <div key={comment.id} className="rounded-2xl border border-border/80 bg-white/5 p-3">
                 <p className="text-xs text-muted">{comment.user?.name ?? "Пользователь"}</p>
-                <p className="text-sm">{comment.content}</p>
+                <p className="text-sm leading-5">{comment.content}</p>
               </div>
             ))}
             {!commentsLoading && !(commentsData?.items ?? []).length ? (
               <p className="text-sm text-muted">Пока нет комментариев</p>
             ) : null}
+            <div ref={commentsBottomRef} />
           </div>
 
           <div className="flex gap-2">

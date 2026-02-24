@@ -60,6 +60,10 @@ export default function MyProfilePage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+
   const [form, setForm] = useState({
     university: "",
     work: "",
@@ -145,6 +149,32 @@ export default function MyProfilePage() {
     }
   }
 
+  async function savePassword() {
+    if (password.length < 8) {
+      toast.error("Пароль должен быть минимум 8 символов");
+      return;
+    }
+    if (password !== passwordConfirm) {
+      toast.error("Пароли не совпадают");
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      await api("/api/auth/set-password", {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      setPassword("");
+      setPasswordConfirm("");
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка установки пароля");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
     router.push("/register");
@@ -172,11 +202,7 @@ export default function MyProfilePage() {
         <div className="h-24 bg-[linear-gradient(120deg,rgba(8,14,47,0.95),rgba(82,204,131,0.35),rgba(73,111,236,0.55))]" />
         <CardContent className="-mt-10 p-4">
           <div className="flex items-end gap-3">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="relative"
-              aria-label="Загрузить фото профиля"
-            >
+            <button onClick={() => fileRef.current?.click()} className="relative" aria-label="Загрузить фото профиля">
               <Image
                 src={form.avatar_url || "https://placehold.co/120"}
                 alt={profile?.name ?? "avatar"}
@@ -205,7 +231,9 @@ export default function MyProfilePage() {
               <p className="text-lg font-semibold">{profile?.name ?? "Пользователь"}</p>
               <p className="text-xs text-muted">{profile?.phone ?? "Номер не указан"}</p>
               <p className="text-xs text-muted">Level {profile?.level ?? 1} · XP {profile?.xp ?? 0}</p>
-              <p className="mt-1 text-xs text-action">{uploadingAvatar ? "Загружаем фото..." : "Нажми на фото, чтобы выбрать из галереи"}</p>
+              <p className="mt-1 text-xs text-action">
+                {uploadingAvatar ? "Загружаем фото..." : "Нажми на фото, чтобы выбрать из галереи"}
+              </p>
             </div>
           </div>
 
@@ -277,6 +305,26 @@ export default function MyProfilePage() {
           </div>
 
           <Button className="w-full" onClick={save}>Сохранить профиль</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3 border-white/15">
+        <CardContent className="space-y-3 p-4">
+          <p className="text-sm font-semibold">Быстрый вход по номеру и паролю</p>
+          <p className="text-xs text-muted">
+            {profile?.has_password
+              ? "Пароль уже установлен. Можно обновить его здесь."
+              : "Установи пароль, чтобы входить без повторной Telegram-верификации."}
+          </p>
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Новый пароль" />
+          <Input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} placeholder="Повтори пароль" />
+          <Button
+            onClick={savePassword}
+            disabled={savingPassword || password.length < 8 || passwordConfirm.length < 8}
+            className="w-full"
+          >
+            {savingPassword ? "Сохраняем..." : "Сохранить пароль"}
+          </Button>
         </CardContent>
       </Card>
     </PageShell>

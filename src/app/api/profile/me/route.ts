@@ -12,11 +12,19 @@ const updateSchema = z.object({
   avatar_url: z.string().url().optional(),
 });
 
+const PROFILE_FIELDS = "id,phone,name,telegram_verified,telegram_user_id,last_post_at,xp,level,university,work,hobbies,interests,facts,avatar_url,personality_profile,personality_updated_at,password_hash";
+
+function mapProfile(data: any) {
+  if (!data) return null;
+  const { password_hash, ...rest } = data;
+  return { ...rest, has_password: Boolean(password_hash) };
+}
+
 export async function GET() {
   try {
     const userId = requireUserId();
-    const { data } = await supabaseAdmin.from("users").select("*").eq("id", userId).single();
-    return ok({ profile: data });
+    const { data } = await supabaseAdmin.from("users").select(PROFILE_FIELDS).eq("id", userId).single();
+    return ok({ profile: mapProfile(data) });
   } catch {
     return fail("Unauthorized", 401);
   }
@@ -35,14 +43,14 @@ export async function PATCH(req: Request) {
       .from("users")
       .update(parsed.data)
       .eq("id", userId)
-      .select("*")
+      .select(PROFILE_FIELDS)
       .single();
 
     if (error) {
       return fail(error.message, 500);
     }
 
-    return ok({ profile: data });
+    return ok({ profile: mapProfile(data) });
   } catch {
     return fail("Unauthorized", 401);
   }

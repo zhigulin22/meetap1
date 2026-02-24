@@ -16,12 +16,14 @@ MVP соцсети для офлайн-знакомств.
 
 - `/` — landing
 - `/register` — Telegram phone verification + name
+- `/login` — вход по номеру и паролю
 - `/feed` — контент (Daily Duo + gate)
 - `/events` — мероприятия
 - `/events/[id]` — детальная страница мероприятия
 - `/contacts` — поиск людей/групп
 - `/profile/[id]` — профиль пользователя
 - `/profile/me` — мой профиль и настройки
+- `/profile/psych-test` — отдельная страница психологического теста
 
 Protected routing реализован в `middleware.ts`.
 
@@ -40,8 +42,8 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
 
 # Face detector tuning
-FACE_DETECT_MODEL=gpt-4.1-mini
-FACE_DETECT_MIN_CONFIDENCE=0.58
+FACE_DETECT_MODEL=gpt-4o-mini
+FACE_DETECT_MIN_CONFIDENCE=0.35
 ```
 
 ## Supabase setup
@@ -51,6 +53,7 @@ FACE_DETECT_MIN_CONFIDENCE=0.58
 - `supabase/migrations/001_init.sql`
 - `supabase/migrations/002_comments.sql`
 - `supabase/migrations/003_personality_profile.sql`
+- `supabase/migrations/004_password_auth.sql`
 - `supabase/seed.sql`
 3. Create Telegram bot via BotFather and set username/token.
 4. Configure Telegram webhook:
@@ -73,6 +76,8 @@ npm run dev
 - `POST /api/auth/start-verification`
 - `GET /api/auth/check-verification?token=...`
 - `POST /api/auth/complete-registration`
+- `POST /api/auth/login-password`
+- `POST /api/auth/set-password`
 - `POST /api/telegram/webhook`
 - `GET /api/feed/posts`
 - `POST /api/feed/posts/create-daily-duo`
@@ -91,6 +96,7 @@ npm run dev
 
 ## Notes
 
-- Daily Duo requires 2 photos; AI face-check enforces people on both images.
+- Daily Duo has mobile camera flow: front shot -> back shot -> editor -> publish.
 - Feed lock is active if `users.last_post_at` older than 7 days.
-- Face validation uses 3-pass consensus with configurable model and threshold.
+- Comments persist in DB and open as chat-style modal.
+- Face validation uses multi-pass consensus with model fallback and adjustable confidence threshold.

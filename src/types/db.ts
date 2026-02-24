@@ -19,6 +19,7 @@ export type Database = {
           interests: string[] | null;
           facts: string[] | null;
           avatar_url: string | null;
+          password_hash: string | null;
           personality_profile: Json | null;
           personality_updated_at: string | null;
           created_at: string;

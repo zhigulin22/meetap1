@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Handshake, MessageCircle, Star } from "lucide-react";
+import { Heart, Handshake, MessageCircle, Star, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type Post = {
@@ -51,6 +52,34 @@ export function PostCard({
   onOpenComments: (post: Post) => void;
 }) {
   const mediaUrl = post.photos.cover || post.photos.front || post.photos.back;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [muted, setMuted] = useState(true);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !isVideo(mediaUrl)) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
+            el.play().catch(() => null);
+          } else {
+            el.pause();
+          }
+        }
+      },
+      { threshold: [0.4, 0.65, 0.9] },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mediaUrl]);
+
+  const duoImages = useMemo(
+    () => [post.photos.front, post.photos.back].filter(Boolean) as string[],
+    [post.photos.front, post.photos.back],
+  );
 
   return (
     <motion.article
@@ -88,31 +117,38 @@ export function PostCard({
 
         <div className="px-3 pb-3">
           {post.type === "daily_duo" ? (
-            <div className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl">
-              <Image
-                src={post.photos.front || "https://placehold.co/800x1200"}
-                alt="front"
-                width={800}
-                height={1200}
-                className="h-[54vh] w-full object-cover"
-                unoptimized
-              />
-              <Image
-                src={post.photos.back || "https://placehold.co/800x1200"}
-                alt="back"
-                width={800}
-                height={1200}
-                className="h-[54vh] w-full object-cover"
-                unoptimized
-              />
+            <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-2xl">
+              {duoImages.map((src, idx) => (
+                <Image
+                  key={`${src}-${idx}`}
+                  src={src}
+                  alt={`duo-${idx + 1}`}
+                  width={900}
+                  height={1200}
+                  className="h-[54vh] w-full min-w-full snap-center rounded-2xl object-cover"
+                  unoptimized
+                />
+              ))}
             </div>
           ) : isVideo(mediaUrl) ? (
-            <video
-              src={mediaUrl}
-              controls
-              playsInline
-              className="h-[58vh] w-full rounded-2xl object-cover"
-            />
+            <div className="relative">
+              <video
+                ref={videoRef}
+                src={mediaUrl}
+                muted={muted}
+                playsInline
+                loop
+                controls={false}
+                className="h-[58vh] w-full rounded-2xl object-cover"
+              />
+              <button
+                onClick={() => setMuted((v) => !v)}
+                className="absolute right-3 top-3 rounded-full border border-white/35 bg-black/45 p-2"
+                aria-label="Toggle sound"
+              >
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            </div>
           ) : (
             <Image
               src={mediaUrl || "https://placehold.co/1200x1600"}
@@ -129,33 +165,33 @@ export function PostCard({
           <div className="mt-3 grid grid-cols-4 gap-2">
             <Button
               variant="secondary"
-              size="sm"
+              size="default"
               onClick={() => onReact(post.id, "like")}
               disabled={post.viewer.liked}
-              className={post.viewer.liked ? "border-[#52cc83]/50 bg-[#52cc83]/15 text-[#52cc83]" : ""}
+              className={post.viewer.liked ? "h-11 border-[#52cc83]/50 bg-[#52cc83]/15 text-[#52cc83]" : "h-11"}
             >
               <Heart className="mr-1 h-4 w-4" /> {post.reactions.like}
             </Button>
 
-            <Button variant="secondary" size="sm" onClick={() => onOpenComments(post)}>
+            <Button variant="secondary" size="default" onClick={() => onOpenComments(post)} className="h-11">
               <MessageCircle className="mr-1 h-4 w-4" /> {post.comments_count}
             </Button>
 
             <Button
               variant="secondary"
-              size="sm"
+              size="default"
               onClick={() => onConnect(post)}
-              className={post.viewer.connected ? "border-[#8eb8ff]/50 bg-[#8eb8ff]/15 text-[#8eb8ff]" : ""}
+              className={post.viewer.connected ? "h-11 border-[#8eb8ff]/50 bg-[#8eb8ff]/15 text-[#8eb8ff]" : "h-11"}
             >
               <Handshake className="mr-1 h-4 w-4" /> {post.reactions.connect}
             </Button>
 
             <Button
               variant="secondary"
-              size="sm"
+              size="default"
               onClick={() => onReact(post.id, "star")}
               disabled={post.viewer.starred}
-              className={post.viewer.starred ? "border-[#ffcf70]/60 bg-[#ffcf70]/20 text-[#ffcf70]" : ""}
+              className={post.viewer.starred ? "h-11 border-[#ffcf70]/60 bg-[#ffcf70]/20 text-[#ffcf70]" : "h-11"}
             >
               <Star className="mr-1 h-4 w-4" /> {post.reactions.star}
             </Button>
