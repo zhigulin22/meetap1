@@ -8,12 +8,18 @@ type FaceValidation = {
   reason?: string;
 };
 
+const FACE_PROMPTS = [
+  "Count clearly visible real human faces. Ignore drawings, masks, statues, posters. Return strict JSON.",
+  "Detect real human faces only. If uncertain, mark ok=false. Return strict JSON.",
+  "Face validation for moderation: count visible human faces with high confidence only.",
+] as const;
+
 function getClient() {
   const env = getServerEnv();
   return new OpenAI({ apiKey: env.OPENAI_API_KEY });
 }
 
-function normalizeFaceResult(value: unknown): FaceValidation {
+function normalizeFaceResult(value: unknown, minConfidence: number): FaceValidation {
   if (!value || typeof value !== "object") {
     return { faces_count: 0, confidence: 0, ok: false, reason: "Invalid AI response" };
   }
@@ -21,7 +27,7 @@ function normalizeFaceResult(value: unknown): FaceValidation {
   const raw = value as Record<string, unknown>;
   const faces = Math.max(0, Number(raw.faces_count ?? 0));
   const confidence = Math.max(0, Math.min(1, Number(raw.confidence ?? 0)));
-  const ok = Boolean(raw.ok) && Number.isFinite(faces) && confidence >= 0.55;
+  const ok = Boolean(raw.ok) && Number.isFinite(faces) && confidence >= minConfidence;
   const reason = typeof raw.reason === "string" ? raw.reason : undefined;
 
   return {
@@ -32,28 +38,20 @@ function normalizeFaceResult(value: unknown): FaceValidation {
   };
 }
 
-async function detectFacesOnce(client: OpenAI, input: { imageUrl?: string; base64?: string }) {
+async function detectFacesOnce(
+  client: OpenAI,
+  input: { imageUrl?: string; base64?: string },
+  prompt: string,
+  model: string,
+  minConfidence: number,
+) {
   const content = input.imageUrl
-    ? [
-        {
-          type: "input_text",
-          text:
-            "Count only clearly visible real human faces. Ignore drawings/statues/printed photos. Return JSON.",
-        },
-        { type: "input_image", image_url: input.imageUrl },
-      ]
-    : [
-        {
-          type: "input_text",
-          text:
-            "Count only clearly visible real human faces. Ignore drawings/statues/printed photos. Return JSON.",
-        },
-        { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` },
-      ];
+    ? [{ type: "input_text", text: prompt }, { type: "input_image", image_url: input.imageUrl }]
+    : [{ type: "input_text", text: prompt }, { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` }];
 
   const aiResult = await Promise.race([
     client.responses.create({
-      model: "gpt-4o-mini",
+      model,
       input: [{ role: "user", content }],
       text: {
         format: {
@@ -73,7 +71,7 @@ async function detectFacesOnce(client: OpenAI, input: { imageUrl?: string; base6
         },
       },
     } as any),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
   ]);
 
   if (!aiResult) {
@@ -81,10 +79,13 @@ async function detectFacesOnce(client: OpenAI, input: { imageUrl?: string; base6
   }
 
   const parsed = JSON.parse(aiResult.output_text);
-  return normalizeFaceResult(parsed);
+  return normalizeFaceResult(parsed, minConfidence);
 }
 
 export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
+  const env = getServerEnv();
+  const minConfidence = env.FACE_DETECT_MIN_CONFIDENCE;
+
   const fallback: FaceValidation = {
     faces_count: 0,
     confidence: 0,
@@ -99,25 +100,31 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
   try {
     const client = getClient();
 
-    const primary = await detectFacesOnce(client, input);
+    const results = await Promise.all(
+      FACE_PROMPTS.map((prompt) =>
+        detectFacesOnce(client, input, prompt, env.FACE_DETECT_MODEL, minConfidence).catch(() => ({
+          faces_count: 0,
+          confidence: 0,
+          ok: false,
+          reason: "Detection failed",
+        })),
+      ),
+    );
 
-    // Second pass for stability; use the more conservative result.
-    const secondary = await detectFacesOnce(client, input).catch(() => ({
-      faces_count: 0,
-      confidence: 0,
-      ok: false,
-      reason: "Second pass failed",
-    }));
+    const validCount = results.filter((r) => r.ok && r.faces_count > 0).length;
+    const sortedFaces = results.map((r) => r.faces_count).sort((a, b) => a - b);
+    const medianFaces = sortedFaces[Math.floor(sortedFaces.length / 2)] ?? 0;
 
-    const facesCount = Math.min(primary.faces_count, secondary.faces_count || primary.faces_count);
-    const confidence = Math.min(primary.confidence, secondary.confidence || primary.confidence);
-    const ok = primary.ok && secondary.ok && facesCount > 0 && confidence >= 0.55;
+    const sortedConf = results.map((r) => r.confidence).sort((a, b) => a - b);
+    const medianConf = sortedConf[Math.floor(sortedConf.length / 2)] ?? 0;
+
+    const ok = validCount >= 2 && medianFaces > 0 && medianConf >= minConfidence;
 
     return {
-      faces_count: facesCount,
-      confidence,
+      faces_count: medianFaces,
+      confidence: medianConf,
       ok,
-      reason: ok ? undefined : primary.reason || secondary.reason || "Face not confirmed",
+      reason: ok ? undefined : results.find((r) => r.reason)?.reason || "Face not confirmed",
     };
   } catch {
     return fallback;

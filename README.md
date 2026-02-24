@@ -8,7 +8,7 @@ MVP соцсети для офлайн-знакомств.
 - shadcn-style UI components
 - Next.js API Routes
 - Supabase (Postgres + Storage + Auth)
-- OpenAI (`gpt-4o-mini`)
+- OpenAI (AI moderation + recommendations)
 - framer-motion
 - Deploy: Vercel
 
@@ -38,6 +38,10 @@ SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
+
+# Face detector tuning
+FACE_DETECT_MODEL=gpt-4.1-mini
+FACE_DETECT_MIN_CONFIDENCE=0.58
 ```
 
 ## Supabase setup
@@ -45,6 +49,8 @@ TELEGRAM_WEBHOOK_SECRET=
 1. Create a Supabase project.
 2. Run SQL from:
 - `supabase/migrations/001_init.sql`
+- `supabase/migrations/002_comments.sql`
+- `supabase/migrations/003_personality_profile.sql`
 - `supabase/seed.sql`
 3. Create Telegram bot via BotFather and set username/token.
 4. Configure Telegram webhook:
@@ -77,12 +83,14 @@ npm run dev
 - `POST /api/events/:id/find-3`
 - `GET /api/contacts`
 - `GET/PATCH /api/profile/me`
+- `POST /api/profile/avatar`
+- `POST /api/profile/psych-test`
 - `GET /api/profile/:id`
 - `POST /api/ai/face-validate`
 - `POST /api/ai/icebreaker`
 
 ## Notes
 
-- Daily Duo requires 2 photos; AI face-check ensures at least 2 people.
+- Daily Duo requires 2 photos; AI face-check enforces people on both images.
 - Feed lock is active if `users.last_post_at` older than 7 days.
-- If AI fails, fallback responses are returned.
+- Face validation uses 3-pass consensus with configurable model and threshold.
