@@ -1,15 +1,22 @@
 import { ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
+import { getCurrentUserId } from "@/server/auth";
 
 export async function GET() {
-  const { data: events } = await supabaseAdmin
-    .from("events")
-    .select("id,title,description,outcomes,cover_url,event_date,price,city")
-    .order("event_date", { ascending: true });
+  const userId = getCurrentUserId();
 
-  const { data: members } = await supabaseAdmin
-    .from("event_members")
-    .select("event_id,user_id,users(id,name,avatar_url)");
+  const [{ data: events }, { data: members }, { data: myMemberships }] = await Promise.all([
+    supabaseAdmin
+      .from("events")
+      .select("id,title,description,outcomes,cover_url,event_date,price,city")
+      .order("event_date", { ascending: true }),
+    supabaseAdmin.from("event_members").select("event_id,user_id,users(id,name,avatar_url)"),
+    userId
+      ? supabaseAdmin.from("event_members").select("event_id").eq("user_id", userId)
+      : Promise.resolve({ data: [] as Array<{ event_id: string }> }),
+  ]);
+
+  const joinedSet = new Set((myMemberships ?? []).map((x) => x.event_id));
 
   const grouped = new Map<string, Array<{ id: string; name: string; avatar_url: string | null }>>();
 
@@ -26,6 +33,7 @@ export async function GET() {
     items: (events ?? []).map((e) => ({
       ...e,
       participants: (grouped.get(e.id) ?? []).slice(0, 5),
+      joined: joinedSet.has(e.id),
     })),
   });
 }
