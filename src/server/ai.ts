@@ -42,37 +42,46 @@ async function detectFacesOnce(
   client: OpenAI,
   input: { imageUrl?: string; base64?: string },
   prompt: string,
-  model: string,
+  models: string[],
   minConfidence: number,
 ) {
   const content = input.imageUrl
     ? [{ type: "input_text", text: prompt }, { type: "input_image", image_url: input.imageUrl }]
     : [{ type: "input_text", text: prompt }, { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` }];
 
-  const aiResult = await Promise.race([
-    client.responses.create({
-      model,
-      input: [{ role: "user", content }],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "face_validation",
-          schema: {
-            type: "object",
-            properties: {
-              faces_count: { type: "number" },
-              confidence: { type: "number" },
-              ok: { type: "boolean" },
-              reason: { type: "string" },
+  let aiResult: OpenAI.Responses.Response | null = null;
+
+  for (const model of models) {
+    const attempt = await Promise.race([
+      client.responses.create({
+        model,
+        input: [{ role: "user", content }],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "face_validation",
+            schema: {
+              type: "object",
+              properties: {
+                faces_count: { type: "number" },
+                confidence: { type: "number" },
+                ok: { type: "boolean" },
+                reason: { type: "string" },
+              },
+              required: ["faces_count", "confidence", "ok"],
+              additionalProperties: false,
             },
-            required: ["faces_count", "confidence", "ok"],
-            additionalProperties: false,
           },
         },
-      },
-    } as any),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
-  ]);
+      } as any),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
+    ]).catch(() => null);
+
+    if (attempt) {
+      aiResult = attempt;
+      break;
+    }
+  }
 
   if (!aiResult) {
     return { faces_count: 0, confidence: 0, ok: false, reason: "AI timeout" };
@@ -85,6 +94,7 @@ async function detectFacesOnce(
 export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
   const env = getServerEnv();
   const minConfidence = env.FACE_DETECT_MIN_CONFIDENCE;
+  const models = [...new Set([env.FACE_DETECT_MODEL, "gpt-4o-mini"])];
 
   const fallback: FaceValidation = {
     faces_count: 0,
@@ -102,7 +112,7 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
 
     const results = await Promise.all(
       FACE_PROMPTS.map((prompt) =>
-        detectFacesOnce(client, input, prompt, env.FACE_DETECT_MODEL, minConfidence).catch(() => ({
+        detectFacesOnce(client, input, prompt, models, minConfidence).catch(() => ({
           faces_count: 0,
           confidence: 0,
           ok: false,
@@ -112,17 +122,14 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
     );
 
     const validCount = results.filter((r) => r.ok && r.faces_count > 0).length;
-    const sortedFaces = results.map((r) => r.faces_count).sort((a, b) => a - b);
-    const medianFaces = sortedFaces[Math.floor(sortedFaces.length / 2)] ?? 0;
+    const maxFaces = Math.max(...results.map((r) => r.faces_count), 0);
+    const maxConf = Math.max(...results.map((r) => r.confidence), 0);
 
-    const sortedConf = results.map((r) => r.confidence).sort((a, b) => a - b);
-    const medianConf = sortedConf[Math.floor(sortedConf.length / 2)] ?? 0;
-
-    const ok = validCount >= 2 && medianFaces > 0 && medianConf >= minConfidence;
+    const ok = validCount >= 1 && maxFaces > 0 && maxConf >= minConfidence;
 
     return {
-      faces_count: medianFaces,
-      confidence: medianConf,
+      faces_count: maxFaces,
+      confidence: maxConf,
       ok,
       reason: ok ? undefined : results.find((r) => r.reason)?.reason || "Face not confirmed",
     };
