@@ -1,54 +1,99 @@
 import OpenAI from "openai";
 import { getServerEnv } from "@/lib/env";
 
+type FaceValidation = {
+  faces_count: number;
+  confidence: number;
+  ok: boolean;
+  reason?: string;
+};
+
 function getClient() {
   const env = getServerEnv();
   return new OpenAI({ apiKey: env.OPENAI_API_KEY });
 }
 
+function normalizeFaceResult(value: unknown): FaceValidation {
+  if (!value || typeof value !== "object") {
+    return { faces_count: 0, confidence: 0, ok: false, reason: "Invalid AI response" };
+  }
+
+  const raw = value as Record<string, unknown>;
+  const faces = Math.max(0, Number(raw.faces_count ?? 0));
+  const confidence = Math.max(0, Math.min(1, Number(raw.confidence ?? 0)));
+  const ok = Boolean(raw.ok) && Number.isFinite(faces) && confidence >= 0.45;
+  const reason = typeof raw.reason === "string" ? raw.reason : undefined;
+
+  return {
+    faces_count: Number.isFinite(faces) ? Math.round(faces) : 0,
+    confidence,
+    ok,
+    reason,
+  };
+}
+
 export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
-  const fallback = { faces_count: 2, confidence: 0.55, ok: true as const };
+  const fallback: FaceValidation = {
+    faces_count: 0,
+    confidence: 0,
+    ok: false,
+    reason: "AI unavailable",
+  };
+
+  if (!input.imageUrl && !input.base64) {
+    return { ...fallback, reason: "Image is required" };
+  }
 
   try {
     const client = getClient();
+
     const content = input.imageUrl
       ? [
-          { type: "input_text", text: "Count visible human faces in this image." },
+          {
+            type: "input_text",
+            text: "Detect visible real human faces in this image. Return strict JSON only.",
+          },
           { type: "input_image", image_url: input.imageUrl },
         ]
       : [
-          { type: "input_text", text: "Count visible human faces in this image." },
+          {
+            type: "input_text",
+            text: "Detect visible real human faces in this image. Return strict JSON only.",
+          },
           { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` },
         ];
 
-    const res = await client.responses.create({
-      model: "gpt-4o-mini",
-      input: [{ role: "user", content }],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "face_validation",
-          schema: {
-            type: "object",
-            properties: {
-              faces_count: { type: "number" },
-              confidence: { type: "number" },
-              ok: { type: "boolean" },
-              reason: { type: "string" },
+    const aiResult = await Promise.race([
+      client.responses.create({
+        model: "gpt-4o-mini",
+        input: [{ role: "user", content }],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "face_validation",
+            schema: {
+              type: "object",
+              properties: {
+                faces_count: { type: "number" },
+                confidence: { type: "number" },
+                ok: { type: "boolean" },
+                reason: { type: "string" },
+              },
+              required: ["faces_count", "confidence", "ok"],
+              additionalProperties: false,
             },
-            required: ["faces_count", "confidence", "ok"],
-            additionalProperties: false,
           },
         },
-      },
-    } as any);
+      } as any),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+    ]);
 
-    return JSON.parse(res.output_text) as {
-      faces_count: number;
-      confidence: number;
-      ok: boolean;
-      reason?: string;
-    };
+    if (!aiResult) {
+      return { ...fallback, reason: "AI timeout" };
+    }
+
+    const parsed = JSON.parse(aiResult.output_text);
+    return normalizeFaceResult(parsed);
   } catch {
     return fallback;
   }

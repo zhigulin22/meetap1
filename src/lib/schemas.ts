@@ -9,8 +9,7 @@ export const startVerificationSchema = z.object({
     .min(10)
     .max(20)
     .refine((v) => phoneRegex.test(v.replace(/[\s()-]/g, "")), {
-      message:
-        "Неверный формат номера. Пример: +79990000000",
+      message: "Неверный формат номера. Пример: +79990000000",
     })
     .transform((v) => {
       const normalized = v.replace(/[\s()-]/g, "");
@@ -42,7 +41,11 @@ export const icebreakerSchema = z.object({
   context: z.string().max(500).optional(),
 });
 
-export const faceValidateSchema = z.object({
-  imageUrl: z.string().url().optional(),
-  base64: z.string().min(50).optional(),
-});
+export const faceValidateSchema = z
+  .object({
+    imageUrl: z.string().url().optional(),
+    base64: z.string().min(50).optional(),
+  })
+  .refine((v) => Boolean(v.imageUrl || v.base64), {
+    message: "Передай imageUrl или base64",
+  });
