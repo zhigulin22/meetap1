@@ -34,8 +34,12 @@ export async function POST(req: Request) {
     const backBuffer = Buffer.from(await back.arrayBuffer());
 
     const [frontUpload, backUpload] = await Promise.all([
-      supabaseAdmin.storage.from("daily-duo").upload(frontPath, frontBuffer, { contentType: front.type || "image/jpeg" }),
-      supabaseAdmin.storage.from("daily-duo").upload(backPath, backBuffer, { contentType: back.type || "image/jpeg" }),
+      supabaseAdmin.storage.from("daily-duo").upload(frontPath, frontBuffer, {
+        contentType: front.type || "image/jpeg",
+      }),
+      supabaseAdmin.storage.from("daily-duo").upload(backPath, backBuffer, {
+        contentType: back.type || "image/jpeg",
+      }),
     ]);
 
     if (frontUpload.error || backUpload.error) {
@@ -45,14 +49,24 @@ export async function POST(req: Request) {
     const frontUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(frontPath).data.publicUrl;
     const backUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(backPath).data.publicUrl;
 
-    const [checkFront, checkBack] = await Promise.all([
-      validateFaces({ imageUrl: frontUrl }),
-      validateFaces({ imageUrl: backUrl }),
-    ]);
+    let checkFront = await validateFaces({ imageUrl: frontUrl });
+    let checkBack = await validateFaces({ imageUrl: backUrl });
+
+    // Fallback to base64 if URL-based inspection is uncertain.
+    if (!checkFront.ok || checkFront.faces_count < 1) {
+      checkFront = await validateFaces({ base64: frontBuffer.toString("base64") });
+    }
+    if (!checkBack.ok || checkBack.faces_count < 1) {
+      checkBack = await validateFaces({ base64: backBuffer.toString("base64") });
+    }
 
     const totalFaces = (checkFront.faces_count ?? 0) + (checkBack.faces_count ?? 0);
-    if (totalFaces < 2) {
-      return fail("Нужно минимум 2 человека на Daily Duo", 422);
+
+    if ((checkFront.faces_count ?? 0) < 1 || (checkBack.faces_count ?? 0) < 1 || totalFaces < 2) {
+      return fail(
+        `Нужно минимум 2 человека (по одному на каждом фото). front=${checkFront.faces_count}, back=${checkBack.faces_count}`,
+        422,
+      );
     }
 
     const { data: post, error: postErr } = await supabaseAdmin

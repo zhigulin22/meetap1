@@ -21,7 +21,7 @@ function normalizeFaceResult(value: unknown): FaceValidation {
   const raw = value as Record<string, unknown>;
   const faces = Math.max(0, Number(raw.faces_count ?? 0));
   const confidence = Math.max(0, Math.min(1, Number(raw.confidence ?? 0)));
-  const ok = Boolean(raw.ok) && Number.isFinite(faces) && confidence >= 0.45;
+  const ok = Boolean(raw.ok) && Number.isFinite(faces) && confidence >= 0.55;
   const reason = typeof raw.reason === "string" ? raw.reason : undefined;
 
   return {
@@ -30,6 +30,58 @@ function normalizeFaceResult(value: unknown): FaceValidation {
     ok,
     reason,
   };
+}
+
+async function detectFacesOnce(client: OpenAI, input: { imageUrl?: string; base64?: string }) {
+  const content = input.imageUrl
+    ? [
+        {
+          type: "input_text",
+          text:
+            "Count only clearly visible real human faces. Ignore drawings/statues/printed photos. Return JSON.",
+        },
+        { type: "input_image", image_url: input.imageUrl },
+      ]
+    : [
+        {
+          type: "input_text",
+          text:
+            "Count only clearly visible real human faces. Ignore drawings/statues/printed photos. Return JSON.",
+        },
+        { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` },
+      ];
+
+  const aiResult = await Promise.race([
+    client.responses.create({
+      model: "gpt-4o-mini",
+      input: [{ role: "user", content }],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "face_validation",
+          schema: {
+            type: "object",
+            properties: {
+              faces_count: { type: "number" },
+              confidence: { type: "number" },
+              ok: { type: "boolean" },
+              reason: { type: "string" },
+            },
+            required: ["faces_count", "confidence", "ok"],
+            additionalProperties: false,
+          },
+        },
+      },
+    } as any),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+  ]);
+
+  if (!aiResult) {
+    return { faces_count: 0, confidence: 0, ok: false, reason: "AI timeout" };
+  }
+
+  const parsed = JSON.parse(aiResult.output_text);
+  return normalizeFaceResult(parsed);
 }
 
 export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
@@ -47,53 +99,26 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
   try {
     const client = getClient();
 
-    const content = input.imageUrl
-      ? [
-          {
-            type: "input_text",
-            text: "Detect visible real human faces in this image. Return strict JSON only.",
-          },
-          { type: "input_image", image_url: input.imageUrl },
-        ]
-      : [
-          {
-            type: "input_text",
-            text: "Detect visible real human faces in this image. Return strict JSON only.",
-          },
-          { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` },
-        ];
+    const primary = await detectFacesOnce(client, input);
 
-    const aiResult = await Promise.race([
-      client.responses.create({
-        model: "gpt-4o-mini",
-        input: [{ role: "user", content }],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "face_validation",
-            schema: {
-              type: "object",
-              properties: {
-                faces_count: { type: "number" },
-                confidence: { type: "number" },
-                ok: { type: "boolean" },
-                reason: { type: "string" },
-              },
-              required: ["faces_count", "confidence", "ok"],
-              additionalProperties: false,
-            },
-          },
-        },
-      } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
-    ]);
+    // Second pass for stability; use the more conservative result.
+    const secondary = await detectFacesOnce(client, input).catch(() => ({
+      faces_count: 0,
+      confidence: 0,
+      ok: false,
+      reason: "Second pass failed",
+    }));
 
-    if (!aiResult) {
-      return { ...fallback, reason: "AI timeout" };
-    }
+    const facesCount = Math.min(primary.faces_count, secondary.faces_count || primary.faces_count);
+    const confidence = Math.min(primary.confidence, secondary.confidence || primary.confidence);
+    const ok = primary.ok && secondary.ok && facesCount > 0 && confidence >= 0.55;
 
-    const parsed = JSON.parse(aiResult.output_text);
-    return normalizeFaceResult(parsed);
+    return {
+      faces_count: facesCount,
+      confidence,
+      ok,
+      reason: ok ? undefined : primary.reason || secondary.reason || "Face not confirmed",
+    };
   } catch {
     return fallback;
   }
