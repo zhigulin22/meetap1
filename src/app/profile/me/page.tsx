@@ -78,6 +78,11 @@ export default function MyProfilePage() {
     queryFn: () => api<{ profile: any }>("/api/profile/me"),
   });
 
+  const sessionsQuery = useQuery({
+    queryKey: ["sessions"],
+    queryFn: () => api<{ items: Array<{ id: string; device_label: string; created_at: string; last_active_at: string; revoked_at: string | null }> }>("/api/auth/sessions"),
+  });
+
   useEffect(() => {
     const t = (localStorage.getItem("theme") as "dark" | "light" | null) ?? "dark";
     setTheme(t);
@@ -178,6 +183,11 @@ export default function MyProfilePage() {
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
     router.push("/register");
+  }
+
+  async function revokeAllSessions() {
+    await api("/api/auth/sessions", { method: "POST" });
+    router.push("/login");
   }
 
   function toggleTheme() {
@@ -305,6 +315,20 @@ export default function MyProfilePage() {
           </div>
 
           <Button className="w-full" onClick={save}>Сохранить профиль</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3 border-white/15">
+        <CardContent className="space-y-3 p-4">
+          <p className="text-sm font-semibold">Активные устройства</p>
+          {(sessionsQuery.data?.items ?? []).map((s) => (
+            <div key={s.id} className="rounded-xl border border-border bg-black/10 p-2">
+              <p className="text-sm">{s.device_label}</p>
+              <p className="text-xs text-muted">Последняя активность: {new Date(s.last_active_at).toLocaleString("ru-RU")}</p>
+            </div>
+          ))}
+          {!sessionsQuery.data?.items?.length ? <p className="text-xs text-muted">Сессий пока нет</p> : null}
+          <Button variant="secondary" className="w-full" onClick={revokeAllSessions}>Закрыть все сессии</Button>
         </CardContent>
       </Card>
 

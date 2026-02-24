@@ -78,6 +78,7 @@ export default function FeedPage() {
     queryKey: ["comments", commentsPost?.id],
     queryFn: () => api<{ items: CommentItem[] }>(`/api/feed/posts/${commentsPost?.id}/comments`),
     enabled: Boolean(commentsPost?.id && commentsOpen),
+    refetchInterval: commentsOpen ? 2500 : false,
   });
 
   const filtered = useMemo(() => {

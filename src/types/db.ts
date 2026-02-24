@@ -102,6 +102,18 @@ export type Database = {
           created_at: string;
         };
       };
+      user_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          device_label: string;
+          user_agent: string | null;
+          ip: string | null;
+          created_at: string;
+          last_active_at: string;
+          revoked_at: string | null;
+        };
+      };
       telegram_verifications: {
         Row: {
           id: string;

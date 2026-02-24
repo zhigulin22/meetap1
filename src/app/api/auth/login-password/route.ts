@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
 import { verifyPassword } from "@/lib/password";
+import { detectDeviceLabel } from "@/lib/session";
 import { supabaseAdmin } from "@/supabase/admin";
 
 const phoneRegex = /^\+?[1-9]\d{9,14}$/;
@@ -54,6 +55,24 @@ export async function POST(req: Request) {
   const store = cookies();
   store.set("meetap_user_id", user.id, base);
   store.set("meetap_verified", "1", base);
+
+  const deviceLabel = detectDeviceLabel(req.headers.get("user-agent") ?? "");
+  const ip = req.headers.get("x-forwarded-for") ?? null;
+
+  const { data: session } = await supabaseAdmin
+    .from("user_sessions")
+    .insert({
+      user_id: user.id,
+      device_label: deviceLabel,
+      user_agent: req.headers.get("user-agent") ?? null,
+      ip,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (session?.id) {
+    store.set("meetap_session_id", session.id, base);
+  }
 
   return ok({ success: true });
 }

@@ -4,6 +4,7 @@ import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { buildTelegramCode } from "@/lib/telegram-code";
+import { detectDeviceLabel } from "@/lib/session";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? "local";
@@ -101,6 +102,24 @@ export async function POST(req: Request) {
 
   cookieStore.set("meetap_user_id", userId, base);
   cookieStore.set("meetap_verified", "1", base);
+
+  const deviceLabel = detectDeviceLabel(req.headers.get("user-agent") ?? "");
+  const ipAddress = req.headers.get("x-forwarded-for") ?? null;
+
+  const { data: session } = await supabaseAdmin
+    .from("user_sessions")
+    .insert({
+      user_id: userId,
+      device_label: deviceLabel,
+      user_agent: req.headers.get("user-agent") ?? null,
+      ip: ipAddress,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (session?.id) {
+    cookieStore.set("meetap_session_id", session.id, base);
+  }
 
   return ok({ userId, mode: existing ? "login" : "register" });
 }

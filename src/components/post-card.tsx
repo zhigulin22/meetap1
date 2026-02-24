@@ -183,7 +183,7 @@ export function PostCard({
               onClick={() => onConnect(post)}
               className={post.viewer.connected ? "h-11 border-[#8eb8ff]/50 bg-[#8eb8ff]/15 text-[#8eb8ff]" : "h-11"}
             >
-              <Handshake className="mr-1 h-4 w-4" /> {post.reactions.connect}
+              <Handshake className="h-4 w-4" />
             </Button>
 
             <Button

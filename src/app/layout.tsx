@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const inter = Inter({ subsets: ["latin", "cyrillic"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin", "latin-ext"], weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
   title: "Meetap MVP",
@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={spaceGrotesk.className}>
         <script
           dangerouslySetInnerHTML={{
             __html:
