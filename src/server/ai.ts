@@ -10,8 +10,7 @@ type FaceValidation = {
 
 const FACE_PROMPTS = [
   "Count clearly visible real human faces. Ignore drawings, masks, statues, posters. Return strict JSON.",
-  "Detect real human faces only. If uncertain, mark ok=false. Return strict JSON.",
-  "Face validation for moderation: count visible human faces with high confidence only.",
+  "Estimate how many real human faces are visible. If at least one face exists, set ok=true.",
 ] as const;
 
 function getClient() {
@@ -94,7 +93,7 @@ async function detectFacesOnce(
 export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
   const env = getServerEnv();
   const minConfidence = env.FACE_DETECT_MIN_CONFIDENCE;
-  const models = [...new Set([env.FACE_DETECT_MODEL, "gpt-4o-mini"])];
+  const models = [...new Set([env.FACE_DETECT_MODEL, "gpt-4o-mini", "gpt-4.1-mini"])];
 
   const fallback: FaceValidation = {
     faces_count: 0,
@@ -121,11 +120,11 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
       ),
     );
 
-    const validCount = results.filter((r) => r.ok && r.faces_count > 0).length;
+    const validCount = results.filter((r) => r.faces_count > 0).length;
     const maxFaces = Math.max(...results.map((r) => r.faces_count), 0);
     const maxConf = Math.max(...results.map((r) => r.confidence), 0);
 
-    const ok = validCount >= 1 && maxFaces > 0 && maxConf >= minConfidence;
+    const ok = validCount >= 1 && maxFaces > 0 && (maxConf >= minConfidence || validCount >= 2);
 
     return {
       faces_count: maxFaces,

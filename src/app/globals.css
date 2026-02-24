@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --bg: #eef3ff;
-  --surface: rgba(255, 255, 255, 0.82);
-  --border: rgba(10, 23, 72, 0.16);
-  --text: #0b1336;
-  --muted: #59658f;
+  --bg: #ecf1f5;
+  --surface: rgba(255, 255, 255, 0.78);
+  --border: rgba(35, 53, 71, 0.18);
+  --text: #0f1d2e;
+  --muted: #5e7186;
 }
 
 .dark {
-  --bg: #060918;
-  --surface: rgba(8, 13, 35, 0.76);
-  --border: rgba(145, 168, 245, 0.2);
-  --text: #f4f7ff;
-  --muted: #9aa7d8;
+  --bg: #070d13;
+  --surface: rgba(11, 18, 27, 0.8);
+  --border: rgba(136, 165, 196, 0.2);
+  --text: #edf4ff;
+  --muted: #95a7be;
 }
 
 html,
@@ -26,9 +26,10 @@ body {
 body {
   @apply bg-bg text-text antialiased;
   background-image:
-    radial-gradient(1100px 600px at -10% -30%, rgba(82, 204, 131, 0.18), transparent),
-    radial-gradient(1000px 560px at 100% -10%, rgba(0, 2, 41, 0.46), transparent),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+    radial-gradient(860px 520px at -5% -20%, rgba(82, 204, 131, 0.16), transparent),
+    radial-gradient(820px 500px at 100% -10%, rgba(44, 95, 148, 0.24), transparent),
+    radial-gradient(760px 480px at 50% 120%, rgba(15, 26, 38, 0.42), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.005));
 }
 
 main {

@@ -155,7 +155,7 @@ export default function FeedPage() {
             <p className="text-xs text-muted">Свайпай вверх: видео, одиночные фото и Daily Duo</p>
           </div>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
-            Новый Duo
+            DUO
           </Button>
         </div>
 

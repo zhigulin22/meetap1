@@ -62,9 +62,9 @@ export async function POST(req: Request) {
 
     const totalFaces = (checkFront.faces_count ?? 0) + (checkBack.faces_count ?? 0);
 
-    if ((checkFront.faces_count ?? 0) < 1 || (checkBack.faces_count ?? 0) < 1 || totalFaces < 2) {
+    if (totalFaces < 2) {
       return fail(
-        `Нужно минимум 2 человека (по одному на каждом фото). front=${checkFront.faces_count}, back=${checkBack.faces_count}`,
+        `Нужно минимум 2 человека на Daily Duo. front=${checkFront.faces_count}, back=${checkBack.faces_count}`,
         422,
       );
     }
