@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 :root {
+  --font-rubik: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-manrope: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --bg: #eef4f9;
   --surface: rgba(255, 255, 255, 0.86);
   --border: rgba(31, 53, 76, 0.16);
