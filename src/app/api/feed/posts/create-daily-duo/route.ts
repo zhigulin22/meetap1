@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     const { data: post, error: postErr } = await supabaseAdmin
       .from("posts")
-      .insert({ user_id: userId, type: "daily_duo", caption: captionCheck.data.caption ?? null })
+      .insert({ user_id: userId, type: "daily_duo", caption: captionCheck.data.caption ?? null, risk_score: 0, moderation_status: "clean" })
       .select("id")
       .single();
 

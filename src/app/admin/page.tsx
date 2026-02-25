@@ -2,290 +2,491 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { ShieldAlert, Search, Sparkles } from "lucide-react";
-import { PageShell } from "@/components/page-shell";
-import { Card, CardContent } from "@/components/ui/card";
+import { AlertTriangle, Shield, Sparkles, Trash2, UserRoundX, UserRoundCheck } from "lucide-react";
+import { AdminShell } from "@/components/admin-shell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { adminApi } from "@/lib/admin-client";
+import {
+  aiInsightsResponseSchema,
+  featureFlagsResponseSchema,
+  funnelsResponseSchema,
+  moderationQueueResponseSchema,
+  overviewResponseSchema,
+  retentionResponseSchema,
+  userSearchResponseSchema,
+} from "@/lib/admin-schemas";
 import { api } from "@/lib/api-client";
 
-type Overview = {
-  kpis: {
-    usersTotal: number;
-    dau: number;
-    wau: number;
-    mau: number;
-    posts7d: number;
-    comments7d: number;
-    eventJoins7d: number;
-    openFlags: number;
-    blockedUsers: number;
+function kpiLabel(key: string) {
+  const map: Record<string, string> = {
+    usersTotal: "Users",
+    dau: "DAU",
+    wau: "WAU",
+    mau: "MAU",
+    dauMau: "DAU/MAU",
+    newUsers1d: "New users 1d",
+    newUsers7d: "New users 7d",
+    telegramVerifiedRate: "TG verified rate",
+    registrationCompletedRate: "Registration completed",
+    verifiedUsers: "Verified users",
+    dailyDuo1d: "Daily duo 1d",
+    dailyDuo7d: "Daily duo 7d",
+    eventJoin1d: "Event joins 1d",
+    eventJoin7d: "Event joins 7d",
+    connectClicked: "Connect clicked",
+    chatsStarted: "Chats started",
+    reportsOpen: "Open reports",
+    flagsOpen: "Open flags",
+    blockedUsers: "Blocked users",
   };
-  funnel: Array<{ key: string; count: number }>;
-  series: Array<{ day: string; events: number; registrations: number; moderationFlags: number }>;
-  topButtons: Array<{ eventName: string; count: number }>;
-};
+  return map[key] ?? key;
+}
 
-type AdminUser = {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  is_blocked: boolean;
-  blocked_reason: string | null;
-  blocked_until: string | null;
-  created_at: string;
-  last_post_at: string | null;
-  open_flags: number;
-};
+type Section = "overview" | "funnels" | "retention" | "users" | "moderation" | "flags" | "assistant";
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
-  const [userQ, setUserQ] = useState("");
-  const [searchQ, setSearchQ] = useState("");
-  const [assistantQ, setAssistantQ] = useState("");
-  const [assistantAnswer, setAssistantAnswer] = useState<null | {
-    summary: string;
-    risks: string[];
-    actions: string[];
-    queries: string[];
-  }>(null);
+  const [section, setSection] = useState<Section>("overview");
+  const [dateRange, setDateRange] = useState<"7d" | "14d" | "30d" | "90d">("30d");
+  const [segment, setSegment] = useState<"all" | "verified" | "new" | "active">("all");
+  const [search, setSearch] = useState("");
+  const [searchUsers, setSearchUsers] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiMessages, setAiMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+
+  const [moderationReason, setModerationReason] = useState("Policy violation");
+
+  const toISO = new Date().toISOString();
+  const fromDate = useMemo(() => {
+    const base = Date.now();
+    const days = Number(dateRange.replace("d", ""));
+    return new Date(base - days * 24 * 60 * 60 * 1000).toISOString();
+  }, [dateRange]);
 
   const overviewQuery = useQuery({
-    queryKey: ["admin-overview"],
-    queryFn: () => api<Overview>("/api/admin/overview"),
-    refetchInterval: 30_000,
+    queryKey: ["admin", "overview", fromDate, segment],
+    queryFn: () =>
+      adminApi(
+        `/api/admin/metrics/overview?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toISO)}&segment=${segment}`,
+        overviewResponseSchema,
+      ),
+    refetchInterval: 30000,
+  });
+
+  const funnelsQuery = useQuery({
+    queryKey: ["admin", "funnels", fromDate, segment],
+    queryFn: () =>
+      adminApi(
+        `/api/admin/metrics/funnels?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toISO)}&segment=${segment}`,
+        funnelsResponseSchema,
+      ),
+  });
+
+  const retentionQuery = useQuery({
+    queryKey: ["admin", "retention", segment],
+    queryFn: () =>
+      adminApi(
+        `/api/admin/metrics/retention?from=${encodeURIComponent(
+          new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        )}&to=${encodeURIComponent(toISO)}&segment=${segment}`,
+        retentionResponseSchema,
+      ),
   });
 
   const usersQuery = useQuery({
-    queryKey: ["admin-users", userQ],
-    queryFn: () => api<{ items: AdminUser[] }>(`/api/admin/users?q=${encodeURIComponent(userQ)}`),
+    queryKey: ["admin", "users", searchUsers],
+    queryFn: () =>
+      adminApi(`/api/admin/users/search?q=${encodeURIComponent(searchUsers)}&limit=40`, userSearchResponseSchema),
   });
 
-  const contentQuery = useQuery({
-    queryKey: ["admin-search", searchQ],
-    queryFn: () => api<{ messages: Array<any>; comments: Array<any> }>(`/api/admin/search?q=${encodeURIComponent(searchQ)}`),
-    enabled: searchQ.trim().length >= 2,
+  const userDetailsQuery = useQuery({
+    queryKey: ["admin", "user", selectedUserId],
+    queryFn: () => api<any>(`/api/admin/user/${selectedUserId}`),
+    enabled: Boolean(selectedUserId),
   });
 
-  const maxSeriesEvents = useMemo(() => {
-    const values = overviewQuery.data?.series.map((x) => Math.max(x.events, x.registrations, x.moderationFlags)) ?? [1];
-    return Math.max(...values, 1);
-  }, [overviewQuery.data?.series]);
+  const moderationQuery = useQuery({
+    queryKey: ["admin", "moderation"],
+    queryFn: () => adminApi("/api/admin/moderation/actions", moderationQueueResponseSchema),
+  });
 
-  async function toggleBlock(user: AdminUser, blocked: boolean) {
+  const flagsQuery = useQuery({
+    queryKey: ["admin", "feature-flags"],
+    queryFn: () => adminApi("/api/admin/feature-flags", featureFlagsResponseSchema),
+  });
+
+  async function runModerationAction(payload: {
+    targetType: "user" | "post" | "event" | "comment" | "report" | "flag";
+    targetId: string;
+    action:
+      | "mark_safe"
+      | "remove_content"
+      | "warn_user"
+      | "temporary_ban"
+      | "shadowban"
+      | "block_user"
+      | "unblock_user"
+      | "resolve_report";
+  }) {
     try {
-      await api("/api/admin/users/block", {
+      await api("/api/admin/moderation/actions", {
         method: "POST",
-        body: JSON.stringify({
-          userId: user.id,
-          blocked,
-          reason: blocked ? "Manual moderation by admin" : undefined,
-          days: blocked ? 30 : undefined,
-        }),
+        body: JSON.stringify({ ...payload, reason: moderationReason }),
       });
-      toast.success(blocked ? "Пользователь заблокирован" : "Пользователь разблокирован");
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+      toast.success("Action applied");
+      queryClient.invalidateQueries({ queryKey: ["admin", "moderation"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "overview"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка модерации");
+      toast.error(e instanceof Error ? e.message : "Action failed");
     }
   }
 
-  async function askAssistant() {
-    if (assistantQ.trim().length < 3) {
-      toast.error("Напиши вопрос для ассистента");
+  async function toggleFlag(id: string, key: string, enabled: boolean, rollout: number, description: string | null) {
+    try {
+      await api("/api/admin/feature-flags", {
+        method: "POST",
+        body: JSON.stringify({ id, key, enabled, rollout, scope: "global", description, payload: {} }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin", "feature-flags"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unable to update flag");
+    }
+  }
+
+  async function askAI() {
+    const q = aiQuestion.trim();
+    if (q.length < 3) {
+      toast.error("Напиши вопрос для AI");
       return;
     }
 
+    setAiMessages((prev) => [...prev, { role: "user", text: q }]);
+    setAiQuestion("");
+
     try {
-      const res = await api<{ summary: string; risks: string[]; actions: string[]; queries: string[] }>("/api/admin/assistant", {
-        method: "POST",
-        body: JSON.stringify({ question: assistantQ.trim() }),
-      });
-      setAssistantAnswer(res);
+      const data = await adminApi(
+        "/api/admin/ai/insights",
+        aiInsightsResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            question: q,
+            context: {
+              overview: overviewQuery.data?.overview,
+              funnels: funnelsQuery.data?.steps,
+              retention: retentionQuery.data?.cohorts,
+            },
+          }),
+        },
+      );
+
+      const text = [
+        data.summary,
+        `Anomalies: ${data.anomalies.join(" | ")}`,
+        `Causes: ${data.causes.join(" | ")}`,
+        `Actions: ${data.actions.join(" | ")}`,
+        `SQL: ${data.sql.join(" | ")}`,
+      ].join("\n\n");
+
+      setAiMessages((prev) => [...prev, { role: "assistant", text }]);
+      setSection("assistant");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "AI не ответил");
+      toast.error(e instanceof Error ? e.message : "AI request failed");
     }
   }
 
-  const k = overviewQuery.data?.kpis;
+  const maxFunnel = Math.max(...(funnelsQuery.data?.steps.map((x) => x.count) ?? [1]), 1);
 
   return (
-    <PageShell>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">Admin Control Center</h1>
-          <p className="text-xs text-muted">Продуктовые метрики, антифрод и модерация в одном месте</p>
-        </div>
-        <div className="rounded-2xl border border-[#52cc83]/40 bg-[#52cc83]/15 px-3 py-2 text-xs text-[#baf7d3]">LIVE</div>
-      </div>
+    <AdminShell
+      section={section}
+      onSectionChange={setSection}
+      dateRange={dateRange}
+      onDateRangeChange={setDateRange}
+      segment={segment}
+      onSegmentChange={setSegment}
+      onAskAI={askAI}
+      search={search}
+      onSearch={setSearch}
+    >
+      {section === "overview" ? (
+        <>
+          {Object.entries(overviewQuery.data?.overview ?? {}).map(([key, value], idx) => (
+            <motion.div key={key} className="col-span-12 sm:col-span-6 xl:col-span-3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.02, duration: 0.25 }}>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted">{kpiLabel(key)}</p>
+                  <p className="mt-2 text-2xl font-semibold">{typeof value === "number" ? value : String(value)}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
 
-      {overviewQuery.isLoading ? <Skeleton className="mb-3 h-48 w-full rounded-3xl" /> : null}
-
-      {k ? (
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          {[
-            ["Users", k.usersTotal],
-            ["DAU", k.dau],
-            ["WAU", k.wau],
-            ["MAU", k.mau],
-            ["Posts 7d", k.posts7d],
-            ["Comments 7d", k.comments7d],
-            ["Event joins 7d", k.eventJoins7d],
-            ["Open flags", k.openFlags],
-            ["Blocked", k.blockedUsers],
-          ].map(([label, value]) => (
-            <Card key={String(label)}>
-              <CardContent className="p-3">
-                <p className="text-xs text-muted">{label}</p>
-                <p className="text-xl font-semibold">{value}</p>
+          <div className="col-span-12">
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Health Notes</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-border bg-black/10 p-3 text-sm">Track DAU/MAU and registration completion daily.</div>
+                <div className="rounded-2xl border border-border bg-black/10 p-3 text-sm">Monitor reports + flags as leading risk signal.</div>
+                <div className="rounded-2xl border border-border bg-black/10 p-3 text-sm">Compare Daily Duo and Event joins to detect engagement shift.</div>
               </CardContent>
             </Card>
-          ))}
+          </div>
+        </>
+      ) : null}
+
+      {section === "funnels" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Core Funnel</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(funnelsQuery.data?.steps ?? []).map((step) => {
+                const width = Math.max(6, Math.round((step.count / maxFunnel) * 100));
+                return (
+                  <div key={step.step} className="rounded-2xl border border-border bg-black/10 p-3">
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span>{step.step}</span>
+                      <span className="font-semibold">{step.count}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/10">
+                      <div className="h-2 rounded-full bg-[linear-gradient(90deg,#52cc83,#6ec6ff)]" style={{ width: `${width}%` }} />
+                    </div>
+                    <div className="mt-2 flex gap-4 text-xs text-muted">
+                      <span>Drop: {Math.round(step.drop * 100)}%</span>
+                      <span>Conv from start: {Math.round(step.conversionFromStart * 100)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </div>
       ) : null}
 
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <p className="mb-2 text-sm font-semibold">Funnel (14d)</p>
-          <div className="space-y-2">
-            {(overviewQuery.data?.funnel ?? []).map((f) => {
-              const max = Math.max(...(overviewQuery.data?.funnel ?? [{ count: 1 }]).map((x) => x.count), 1);
-              const width = Math.max(6, Math.round((f.count / max) * 100));
-              return (
-                <div key={f.key}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-muted">{f.key}</span>
-                    <span>{f.count}</span>
+      {section === "retention" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Retention Cohorts</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 overflow-x-auto">
+              <div className="min-w-[760px]">
+                <div className="grid grid-cols-[160px_repeat(4,minmax(0,1fr))] gap-2 pb-2 text-xs text-muted">
+                  <p>Cohort week</p>
+                  <p>Users</p>
+                  <p>D1</p>
+                  <p>D7</p>
+                  <p>D30</p>
+                </div>
+                {(retentionQuery.data?.cohorts ?? []).map((row) => (
+                  <div key={row.cohortWeek} className="grid grid-cols-[160px_repeat(4,minmax(0,1fr))] gap-2 rounded-xl border border-border bg-black/10 p-2 text-sm">
+                    <p>{row.cohortWeek}</p>
+                    <p>{row.cohortSize}</p>
+                    <p>{Math.round(row.d1Rate * 100)}%</p>
+                    <p>{Math.round(row.d7Rate * 100)}%</p>
+                    <p>{Math.round(row.d30Rate * 100)}%</p>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                    <div className="h-2 rounded-full bg-[linear-gradient(90deg,#52cc83,#7ad6ff)]" style={{ width: `${width}%` }} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {section === "users" ? (
+        <>
+          <div className="col-span-12 xl:col-span-7">
+            <Card>
+              <CardHeader>
+                <CardTitle>Users Explorer</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Input value={searchUsers} onChange={(e) => setSearchUsers(e.target.value)} placeholder="Search by name or phone" />
+                <div className="space-y-2">
+                  {(usersQuery.data?.items ?? []).map((u) => (
+                    <button key={u.id} type="button" onClick={() => setSelectedUserId(u.id)} className="w-full rounded-xl border border-border bg-black/10 p-3 text-left hover:bg-black/20">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold">{u.name}</p>
+                          <p className="text-xs text-muted">{u.phone} · role {u.role}</p>
+                        </div>
+                        <div className="text-right text-xs">
+                          <p>flags {u.openFlags}</p>
+                          <p>reports {u.openReports}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="col-span-12 xl:col-span-5">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick moderation</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Textarea value={moderationReason} onChange={(e) => setModerationReason(e.target.value)} />
+                {selectedUserId ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="secondary" onClick={() => runModerationAction({ targetType: "user", targetId: selectedUserId, action: "warn_user" })}>Warn</Button>
+                    <Button variant="secondary" onClick={() => runModerationAction({ targetType: "user", targetId: selectedUserId, action: "shadowban" })}>Shadowban</Button>
+                    <Button variant="danger" onClick={() => runModerationAction({ targetType: "user", targetId: selectedUserId, action: "block_user" })}><UserRoundX className="mr-1 h-4 w-4" />Block</Button>
+                    <Button onClick={() => runModerationAction({ targetType: "user", targetId: selectedUserId, action: "unblock_user" })}><UserRoundCheck className="mr-1 h-4 w-4" />Unblock</Button>
                   </div>
-                </div>
-              );
-            })}
+                ) : (
+                  <p className="text-xs text-muted">Select a user to execute actions.</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </>
+      ) : null}
 
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <p className="mb-2 text-sm font-semibold">Activity Trend (14d)</p>
-          <div className="space-y-2">
-            {(overviewQuery.data?.series ?? []).map((d) => (
-              <div key={d.day} className="grid grid-cols-[74px_1fr] items-center gap-2 text-xs">
-                <span className="text-muted">{d.day.slice(5)}</span>
-                <div className="space-y-1">
-                  <div className="h-1.5 rounded-full bg-[#52cc83]" style={{ width: `${Math.max(4, (d.events / maxSeriesEvents) * 100)}%` }} />
-                  <div className="h-1.5 rounded-full bg-[#8eb8ff]" style={{ width: `${Math.max(4, (d.registrations / maxSeriesEvents) * 100)}%` }} />
-                  <div className="h-1.5 rounded-full bg-[#ff9b9b]" style={{ width: `${Math.max(4, (d.moderationFlags / maxSeriesEvents) * 100)}%` }} />
-                </div>
-              </div>
-            ))}
+      {section === "moderation" ? (
+        <>
+          <div className="col-span-12 xl:col-span-6">
+            <Card>
+              <CardHeader><CardTitle>Reports Inbox</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {(moderationQuery.data?.reports ?? []).map((r: any) => (
+                  <div key={r.id} className="rounded-xl border border-border bg-black/10 p-3">
+                    <p className="text-sm font-semibold">{r.content_type} · {r.reason}</p>
+                    <p className="text-xs text-muted">{new Date(r.created_at).toLocaleString("ru-RU")}</p>
+                    <div className="mt-2 flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => runModerationAction({ targetType: "report", targetId: r.id, action: "resolve_report" })}>Resolve</Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <p className="mb-2 text-sm font-semibold">Top Clicked Actions (30d)</p>
-          <div className="space-y-2 text-xs">
-            {(overviewQuery.data?.topButtons ?? []).map((b) => (
-              <div key={b.eventName} className="flex items-center justify-between rounded-xl border border-border bg-black/10 px-3 py-2">
-                <span className="text-muted">{b.eventName}</span>
-                <span className="font-semibold">{b.count}</span>
-              </div>
-            ))}
+          <div className="col-span-12 xl:col-span-6">
+            <Card>
+              <CardHeader><CardTitle>Auto Flags</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {(moderationQuery.data?.flags ?? []).map((f: any) => (
+                  <div key={f.id} className="rounded-xl border border-border bg-black/10 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">{f.content_type} · risk {f.risk_score}</p>
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                    </div>
+                    <p className="text-xs text-muted">{f.reason}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => runModerationAction({ targetType: "flag", targetId: f.id, action: "resolve_report" })}>Mark reviewed</Button>
+                      <Button size="sm" variant="danger" onClick={() => runModerationAction({ targetType: f.content_type, targetId: f.content_id, action: "remove_content" } as any)}>
+                        <Trash2 className="mr-1 h-4 w-4" />Remove content
+                      </Button>
+                      <Button size="sm" onClick={() => runModerationAction({ targetType: f.content_type, targetId: f.content_id, action: "mark_safe" } as any)}>
+                        Mark safe
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </>
+      ) : null}
 
-      <Card className="mb-3">
-        <CardContent className="space-y-2 p-4">
-          <p className="text-sm font-semibold">AI Admin Assistant</p>
-          <div className="flex gap-2">
-            <Input
-              value={assistantQ}
-              onChange={(e) => setAssistantQ(e.target.value)}
-              placeholder="Например: где провал в конверсии и какие 3 действия сделать сегодня?"
-            />
-            <Button onClick={askAssistant}><Sparkles className="mr-1 h-4 w-4" />Спросить</Button>
-          </div>
-          {assistantAnswer ? (
-            <div className="space-y-2 rounded-2xl border border-border bg-black/10 p-3 text-sm">
-              <p>{assistantAnswer.summary}</p>
-              <p className="text-xs font-semibold">Риски:</p>
-              {assistantAnswer.risks.map((x) => <p key={x} className="text-xs text-muted">• {x}</p>)}
-              <p className="text-xs font-semibold">Действия:</p>
-              {assistantAnswer.actions.map((x) => <p key={x} className="text-xs text-muted">• {x}</p>)}
-              <p className="text-xs font-semibold">Поисковые запросы:</p>
-              {assistantAnswer.queries.map((x) => <p key={x} className="text-xs text-muted">• {x}</p>)}
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card className="mb-3">
-        <CardContent className="space-y-3 p-4">
-          <p className="text-sm font-semibold">User Moderation</p>
-          <Input value={userQ} onChange={(e) => setUserQ(e.target.value)} placeholder="Поиск по имени или номеру" />
-          {usersQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
-          {(usersQuery.data?.items ?? []).map((u) => (
-            <div key={u.id} className="rounded-2xl border border-border bg-black/10 p-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold">{u.name}</p>
-                  <p className="text-xs text-muted">{u.phone} · {u.role}</p>
-                  <p className="text-xs text-muted">open flags: {u.open_flags}</p>
-                </div>
-                <div className="flex gap-2">
-                  {!u.is_blocked ? (
-                    <Button variant="secondary" size="sm" onClick={() => toggleBlock(u, true)}>
-                      <ShieldAlert className="mr-1 h-4 w-4" /> Block
+      {section === "flags" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Feature Flags / Remote Config</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {(flagsQuery.data?.flags ?? []).map((f) => (
+                <div key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-black/10 p-3">
+                  <div>
+                    <p className="text-sm font-semibold">{f.key}</p>
+                    <p className="text-xs text-muted">{f.description ?? "No description"}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted">rollout {f.rollout}%</span>
+                    <Button size="sm" variant={f.enabled ? "secondary" : "default"} onClick={() => toggleFlag(f.id, f.key, !f.enabled, f.rollout, f.description)}>
+                      {f.enabled ? "Disable" : "Enable"}
                     </Button>
-                  ) : (
-                    <Button size="sm" onClick={() => toggleBlock(u, false)}>Unblock</Button>
-                  )}
+                  </div>
                 </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {section === "assistant" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Admin Assistant</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-2xl border border-border bg-black/10 p-3">
+                {aiMessages.map((m, idx) => (
+                  <motion.div key={`${m.role}-${idx}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`rounded-xl border p-3 text-sm ${m.role === "assistant" ? "border-cyan/25 bg-[#132441]/55" : "border-border bg-black/20"}`}>
+                    <p className="mb-1 text-xs text-muted">{m.role === "assistant" ? "AI" : "You"}</p>
+                    <p className="whitespace-pre-wrap">{m.text}</p>
+                  </motion.div>
+                ))}
+                {!aiMessages.length ? <p className="text-xs text-muted">Задай вопрос про метрики, аномалии, SQL или модерацию.</p> : null}
               </div>
-              {u.is_blocked ? (
-                <p className="text-xs text-[#ffb0b0]">blocked: {u.blocked_reason || "no reason"}</p>
-              ) : null}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
 
-      <Card className="mb-3">
-        <CardContent className="space-y-3 p-4">
-          <p className="text-sm font-semibold">Content Search (messages/comments)</p>
-          <div className="flex gap-2">
-            <Input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Поиск: наркот, террор, взрыв..." />
-            <Button variant="secondary"><Search className="h-4 w-4" /></Button>
+              <div className="flex gap-2">
+                <Input value={aiQuestion} onChange={(e) => setAiQuestion(e.target.value)} placeholder="Почему упала регистрация на этой неделе и что сделать?" />
+                <Button onClick={askAI}><Sparkles className="mr-1 h-4 w-4" />Ask</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      <Dialog open={Boolean(selectedUserId)} onOpenChange={(v) => !v && setSelectedUserId(null)}>
+        <DialogHeader>
+          <DialogTitle>User Explorer</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <p className="text-xs text-muted">{selectedUserId}</p>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
+              <CardContent className="text-xs">
+                <pre className="whitespace-pre-wrap break-all">{JSON.stringify(userDetailsQuery.data?.user ?? {}, null, 2)}</pre>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Moderation history</CardTitle></CardHeader>
+              <CardContent className="text-xs">
+                <pre className="whitespace-pre-wrap break-all">{JSON.stringify(userDetailsQuery.data?.moderation ?? {}, null, 2)}</pre>
+              </CardContent>
+            </Card>
           </div>
-
-          {contentQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
-
-          {(contentQuery.data?.messages ?? []).length ? <p className="text-xs font-semibold">Messages</p> : null}
-          {(contentQuery.data?.messages ?? []).map((m) => (
-            <div key={m.id} className="rounded-2xl border border-border bg-black/10 p-3 text-xs">
-              <p className="text-muted">from {m.from_user_id} to {m.to_user_id ?? "-"}</p>
-              <p>{m.content}</p>
-            </div>
-          ))}
-
-          {(contentQuery.data?.comments ?? []).length ? <p className="text-xs font-semibold">Comments</p> : null}
-          {(contentQuery.data?.comments ?? []).map((c) => (
-            <div key={c.id} className="rounded-2xl border border-border bg-black/10 p-3 text-xs">
-              <p className="text-muted">user {c.user_id} · post {c.post_id}</p>
-              <p>{c.content}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </PageShell>
+          <Card>
+            <CardHeader><CardTitle>Activity</CardTitle></CardHeader>
+            <CardContent className="text-xs">
+              <pre className="whitespace-pre-wrap break-all">{JSON.stringify(userDetailsQuery.data?.activity ?? {}, null, 2)}</pre>
+            </CardContent>
+          </Card>
+          <div className="flex gap-2">
+            <Button variant="danger" onClick={() => selectedUserId && runModerationAction({ targetType: "user", targetId: selectedUserId, action: "block_user" })}><Shield className="mr-1 h-4 w-4" />Block</Button>
+            <Button onClick={() => selectedUserId && runModerationAction({ targetType: "user", targetId: selectedUserId, action: "unblock_user" })}>Unblock</Button>
+          </div>
+        </div>
+      </Dialog>
+    </AdminShell>
   );
 }

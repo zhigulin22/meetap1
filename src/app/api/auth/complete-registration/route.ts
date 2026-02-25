@@ -50,11 +50,19 @@ export async function POST(req: Request) {
 
   const { data: existingRaw } = await supabaseAdmin
     .from("users")
-    .select("id, name")
+    .select("id,name,is_blocked,blocked_until,deleted_at")
     .eq("phone", resolvedPhone)
     .maybeSingle();
 
-  const existing = existingRaw as { id: string; name: string } | null;
+  const existing = existingRaw as { id: string; name: string; is_blocked?: boolean; blocked_until?: string | null; deleted_at?: string | null } | null;
+
+  if (existing?.id) {
+    const blockedUntil = existing.blocked_until ? new Date(existing.blocked_until).getTime() : null;
+    const blocked = Boolean(existing.is_blocked) && (!blockedUntil || blockedUntil > Date.now());
+    if (blocked || existing.deleted_at) {
+      return fail("Аккаунт ограничен", 403);
+    }
+  }
   let userId = existing?.id;
 
   if (!userId) {

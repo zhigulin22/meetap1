@@ -17,7 +17,7 @@ export function Dialog({
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange(false)}>
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 max-h-[88vh] w-full rounded-t-[28px] border border-border bg-surface p-4 shadow-[0_-20px_64px_rgba(0,0,0,0.45)] md:inset-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl",
+          "fixed inset-x-0 bottom-0 max-h-[90vh] w-full rounded-t-[28px] border border-border bg-surface p-4 shadow-[0_-20px_64px_rgba(0,0,0,0.45)] md:inset-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-2xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl",
         )}
         onClick={(e) => e.stopPropagation()}
       >

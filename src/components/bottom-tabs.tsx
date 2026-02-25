@@ -15,8 +15,10 @@ const tabs = [
 export function BottomTabs() {
   const pathname = usePathname();
 
+  if (pathname.startsWith("/admin")) return null;
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-3 flex w-[calc(100%-24px)] max-w-md items-center justify-around rounded-2xl border border-white/15 bg-[#09102fcc] px-2 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.42)] backdrop-blur-2xl xl:max-w-lg">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-3 flex w-[calc(100%-24px)] max-w-md items-center justify-around rounded-2xl border border-white/15 bg-[#0a1325d9] px-2 py-2 shadow-soft backdrop-blur-2xl lg:max-w-xl xl:max-w-2xl">
       {tabs.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         const Icon = tab.icon;

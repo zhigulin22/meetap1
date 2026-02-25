@@ -4,115 +4,95 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
-import {
-  Moon,
-  Sun,
-  UserRound,
-  BriefcaseBusiness,
-  GraduationCap,
-  Sparkles,
-  ChevronRight,
-  Bell,
-  Shield,
-  Languages,
-  HelpCircle,
-  Brain,
-  Camera,
-  Lock,
-  Smartphone,
-} from "lucide-react";
+import { Brain, Camera, Moon, Sun, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api-client";
 
-type PsychProfile = {
-  style?: string;
-  traits?: {
-    openness: number;
-    conscientiousness: number;
-    extraversion: number;
-    agreeableness: number;
-    neuroticism: number;
-  };
-  recommendations?: string[];
-};
+const profileSchema = z.object({
+  name: z.string().min(2).max(50),
+  country: z.string().max(80).optional(),
+  bio: z.string().max(350).optional(),
+  university: z.string().max(120).optional(),
+  work: z.string().max(120).optional(),
+  hobbies: z.string().optional(),
+  interests: z.string().refine((v) => v.split(",").map((x) => x.trim()).filter(Boolean).length >= 3, "Минимум 3 интереса"),
+  facts: z.string().refine((v) => v.split("\n").map((x) => x.trim()).filter(Boolean).length >= 3, "Нужно 3 факта"),
+  intent: z.string().max(120).optional(),
+  mode: z.enum(["dating", "networking", "both"]),
+  meetupFrequency: z.enum(["low", "medium", "high"]),
+  profileVisibility: z.enum(["public", "members", "connections"]),
+  allowMessagesFrom: z.enum(["everyone", "verified", "connections"]),
+  showPhone: z.boolean(),
+  hideLastSeen: z.boolean(),
+  blockedUsers: z.string().optional(),
+  notifyLikes: z.boolean(),
+  notifyComments: z.boolean(),
+  notifyEvents: z.boolean(),
+  notifyConnections: z.boolean(),
+  notifyModeration: z.boolean(),
+  notifyDigest: z.boolean(),
+});
 
-type PanelKey = "account" | "privacy" | "notifications" | "language" | "help" | "security";
-
-function SettingsRow({
-  icon,
-  title,
-  subtitle,
-  active,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all ${
-        active
-          ? "border-[#52cc83]/45 bg-[#52cc83]/12"
-          : "border-border/70 bg-black/10 hover:border-white/20 hover:bg-white/5"
-      }`}
-    >
-      <div className="rounded-xl border border-white/15 bg-black/25 p-2 text-muted">{icon}</div>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted">{subtitle}</p>
-      </div>
-      <ChevronRight className="h-4 w-4 text-muted" />
-    </button>
-  );
-}
+type FormValues = z.infer<typeof profileSchema>;
 
 export default function MyProfilePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [tab, setTab] = useState("profile");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [panel, setPanel] = useState<PanelKey>("account");
-
-  const [form, setForm] = useState({
-    university: "",
-    work: "",
-    hobbies: "",
-    interests: "",
-    facts: "",
-    avatar_url: "",
-  });
 
   const { data, refetch } = useQuery({
     queryKey: ["me"],
-    queryFn: () => api<{ profile: any }>("/api/profile/me"),
+    queryFn: () => api<{ profile: any; activity: { posts: number; eventJoins: number; connections: number; reactions: number } }>("/api/profile/me"),
   });
 
   const sessionsQuery = useQuery({
     queryKey: ["sessions"],
     queryFn: () =>
       api<{
-        items: Array<{
-          id: string;
-          device_label: string;
-          created_at: string;
-          last_active_at: string;
-          revoked_at: string | null;
-        }>;
+        items: Array<{ id: string; device_label: string; created_at: string; last_active_at: string; revoked_at: string | null }>;
       }>("/api/auth/sessions"),
+  });
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: "",
+      country: "",
+      bio: "",
+      university: "",
+      work: "",
+      hobbies: "",
+      interests: "",
+      facts: "",
+      intent: "",
+      mode: "both",
+      meetupFrequency: "medium",
+      profileVisibility: "members",
+      allowMessagesFrom: "verified",
+      showPhone: false,
+      hideLastSeen: false,
+      blockedUsers: "",
+      notifyLikes: true,
+      notifyComments: true,
+      notifyEvents: true,
+      notifyConnections: true,
+      notifyModeration: true,
+      notifyDigest: true,
+    },
   });
 
   useEffect(() => {
@@ -122,106 +102,100 @@ export default function MyProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!data?.profile) return;
-    const p = data.profile;
-    setForm({
+    const p = data?.profile;
+    if (!p) return;
+
+    setAvatarUrl(p.avatar_url ?? "");
+
+    form.reset({
+      name: p.name ?? "",
+      country: p.country ?? "",
+      bio: p.bio ?? "",
       university: p.university ?? "",
       work: p.work ?? "",
       hobbies: (p.hobbies ?? []).join(", "),
       interests: (p.interests ?? []).join(", "),
       facts: (p.facts ?? []).join("\n"),
-      avatar_url: p.avatar_url ?? "",
+      intent: p.preferences?.intent ?? "",
+      mode: p.preferences?.mode ?? "both",
+      meetupFrequency: p.preferences?.meetupFrequency ?? "medium",
+      profileVisibility: p.privacy_settings?.profileVisibility ?? "members",
+      allowMessagesFrom: p.privacy_settings?.allowMessagesFrom ?? "verified",
+      showPhone: p.privacy_settings?.showPhone ?? false,
+      hideLastSeen: p.privacy_settings?.hideLastSeen ?? false,
+      blockedUsers: (p.privacy_settings?.blockedUsers ?? []).join("\n"),
+      notifyLikes: p.notification_settings?.likes ?? true,
+      notifyComments: p.notification_settings?.comments ?? true,
+      notifyEvents: p.notification_settings?.events ?? true,
+      notifyConnections: p.notification_settings?.connections ?? true,
+      notifyModeration: p.notification_settings?.moderation ?? true,
+      notifyDigest: p.notification_settings?.weeklyDigest ?? true,
     });
-  }, [data]);
-
-  const psychProfile = useMemo(() => (data?.profile?.personality_profile ?? null) as PsychProfile | null, [data]);
+  }, [data, form]);
 
   async function uploadAvatar(file: File) {
     try {
       setUploadingAvatar(true);
       const fd = new FormData();
       fd.append("avatar", file);
-      const res = await api<{ url: string }>("/api/profile/avatar", {
-        method: "POST",
-        body: fd,
-      });
-      setForm((s) => ({ ...s, avatar_url: res.url }));
-      await refetch();
-      toast.success("Фото профиля обновлено");
+      const res = await api<{ url: string }>("/api/profile/avatar", { method: "POST", body: fd });
+      setAvatarUrl(res.url);
+      toast.success("Фото обновлено");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось загрузить фото");
+      toast.error(e instanceof Error ? e.message : "Ошибка загрузки фото");
     } finally {
       setUploadingAvatar(false);
     }
   }
 
-  async function saveProfile() {
-    const interests = form.interests
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-    const facts = form.facts
-      .split("\n")
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-
-    if (interests.length < 3) {
-      toast.error("Нужно минимум 3 интереса");
-      return;
-    }
-
-    if (facts.length < 3) {
-      toast.error("Добавь 3 факта о себе");
-      return;
-    }
-
+  async function save(values: FormValues) {
     try {
+      const interests = (values.interests ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+      const facts = (values.facts ?? "").split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 3);
+      const hobbies = (values.hobbies ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+
       await api("/api/profile/me", {
         method: "PATCH",
         body: JSON.stringify({
-          university: form.university,
-          work: form.work,
-          hobbies: form.hobbies
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
+          name: values.name,
+          country: values.country,
+          bio: values.bio,
+          university: values.university,
+          work: values.work,
+          hobbies,
           interests,
           facts,
-          avatar_url: form.avatar_url || undefined,
+          avatar_url: avatarUrl || undefined,
+          preferences: {
+            mode: values.mode,
+            intent: values.intent,
+            meetupFrequency: values.meetupFrequency,
+          },
+          privacy_settings: {
+            profileVisibility: values.profileVisibility,
+            allowMessagesFrom: values.allowMessagesFrom,
+            showPhone: values.showPhone,
+            hideLastSeen: values.hideLastSeen,
+            blockedUsers: (values.blockedUsers ?? "")
+              .split("\n")
+              .map((x) => x.trim())
+              .filter(Boolean),
+          },
+          notification_settings: {
+            likes: values.notifyLikes,
+            comments: values.notifyComments,
+            events: values.notifyEvents,
+            connections: values.notifyConnections,
+            moderation: values.notifyModeration,
+            weeklyDigest: values.notifyDigest,
+          },
         }),
       });
+
       await refetch();
       toast.success("Профиль сохранён");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
-    }
-  }
-
-  async function savePassword() {
-    if (password.length < 8) {
-      toast.error("Пароль должен быть минимум 8 символов");
-      return;
-    }
-    if (password !== passwordConfirm) {
-      toast.error("Пароли не совпадают");
-      return;
-    }
-
-    try {
-      setSavingPassword(true);
-      await api("/api/auth/set-password", {
-        method: "POST",
-        body: JSON.stringify({ password }),
-      });
-      setPassword("");
-      setPasswordConfirm("");
-      await refetch();
-      toast.success("Пароль обновлён");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка установки пароля");
-    } finally {
-      setSavingPassword(false);
     }
   }
 
@@ -236,6 +210,12 @@ export default function MyProfilePage() {
     router.push("/login");
   }
 
+  async function deleteAccount() {
+    if (!confirm("Удалить аккаунт? Действие необратимо.")) return;
+    await api("/api/profile/account", { method: "DELETE" });
+    router.push("/register");
+  }
+
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
@@ -245,33 +225,44 @@ export default function MyProfilePage() {
 
   const profile = data?.profile;
 
+  const completionScore = useMemo(() => {
+    const p = data?.profile;
+    if (!p) return 0;
+    let score = 0;
+    if (p.avatar_url) score += 20;
+    if (p.bio) score += 20;
+    if ((p.interests ?? []).length >= 3) score += 20;
+    if ((p.facts ?? []).length >= 3) score += 20;
+    if (p.country) score += 20;
+    return score;
+  }, [data]);
+
   return (
     <PageShell>
       <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Профиль и настройки</h1>
+        <h1 className="text-2xl font-semibold">Profile Control</h1>
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
       </div>
 
-      <Card className="mb-3 overflow-hidden border-white/15">
-        <div className="h-24 bg-[linear-gradient(120deg,rgba(4,12,38,0.95),rgba(82,204,131,0.33),rgba(58,104,255,0.48))]" />
+      <Card className="mb-3 overflow-hidden">
+        <div className="h-24 bg-[linear-gradient(120deg,rgba(9,20,46,0.95),rgba(82,204,131,0.35),rgba(69,120,223,0.5))]" />
         <CardContent className="-mt-10 p-4">
           <div className="flex items-end gap-3">
-            <button onClick={() => fileRef.current?.click()} className="relative" aria-label="Загрузить фото профиля">
+            <button type="button" onClick={() => fileRef.current?.click()} className="relative">
               <Image
-                src={form.avatar_url || "https://placehold.co/120"}
-                alt={profile?.name ?? "avatar"}
+                src={avatarUrl || "https://placehold.co/120"}
+                alt="avatar"
                 width={120}
                 height={120}
-                className="h-20 w-20 rounded-3xl border-2 border-white/70 object-cover shadow-xl"
+                className="h-20 w-20 rounded-3xl border-2 border-white/70 object-cover"
                 unoptimized
               />
-              <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/60 p-1.5">
+              <span className="absolute -bottom-1 -right-1 rounded-full border border-white/25 bg-black/60 p-1.5">
                 <Camera className="h-3.5 w-3.5" />
               </span>
             </button>
-
             <input
               ref={fileRef}
               type="file"
@@ -282,25 +273,20 @@ export default function MyProfilePage() {
                 if (file) uploadAvatar(file);
               }}
             />
-
-            <div className="pb-1">
+            <div>
               <p className="text-lg font-semibold">{profile?.name ?? "Пользователь"}</p>
-              <p className="text-xs text-muted">{profile?.phone ?? "Номер не указан"}</p>
+              <p className="text-xs text-muted">{profile?.phone}</p>
               <p className="text-xs text-muted">Level {profile?.level ?? 1} · XP {profile?.xp ?? 0}</p>
-              <p className="mt-1 text-xs text-action">
-                {uploadingAvatar ? "Загружаем фото..." : "Нажми на фото, чтобы выбрать из галереи"}
-              </p>
+              <p className="text-xs text-action">{uploadingAvatar ? "Загрузка фото..." : "Нажми на фото, чтобы обновить"}</p>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Link href="/profile/psych-test" className="block">
-              <Button variant="secondary" className="w-full">
-                <Brain className="mr-1 h-4 w-4" />
-                Психотест
-              </Button>
-            </Link>
-            <Button variant="secondary" onClick={logout}>Выйти</Button>
+          <div className="mt-3 rounded-xl border border-border bg-black/10 p-2">
+            <p className="text-xs text-muted">Profile completeness</p>
+            <div className="mt-1 h-2 rounded-full bg-white/10">
+              <div className="h-2 rounded-full bg-[linear-gradient(90deg,#52cc83,#6ec6ff)]" style={{ width: `${completionScore}%` }} />
+            </div>
+            <p className="mt-1 text-xs">{completionScore}%</p>
           </div>
 
           {profile?.role === "admin" ? (
@@ -313,221 +299,129 @@ export default function MyProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className="mb-3 border-white/15">
-        <CardContent className="space-y-2 p-3">
-          <SettingsRow
-            icon={<UserRound className="h-4 w-4" />}
-            title="Аккаунт"
-            subtitle="Имя, био, интересы, фото"
-            active={panel === "account"}
-            onClick={() => setPanel("account")}
-          />
-          <SettingsRow
-            icon={<Shield className="h-4 w-4" />}
-            title="Конфиденциальность"
-            subtitle="Видимость и границы контактов"
-            active={panel === "privacy"}
-            onClick={() => setPanel("privacy")}
-          />
-          <SettingsRow
-            icon={<Bell className="h-4 w-4" />}
-            title="Уведомления"
-            subtitle="Комментарии, события, коннекты"
-            active={panel === "notifications"}
-            onClick={() => setPanel("notifications")}
-          />
-          <SettingsRow
-            icon={<Lock className="h-4 w-4" />}
-            title="Безопасность"
-            subtitle="Пароль и активные устройства"
-            active={panel === "security"}
-            onClick={() => setPanel("security")}
-          />
-          <SettingsRow
-            icon={<Languages className="h-4 w-4" />}
-            title="Язык"
-            subtitle="Локализация интерфейса"
-            active={panel === "language"}
-            onClick={() => setPanel("language")}
-          />
-          <SettingsRow
-            icon={<HelpCircle className="h-4 w-4" />}
-            title="Помощь"
-            subtitle="Поддержка и правила"
-            active={panel === "help"}
-            onClick={() => setPanel("help")}
-          />
-        </CardContent>
-      </Card>
+      <form onSubmit={form.handleSubmit(save)} className="space-y-3">
+        <Tabs value={tab} onValueChange={setTab} className="space-y-3">
+          <TabsList className="w-full overflow-x-auto">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="prefs">Preferences</TabsTrigger>
+            <TabsTrigger value="privacy">Privacy</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="notify">Notifications</TabsTrigger>
+            <TabsTrigger value="account">Account</TabsTrigger>
+          </TabsList>
 
-      {panel === "account" ? (
-        <Card className="mb-3 border-white/15">
-          <CardContent className="space-y-3 p-4">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label className="flex items-center gap-1 text-xs text-muted">
-                  <GraduationCap className="h-3.5 w-3.5" /> ВУЗ
-                </label>
-                <Input
-                  value={form.university}
-                  onChange={(e) => setForm((s) => ({ ...s, university: e.target.value }))}
-                  placeholder="Университет"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="flex items-center gap-1 text-xs text-muted">
-                  <BriefcaseBusiness className="h-3.5 w-3.5" /> Работа
-                </label>
-                <Input
-                  value={form.work}
-                  onChange={(e) => setForm((s) => ({ ...s, work: e.target.value }))}
-                  placeholder="Компания / роль"
-                />
-              </div>
-            </div>
+          <TabsContent value="profile">
+            <Card>
+              <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <Input placeholder="Имя" {...form.register("name")} />
+                <Input placeholder="Страна" {...form.register("country")} />
+                <Textarea placeholder="Короткое био" {...form.register("bio")} />
+                <Input placeholder="Университет" {...form.register("university")} />
+                <Input placeholder="Работа" {...form.register("work")} />
+                <Input placeholder="Хобби (через запятую)" {...form.register("hobbies")} />
+                <Textarea placeholder="Интересы (минимум 3, через запятую). Это важно для точного подбора людей" {...form.register("interests")} />
+                <Textarea placeholder="3 факта о себе (каждый с новой строки). Это повышает ответы на первые сообщения" {...form.register("facts")} />
+                {form.formState.errors.interests ? <p className="text-xs text-danger">{form.formState.errors.interests.message}</p> : null}
+                {form.formState.errors.facts ? <p className="text-xs text-danger">{form.formState.errors.facts.message}</p> : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <div className="space-y-1">
-              <label className="text-xs text-muted">Хобби</label>
-              <Input
-                value={form.hobbies}
-                onChange={(e) => setForm((s) => ({ ...s, hobbies: e.target.value }))}
-                placeholder="кофе, бег, кино"
-              />
-            </div>
+          <TabsContent value="prefs">
+            <Card>
+              <CardHeader><CardTitle>Dating / Networking Preferences</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <Input placeholder="Что ищешь сейчас" {...form.register("intent")} />
+                <select {...form.register("mode")} className="h-11 w-full rounded-xl border border-border bg-surface2/85 px-3 text-sm">
+                  <option value="both">Dating + Networking</option>
+                  <option value="dating">Dating</option>
+                  <option value="networking">Networking</option>
+                </select>
+                <select {...form.register("meetupFrequency")} className="h-11 w-full rounded-xl border border-border bg-surface2/85 px-3 text-sm">
+                  <option value="low">Редко</option>
+                  <option value="medium">Средне</option>
+                  <option value="high">Часто</option>
+                </select>
+                <p className="text-xs text-muted">Эти настройки напрямую влияют на релевантность рекомендаций людей и ивентов.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <div className="space-y-1">
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <Sparkles className="h-3.5 w-3.5" /> Интересы (минимум 3)
-              </label>
-              <Textarea
-                value={form.interests}
-                onChange={(e) => setForm((s) => ({ ...s, interests: e.target.value }))}
-                placeholder="дизайн, маркетинг, музыка"
-              />
-            </div>
+          <TabsContent value="privacy">
+            <Card>
+              <CardHeader><CardTitle>Privacy & Safety</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...form.register("showPhone")} /> Показать телефон</label>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...form.register("hideLastSeen")} /> Скрыть последний визит</label>
+                <select {...form.register("profileVisibility")} className="h-11 w-full rounded-xl border border-border bg-surface2/85 px-3 text-sm">
+                  <option value="public">Публичный</option>
+                  <option value="members">Только участники</option>
+                  <option value="connections">Только connections</option>
+                </select>
+                <select {...form.register("allowMessagesFrom")} className="h-11 w-full rounded-xl border border-border bg-surface2/85 px-3 text-sm">
+                  <option value="everyone">Сообщения от всех</option>
+                  <option value="verified">Только verified</option>
+                  <option value="connections">Только connections</option>
+                </select>
+                <Textarea placeholder="Block list (uuid по одному в строке)" {...form.register("blockedUsers")} />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <div className="space-y-1">
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <UserRound className="h-3.5 w-3.5" /> 3 факта о себе
-              </label>
-              <Textarea
-                value={form.facts}
-                onChange={(e) => setForm((s) => ({ ...s, facts: e.target.value }))}
-                placeholder={"Люблю офлайн встречи\nХожу на концерты\nРазвиваю pet-проекты"}
-              />
-            </div>
+          <TabsContent value="activity">
+            <Card>
+              <CardHeader><CardTitle>Activity</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-sm"><p className="text-xs text-muted">Posts</p><p className="text-xl font-semibold">{data?.activity.posts ?? 0}</p></div>
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-sm"><p className="text-xs text-muted">Event joins</p><p className="text-xl font-semibold">{data?.activity.eventJoins ?? 0}</p></div>
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-sm"><p className="text-xs text-muted">Connections</p><p className="text-xl font-semibold">{data?.activity.connections ?? 0}</p></div>
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-sm"><p className="text-xs text-muted">Reactions</p><p className="text-xl font-semibold">{data?.activity.reactions ?? 0}</p></div>
+                <Link href="/feed" className="col-span-2"><Button variant="secondary" className="w-full">Открыть ленту</Button></Link>
+                <Link href="/events" className="col-span-2"><Button variant="secondary" className="w-full">Открыть мероприятия</Button></Link>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <Button className="w-full" onClick={saveProfile}>Сохранить профиль</Button>
-          </CardContent>
-        </Card>
-      ) : null}
+          <TabsContent value="notify">
+            <Card>
+              <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <label className="flex items-center gap-2"><input type="checkbox" {...form.register("notifyLikes")} /> Лайки</label>
+                <label className="flex items-center gap-2"><input type="checkbox" {...form.register("notifyComments")} /> Комментарии</label>
+                <label className="flex items-center gap-2"><input type="checkbox" {...form.register("notifyEvents")} /> Ивенты</label>
+                <label className="flex items-center gap-2"><input type="checkbox" {...form.register("notifyConnections")} /> Коннекты</label>
+                <label className="flex items-center gap-2"><input type="checkbox" {...form.register("notifyModeration")} /> Безопасность</label>
+                <label className="flex items-center gap-2"><input type="checkbox" {...form.register("notifyDigest")} /> Weekly digest</label>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-      {panel === "privacy" ? (
-        <Card className="mb-3 border-white/15">
-          <CardContent className="space-y-2 p-4 text-sm">
-            <p className="font-medium">Режим приватности</p>
-            <p className="text-muted">В MVP доступна базовая логика: профиль виден участникам, если у вас есть активность в ленте.</p>
-            <p className="text-muted">Скоро: скрытие последнего визита, ограничения по аудитории и персональные списки допуска.</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {panel === "notifications" ? (
-        <Card className="mb-3 border-white/15">
-          <CardContent className="space-y-2 p-4 text-sm">
-            <p className="font-medium">Уведомления</p>
-            <p className="text-muted">Системные тосты активны для комментариев, лайков, подключений и участия в ивентах.</p>
-            <p className="text-muted">Дальше добавим granular переключатели и Telegram-напоминания.</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {panel === "language" ? (
-        <Card className="mb-3 border-white/15">
-          <CardContent className="space-y-2 p-4 text-sm">
-            <p className="font-medium">Язык</p>
-            <p className="text-muted">Сейчас основной язык интерфейса: русский.</p>
-            <p className="text-muted">Поддержка EN будет вынесена в отдельный переключатель.</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {panel === "help" ? (
-        <Card className="mb-3 border-white/15">
-          <CardContent className="space-y-2 p-4 text-sm">
-            <p className="font-medium">Помощь</p>
-            <p className="text-muted">Если что-то не работает, напиши в поддержку и приложи скрин + шаги воспроизведения.</p>
-            <p className="text-muted">Мы используем эти отчеты для приоритезации фиксов.</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {panel === "security" ? (
-        <>
-          <Card className="mb-3 border-white/15">
-            <CardContent className="space-y-3 p-4">
-              <p className="text-sm font-semibold">Быстрый вход по номеру и паролю</p>
-              <p className="text-xs text-muted">
-                {profile?.has_password
-                  ? "Пароль уже установлен. Можно обновить его здесь."
-                  : "Установи пароль один раз и входи по номеру + паролю с любого устройства."}
-              </p>
-
-              <Input
-                type="password"
-                placeholder="Новый пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <Input
-                type="password"
-                placeholder="Повтори пароль"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-              />
-
-              <Button className="w-full" onClick={savePassword} disabled={savingPassword}>
-                {savingPassword ? "Сохраняем..." : "Сохранить пароль"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="mb-3 border-white/15">
-            <CardContent className="space-y-3 p-4">
-              <div className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-action" />
-                <p className="text-sm font-semibold">Активные устройства</p>
-              </div>
-              {(sessionsQuery.data?.items ?? []).map((s) => (
-                <div key={s.id} className="rounded-2xl border border-border bg-black/10 p-3">
-                  <p className="text-sm">{s.device_label}</p>
-                  <p className="text-xs text-muted">Последняя активность: {new Date(s.last_active_at).toLocaleString("ru-RU")}</p>
+          <TabsContent value="account">
+            <Card>
+              <CardHeader><CardTitle>Account</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-xs">
+                  {(sessionsQuery.data?.items ?? []).map((s) => (
+                    <p key={s.id}>{s.device_label} · {new Date(s.last_active_at).toLocaleString("ru-RU")}</p>
+                  ))}
                 </div>
-              ))}
-              {!sessionsQuery.data?.items?.length ? <p className="text-xs text-muted">Сессий пока нет</p> : null}
-              <Button variant="secondary" className="w-full" onClick={revokeAllSessions}>
-                Закрыть все сессии
-              </Button>
-            </CardContent>
-          </Card>
-        </>
-      ) : null}
+                <Button variant="secondary" type="button" onClick={revokeAllSessions} className="w-full">Закрыть все сессии</Button>
+                <Button variant="secondary" type="button" onClick={logout} className="w-full">Выйти</Button>
+                <Button variant="danger" type="button" onClick={deleteAccount} className="w-full"><Trash2 className="mr-1 h-4 w-4" />Удалить аккаунт</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-      {psychProfile ? (
-        <Card className="mb-3 border-white/15">
-          <CardContent className="space-y-2 p-4">
-            <p className="text-sm font-semibold">Психопрофиль: {psychProfile.style ?? "Не определен"}</p>
-            {psychProfile.traits ? (
-              <p className="text-xs text-muted">
-                O {psychProfile.traits.openness}% · C {psychProfile.traits.conscientiousness}% · E {psychProfile.traits.extraversion}% · A {psychProfile.traits.agreeableness}% · N {psychProfile.traits.neuroticism}%
-              </p>
-            ) : null}
-            {psychProfile.recommendations?.map((x) => (
-              <p key={x} className="text-xs text-muted">• {x}</p>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
+        <Button type="submit" className="w-full">Сохранить изменения</Button>
+      </form>
+
+      <div className="mt-3">
+        <Link href="/profile/psych-test" className="block">
+          <Button variant="secondary" className="w-full"><Brain className="mr-1 h-4 w-4" />Психотест</Button>
+        </Link>
+      </div>
     </PageShell>
   );
 }

@@ -32,12 +32,19 @@ export async function POST(req: Request) {
 
   const { data: user } = await supabaseAdmin
     .from("users")
-    .select("id,password_hash")
+    .select("id,password_hash,is_blocked,blocked_until,deleted_at")
     .eq("phone", phone)
     .maybeSingle();
 
   if (!user?.id || !user.password_hash) {
     return fail("Пользователь не найден или пароль не настроен", 404);
+  }
+
+  const blockedUntil = user.blocked_until ? new Date(user.blocked_until).getTime() : null;
+  const blocked = Boolean(user.is_blocked) && (!blockedUntil || blockedUntil > Date.now());
+
+  if (blocked || user.deleted_at) {
+    return fail("Аккаунт ограничен", 403);
   }
 
   const valid = verifyPassword(password, user.password_hash);

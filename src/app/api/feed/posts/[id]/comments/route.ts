@@ -2,7 +2,13 @@ import { fail, ok } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
-import { createRiskFlag, detectRiskText, trackEvent } from "@/server/analytics";
+import {
+  applyContentModeration,
+  createContentFlag,
+  createRiskFlag,
+  detectRiskText,
+  trackEvent,
+} from "@/server/analytics";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -10,8 +16,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const { data: comments, error } = await supabaseAdmin
       .from("comments")
-      .select("id,post_id,user_id,content,created_at")
+      .select("id,post_id,user_id,content,created_at,moderation_status")
       .eq("post_id", params.id)
+      .neq("moderation_status", "removed")
       .order("created_at", { ascending: true })
       .limit(200);
 
@@ -56,11 +63,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return fail("Слишком часто. Попробуй через минуту", 429);
     }
 
-    const { error } = await supabaseAdmin.from("comments").insert({
-      post_id: params.id,
-      user_id: userId,
-      content,
-    });
+    const risk = detectRiskText(content);
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("comments")
+      .insert({
+        post_id: params.id,
+        user_id: userId,
+        content,
+        risk_score: risk.score,
+        moderation_status: risk.status,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       if (error.message.toLowerCase().includes("comments")) {
@@ -71,14 +86,39 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     await trackEvent({ eventName: "comment_sent", userId, path: "/feed", properties: { postId: params.id } });
 
-    const risk = detectRiskText(content);
-    if (risk.risky) {
+    const { count } = await supabaseAdmin
+      .from("comments")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if ((count ?? 0) === 1) {
+      await trackEvent({ eventName: "first_message_sent", userId, path: "/feed", properties: { postId: params.id } });
+    }
+
+    if (risk.risky && inserted?.id) {
       await createRiskFlag({
         userId,
         source: "comment",
-        severity: "high",
+        severity: risk.score >= 80 ? "high" : "medium",
         reason: "Potential prohibited content in comment",
         evidence: content.slice(0, 280),
+      });
+
+      await createContentFlag({
+        contentType: "comment",
+        contentId: inserted.id,
+        userId,
+        source: "rules",
+        reason: `Auto-flag by risk patterns: ${risk.patterns.join(", ")}`,
+        riskScore: risk.score,
+        metadata: { patterns: risk.patterns },
+      });
+
+      await applyContentModeration({
+        contentType: "comment",
+        contentId: inserted.id,
+        score: risk.score,
+        status: risk.status,
       });
     }
 

@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
-import { Manrope, Rubik } from "next/font/google";
+import { Inter, Manrope, Sora } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const rubik = Rubik({
-  subsets: ["latin", "latin-ext", "cyrillic"],
+const sora = Sora({
+  subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-rubik",
+  variable: "--font-sora",
 });
 
 const manrope = Manrope({
-  subsets: ["latin", "latin-ext", "cyrillic"],
+  subsets: ["latin", "latin-ext"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-manrope",
+});
+
+const inter = Inter({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -27,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={`${rubik.variable} ${manrope.variable} font-sans`}>
+      <body className={`${sora.variable} ${manrope.variable} ${inter.variable} font-sans`}>
         <script
           dangerouslySetInnerHTML={{
             __html:
