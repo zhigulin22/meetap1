@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Home, Search, User } from "lucide-react";
+import { Calendar, Home, MessageSquare, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/feed", label: "Лента", icon: Home },
   { href: "/events", label: "Ивенты", icon: Calendar },
   { href: "/contacts", label: "Люди", icon: Search },
+  { href: "/messages", label: "Чаты", icon: MessageSquare },
   { href: "/profile/me", label: "Профиль", icon: User },
 ];
 
@@ -26,7 +27,7 @@ export function BottomTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "flex min-w-16 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[11px] transition",
+              "flex min-w-12 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[10px] transition",
               active ? "bg-white/10 text-action" : "text-muted hover:text-text",
             )}
           >
