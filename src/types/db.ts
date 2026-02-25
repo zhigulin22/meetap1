@@ -6,7 +6,11 @@ export type Database = {
       users: {
         Row: {
           id: string;
-          phone: string;
+          phone: string | null;
+          email: string | null;
+          username: string | null;
+          age: number | null;
+          auth_provider: "telegram" | "google" | "password";
           name: string;
           telegram_verified: boolean;
           telegram_user_id: string | null;
