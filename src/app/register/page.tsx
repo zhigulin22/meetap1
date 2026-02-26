@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
 
-/* ─── Google icon ──────────────────────────────────────────────────────────── */
 function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -18,6 +17,13 @@ function GoogleIcon({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+
+const FEATURES = [
+  { icon: "🎯", label: "Реальные встречи" },
+  { icon: "⚡", label: "XP и уровни" },
+  { icon: "🤖", label: "AI-подбор" },
+  { icon: "🎉", label: "События" },
+];
 
 type TgStep = "phone" | "code" | "name";
 
@@ -58,7 +64,7 @@ function RegisterContent() {
   }, [token, verified]);
 
   useEffect(() => {
-    if (errorParam === "google_unavailable") toast.error("Google Auth недоступен. Попробуй позже.");
+    if (errorParam === "google_unavailable") toast.error("Google Auth недоступен. Настрой Supabase.");
     if (errorParam === "google_failed") toast.error("Не удалось войти через Google.");
     if (errorParam === "google_cancelled") toast.error("Вход отменён.");
   }, [errorParam]);
@@ -88,12 +94,12 @@ function RegisterContent() {
     if (withName && name.trim().length < 2) { toast.error("Имя от 2 символов"); return; }
     try {
       setLoading(true);
-      const res = await api<{ needsName?: boolean; mode?: string }>(
+      const res = await api<{ needsName?: boolean }>(
         "/api/auth/complete-registration",
         { method: "POST", body: JSON.stringify({ token, code, name: withName ? name.trim() : undefined }) },
       );
-      if (res.needsName) { setNeedsName(true); toast.message("Новый аккаунт. Добавь имя"); return; }
-      toast.success("Вход выполнен!");
+      if (res.needsName) { setNeedsName(true); toast.message("Новый аккаунт — добавь имя"); return; }
+      toast.success("Добро пожаловать!");
       router.push("/feed");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка";
@@ -110,35 +116,83 @@ function RegisterContent() {
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10">
-      {/* Background blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-[#52CC83]/18 blur-[130px]" />
-        <div className="absolute -right-40 top-1/3 h-[420px] w-[420px] rounded-full bg-[#4e75ff]/18 blur-[110px]" />
-        <div className="absolute bottom-0 left-1/2 h-[320px] w-[520px] -translate-x-1/2 rounded-full bg-[#52CC83]/10 blur-[90px]" />
+      {/* Animated background */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-32 -top-32 h-[600px] w-[600px] animate-[pulse_6s_ease-in-out_infinite] rounded-full bg-[#52CC83]/20 blur-[140px]" />
+        <div className="absolute -right-32 top-1/4 h-[500px] w-[500px] animate-[pulse_8s_ease-in-out_infinite_1s] rounded-full bg-[#4e75ff]/20 blur-[120px]" />
+        <div className="absolute bottom-0 left-1/3 h-[400px] w-[400px] animate-[pulse_7s_ease-in-out_infinite_2s] rounded-full bg-[#C77DFF]/15 blur-[100px]" />
+        <div
+          className="absolute inset-0 opacity-[0.025]"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 28 }}
+        initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 w-full max-w-sm"
       >
         {/* Logo */}
-        <div className="mb-8 text-center">
+        <div className="mb-7 text-center">
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.1, duration: 0.4, type: "spring", stiffness: 200 }}
-            className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#52CC83] to-[#2ea85a] shadow-xl shadow-[#52CC83]/35"
+            initial={{ scale: 0.6, opacity: 0, rotate: -12 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ delay: 0.1, duration: 0.5, type: "spring", stiffness: 180 }}
+            className="relative mx-auto mb-3 flex h-[72px] w-[72px] items-center justify-center"
           >
-            <span className="font-display text-2xl font-extrabold text-white">M</span>
+            <div className="absolute inset-0 rounded-[24px] bg-gradient-to-br from-[#52CC83] to-[#2ea85a] shadow-2xl shadow-[#52CC83]/50" />
+            <div className="absolute inset-0 rounded-[24px] bg-gradient-to-br from-white/20 to-transparent" />
+            <span className="relative font-display text-[28px] font-extrabold text-white">M</span>
           </motion.div>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight">Meetap</h1>
-          <p className="mt-1.5 text-sm text-muted">Знакомства, которые случаются в реальной жизни</p>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="font-display text-[32px] font-extrabold tracking-tight"
+          >
+            Meetap
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="mt-1 text-sm text-muted"
+          >
+            Знакомства, которые случаются офлайн
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mt-4 flex flex-wrap justify-center gap-2"
+          >
+            {FEATURES.map((f, i) => (
+              <motion.span
+                key={f.label}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.45 + i * 0.07 }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-medium text-muted backdrop-blur-sm"
+              >
+                {f.icon} {f.label}
+              </motion.span>
+            ))}
+          </motion.div>
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-white/12 bg-surface/80 p-6 shadow-soft backdrop-blur-2xl">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.45 }}
+          className="rounded-3xl border border-white/12 bg-surface/85 p-6 shadow-soft backdrop-blur-2xl"
+        >
           <AnimatePresence mode="wait">
             {!showTelegram ? (
               <motion.div
@@ -148,53 +202,56 @@ function RegisterContent() {
                 exit={{ opacity: 0 }}
                 className="space-y-3"
               >
-                <div className="mb-4">
-                  <h2 className="font-display text-xl font-bold">Добро пожаловать</h2>
-                  <p className="mt-0.5 text-sm text-muted">Войди или создай аккаунт за несколько секунд</p>
+                <div className="mb-5">
+                  <h2 className="font-display text-xl font-bold">Добро пожаловать 👋</h2>
+                  <p className="mt-0.5 text-sm text-muted">Войди и получи стартовый бонус</p>
                 </div>
 
-                {/* Google button */}
-                <a
+                {/* Google — primary */}
+                <motion.a
                   href="/api/auth/google/start"
-                  className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 py-3.5 text-sm font-semibold text-text shadow-sm transition-all duration-150 hover:bg-white/18 hover:shadow-md active:scale-[0.98]"
+                  whileTap={{ scale: 0.97 }}
+                  className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border border-white/20 bg-white py-4 text-sm font-semibold text-[#1a1a1a] shadow-lg shadow-black/10 transition-all duration-150 hover:shadow-xl hover:shadow-black/15 active:scale-[0.98]"
                 >
                   <GoogleIcon size={20} />
                   Продолжить через Google
-                </a>
+                </motion.a>
 
-                {/* Divider */}
-                <div className="flex items-center gap-3 py-1">
-                  <div className="h-px flex-1 bg-border/60" />
-                  <span className="text-xs text-muted/70">или</span>
-                  <div className="h-px flex-1 bg-border/60" />
+                {/* XP hint */}
+                <div className="flex items-center justify-center gap-1.5 rounded-xl border border-action/20 bg-action/8 py-2 text-xs font-medium text-action">
+                  ⚡ +10 XP за регистрацию · Уровень 1
                 </div>
 
-                {/* Telegram button */}
+                <div className="flex items-center gap-3 py-0.5">
+                  <div className="h-px flex-1 bg-border/50" />
+                  <span className="text-xs text-muted/60">или</span>
+                  <div className="h-px flex-1 bg-border/50" />
+                </div>
+
                 <button
                   onClick={() => setShowTelegram(true)}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 py-3.5 text-sm font-medium text-muted transition-all duration-150 hover:bg-white/10 hover:text-text"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-medium text-muted transition-all duration-150 hover:bg-white/10 hover:text-text"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-[#2AABEE]">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" className="text-[#2AABEE]">
                     <path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.94 8.19-1.97 9.27c-.14.65-.53.81-1.07.5l-2.97-2.19-1.43 1.38c-.16.16-.29.29-.6.29l.21-3.02 5.51-4.98c.24-.21-.05-.33-.37-.12L7.5 14.08l-2.91-.91c-.63-.2-.64-.63.13-.93l11.34-4.37c.53-.19.99.13.88.32z" />
                   </svg>
                   Войти через Telegram
                 </button>
 
-                <p className="pt-1 text-center text-xs text-muted">
-                  Уже есть пароль?{" "}
-                  <Link href="/login" className="text-action underline underline-offset-2">
-                    Войти
+                <p className="pt-0.5 text-center text-xs text-muted">
+                  Уже есть аккаунт?{" "}
+                  <Link href="/login" className="font-medium text-action underline underline-offset-2">
+                    Войти с паролем
                   </Link>
                 </p>
               </motion.div>
             ) : (
-              /* ── Telegram flow ─────────────────────────────────────────── */
               <motion.div
                 key={tgStep}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.28 }}
+                transition={{ duration: 0.25 }}
                 className="space-y-3"
               >
                 <button
@@ -212,7 +269,7 @@ function RegisterContent() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+79990000000"
-                      className="w-full rounded-xl border border-border bg-white/5 px-4 py-3 text-sm outline-none ring-0 placeholder:text-muted/60 focus:border-action focus:ring-2 focus:ring-action/20"
+                      className="w-full rounded-xl border border-border bg-white/5 px-4 py-3 text-sm outline-none placeholder:text-muted/60 focus:border-action focus:ring-2 focus:ring-action/20"
                     />
                     <button
                       onClick={startVerification}
@@ -228,7 +285,7 @@ function RegisterContent() {
                   <>
                     <h2 className="font-display text-xl font-bold">Введи код</h2>
                     <p className="text-sm text-muted">
-                      {verified ? "Код отправлен — введи его ниже." : "Открой Telegram-бота и нажми Start."}
+                      {verified ? "Код получен — введи его ниже." : "Открой Telegram-бота и нажми Start."}
                     </p>
                     {telegramDeepLink && (
                       <a href={telegramDeepLink} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-[#2AABEE]/30 bg-[#2AABEE]/10 px-3 py-2 text-sm text-[#2AABEE] hover:bg-[#2AABEE]/20">
@@ -278,11 +335,16 @@ function RegisterContent() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
 
-        <p className="mt-5 text-center text-xs text-muted/60">
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="mt-5 text-center text-xs text-muted/50"
+        >
           Регистрируясь, ты принимаешь условия использования Meetap
-        </p>
+        </motion.p>
       </motion.div>
     </main>
   );
