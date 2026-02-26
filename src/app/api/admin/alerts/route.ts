@@ -8,7 +8,7 @@ const schema = z.object({
   type: z.string().min(2).max(40),
   metric: z.string().min(2).max(80),
   threshold: z.number(),
-  window: z.string().min(2).max(40),
+  window_days: z.number().int().min(1).max(90).default(7),
   status: z.enum(["active", "paused", "triggered"]).default("active"),
 });
 
@@ -18,10 +18,15 @@ export async function GET() {
     const { data, error } = await supabaseAdmin.from("alerts").select("*").order("created_at", { ascending: false });
     if (error) return fail(error.message, 500);
 
-    const items = (data ?? []).map((row: any) => ({
-      ...row,
-      window: row.alert_window ?? row.window ?? "7d",
-    }));
+    const items = (data ?? []).map((row: any) => {
+      const alertWindow = row.alert_window ?? row.window ?? "7";
+      const parsedDays = Number(String(alertWindow).replace(/[^0-9]/g, ""));
+      return {
+        ...row,
+        window: `${Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 7}d`,
+        window_days: Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 7,
+      };
+    });
 
     return ok({ items });
   } catch {
@@ -31,7 +36,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    await requireAdminUserId();
+    const adminUserId = await requireAdminUserId();
     const body = await req.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
@@ -41,7 +46,7 @@ export async function POST(req: Request) {
       type: parsed.data.type,
       metric: parsed.data.metric,
       threshold: parsed.data.threshold,
-      alert_window: parsed.data.window,
+      alert_window: String(parsed.data.window_days),
       status: parsed.data.status,
       updated_at: new Date().toISOString(),
     };
@@ -53,6 +58,14 @@ export async function POST(req: Request) {
       const { error } = await supabaseAdmin.from("alerts").insert(payload);
       if (error) return fail(error.message, 500);
     }
+
+    await supabaseAdmin.from("moderation_actions").insert({
+      admin_user_id: adminUserId,
+      target_user_id: null,
+      action: "alert_upsert",
+      reason: `Alert ${parsed.data.metric}`,
+      metadata: payload,
+    });
 
     return ok({ success: true });
   } catch {

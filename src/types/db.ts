@@ -294,7 +294,7 @@ export type Database = {
           type: string;
           metric: string;
           threshold: number;
-          window: string;
+          alert_window: string;
           status: string;
           last_triggered_at: string | null;
           created_at: string;
@@ -314,6 +314,25 @@ export type Database = {
           rules: Json;
           is_active: boolean;
           created_at: string;
+        };
+      };
+      alert_triggers: {
+        Row: {
+          id: string;
+          alert_id: string | null;
+          metric: string;
+          value: number;
+          threshold: number;
+          triggered_at: string;
+          details: Json;
+        };
+      };
+      system_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_by: string | null;
+          updated_at: string;
         };
       };
       user_badges: {

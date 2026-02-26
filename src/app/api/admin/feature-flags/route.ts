@@ -2,6 +2,15 @@ import { featureFlagUpsertSchema } from "@/lib/admin-schemas";
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
+import { z } from "zod";
+
+const remoteConfigSchema = z.object({
+  id: z.string().uuid().optional(),
+  kind: z.literal("config"),
+  key: z.string().min(2).max(120),
+  value: z.record(z.unknown()),
+  description: z.string().max(300).optional(),
+});
 
 export async function GET() {
   try {
@@ -23,6 +32,36 @@ export async function POST(req: Request) {
     const adminUserId = await requireAdminUserId();
 
     const body = await req.json().catch(() => null);
+
+    const asConfig = remoteConfigSchema.safeParse(body);
+    if (asConfig.success) {
+      const payload = {
+        key: asConfig.data.key,
+        value: asConfig.data.value,
+        description: asConfig.data.description ?? null,
+        updated_by: adminUserId,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (asConfig.data.id) {
+        const { error } = await supabaseAdmin.from("remote_configs").update(payload).eq("id", asConfig.data.id);
+        if (error) return fail(error.message, 500);
+      } else {
+        const { error } = await supabaseAdmin.from("remote_configs").upsert(payload, { onConflict: "key" });
+        if (error) return fail(error.message, 500);
+      }
+
+      await supabaseAdmin.from("moderation_actions").insert({
+        admin_user_id: adminUserId,
+        target_user_id: null,
+        action: "remote_config_upsert",
+        reason: asConfig.data.key,
+        metadata: payload,
+      });
+
+      return ok({ success: true });
+    }
+
     const parsed = featureFlagUpsertSchema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
 
@@ -45,6 +84,14 @@ export async function POST(req: Request) {
       if (error) return fail(error.message, 500);
     }
 
+    await supabaseAdmin.from("moderation_actions").insert({
+      admin_user_id: adminUserId,
+      target_user_id: null,
+      action: "feature_flag_upsert",
+      reason: parsed.data.key,
+      metadata: payload,
+    });
+
     return ok({ success: true });
   } catch {
     return fail("Forbidden", 403);
@@ -57,7 +104,14 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const kind = searchParams.get("kind") ?? "flag";
     if (!id) return fail("id required", 422);
+
+    if (kind === "config") {
+      const { error } = await supabaseAdmin.from("remote_configs").delete().eq("id", id);
+      if (error) return fail(error.message, 500);
+      return ok({ success: true });
+    }
 
     const { error } = await supabaseAdmin.from("feature_flags").delete().eq("id", id);
     if (error) return fail(error.message, 500);

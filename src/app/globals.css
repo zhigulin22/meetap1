@@ -3,21 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --bg: #e8eef5;
-  --surface: rgba(255, 255, 255, 0.78);
-  --surface-2: rgba(255, 255, 255, 0.9);
+  --bg: #edf2f8;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.92);
   --border: rgba(32, 56, 86, 0.18);
-  --text: #071324;
-  --muted: #5f7189;
+  --text: #0b0f1a;
+  --muted: #64748b;
+  --text-dark-primary: #e6edf6;
+  --text-dark-secondary: #a8b3c7;
+  --text-dark-muted: #7b879c;
 }
 
 .dark {
   --bg: #050a13;
-  --surface: rgba(10, 17, 28, 0.76);
+  --surface: rgba(10, 17, 28, 0.8);
   --surface-2: rgba(13, 22, 36, 0.9);
   --border: rgba(120, 153, 188, 0.25);
-  --text: #edf4ff;
-  --muted: #91a7c2;
+  --text: #e6edf6;
+  --muted: #a8b3c7;
 }
 
 * {
@@ -31,6 +34,7 @@ body {
 
 body {
   @apply bg-bg text-text antialiased;
+  font-size: 15px;
   background-image:
     radial-gradient(1100px 620px at -10% -12%, rgba(82, 204, 131, 0.15), transparent),
     radial-gradient(920px 560px at 108% -5%, rgba(56, 110, 194, 0.26), transparent),
@@ -43,6 +47,21 @@ h2,
 h3,
 h4 {
   @apply font-display tracking-[-0.02em];
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2,
+h3 {
+  font-size: 1.125rem;
+}
+
+small,
+.text-muted,
+.text-xs {
+  color: var(--muted);
 }
 
 main {
@@ -73,4 +92,24 @@ main {
 .input-file::file-selector-button,
 input[type="file"]::file-selector-button {
   @apply mr-3 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text;
+}
+
+.admin-select {
+  @apply h-11 rounded-xl border border-border px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan;
+  color: #0b0f1a;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.dark .admin-select {
+  color: var(--text-dark-primary);
+  background: rgba(17, 27, 46, 0.82);
+}
+
+.admin-empty {
+  @apply rounded-2xl border border-dashed border-border p-5 text-sm;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .admin-empty {
+  background: rgba(10, 17, 28, 0.42);
 }

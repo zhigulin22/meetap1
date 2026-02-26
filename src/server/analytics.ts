@@ -96,6 +96,13 @@ export async function createContentFlag(input: {
       ai_explanation: input.aiExplanation ?? null,
       metadata: input.metadata ?? {},
     });
+
+    await trackEvent({
+      eventName: "flag_created",
+      userId: input.userId ?? null,
+      path: "/moderation",
+      properties: { contentType: input.contentType, source: input.source, riskScore: input.riskScore },
+    });
   } catch {
     // no-op
   }

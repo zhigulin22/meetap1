@@ -144,7 +144,24 @@ export async function middleware(request: NextRequest) {
     return redirected;
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin") && access.role !== "admin") {
+
+
+  if (request.nextUrl.pathname.startsWith("/api/admin")) {
+    const key = `${request.ip ?? "ip"}:${request.nextUrl.pathname}`;
+    const now = Date.now();
+    const globalAny = globalThis as unknown as { __adminRate?: Map<string, { count: number; resetAt: number }> };
+    globalAny.__adminRate = globalAny.__adminRate ?? new Map();
+    const store = globalAny.__adminRate;
+    const hit = store.get(key);
+    if (!hit || now > hit.resetAt) {
+      store.set(key, { count: 1, resetAt: now + 60_000 });
+    } else if (hit.count >= 120) {
+      return new NextResponse("Too Many Requests", { status: 429 });
+    } else {
+      hit.count += 1;
+    }
+  }
+  if (request.nextUrl.pathname.startsWith("/admin") && !["admin","moderator","analyst","content_manager","support"].includes(access.role)) {
     const url = request.nextUrl.clone();
     url.pathname = "/feed";
     return NextResponse.redirect(url);

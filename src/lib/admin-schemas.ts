@@ -43,6 +43,11 @@ export const userSearchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
+const trendPointSchema = z.object({
+  date: z.string(),
+  value: z.number(),
+});
+
 export const overviewResponseSchema = z.object({
   range: z.object({ from: z.string(), to: z.string(), segment: z.string() }),
   overview: z.object({
@@ -55,6 +60,7 @@ export const overviewResponseSchema = z.object({
     newUsers7d: z.number(),
     telegramVerifiedRate: z.number(),
     registrationCompletedRate: z.number(),
+    profileCompletionRate: z.number().optional().default(0),
     verifiedUsers: z.number(),
     dailyDuo1d: z.number(),
     dailyDuo7d: z.number(),
@@ -71,7 +77,46 @@ export const overviewResponseSchema = z.object({
     apiErrors1d: z.number(),
     aiCalls7d: z.number(),
     aiCostUsd7d: z.number(),
+    offlineConversion: z.number().optional().default(0),
+    matchesStarted: z.number().optional().default(0),
+    continuedD1: z.number().optional().default(0),
   }),
+  comparisons: z
+    .object({
+      registerStartedDiff: z.number(),
+      registrationDiff: z.number(),
+      connectDiff: z.number(),
+      wmcDiff: z.number(),
+    })
+    .optional(),
+  trends: z
+    .object({
+      dau: z.array(trendPointSchema),
+      posts: z.array(trendPointSchema),
+      connectReplied: z.array(trendPointSchema),
+    })
+    .optional(),
+  miniFunnel: z
+    .array(
+      z.object({
+        step: z.string(),
+        count: z.number(),
+        conversion: z.number(),
+      }),
+    )
+    .optional(),
+  health: z
+    .object({
+      p95Latency: z.number(),
+      integrations: z.object({
+        telegramConfigured: z.boolean(),
+        openAiConfigured: z.boolean(),
+        supabaseConfigured: z.boolean(),
+        integrationErrors7d: z.number(),
+      }),
+      lastAdminActions: z.array(z.any()),
+    })
+    .optional(),
 });
 
 export const funnelsResponseSchema = z.object({

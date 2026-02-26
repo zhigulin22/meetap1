@@ -1,7 +1,10 @@
 import { requireUserId } from "@/server/auth";
 import { supabaseAdmin } from "@/supabase/admin";
 
-export async function requireAdminUserId() {
+export const ADMIN_ROLES = ["admin", "moderator", "analyst", "content_manager", "support"] as const;
+export type AdminRole = (typeof ADMIN_ROLES)[number];
+
+export async function requireAdminUserId(allowedRoles: readonly string[] = ADMIN_ROLES) {
   const userId = requireUserId();
 
   const { data } = await supabaseAdmin
@@ -17,9 +20,20 @@ export async function requireAdminUserId() {
     throw new Error("Forbidden");
   }
 
-  if (data.role !== "admin") {
+  if (!allowedRoles.includes(data.role ?? "user")) {
     throw new Error("Forbidden");
   }
 
   return userId;
+}
+
+export async function getAdminAccess() {
+  const userId = requireUserId();
+  const { data } = await supabaseAdmin.from("users").select("id,role").eq("id", userId).maybeSingle();
+
+  return {
+    userId,
+    role: (data?.role ?? "user") as string,
+    canAdmin: ADMIN_ROLES.includes((data?.role ?? "user") as AdminRole),
+  };
 }

@@ -2,6 +2,7 @@ import { moderationActionSchema } from "@/lib/admin-schemas";
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
+import { trackEvent } from "@/server/analytics";
 
 export async function GET(req: Request) {
   try {
@@ -135,6 +136,13 @@ export async function POST(req: Request) {
         targetId: input.targetId,
         ...(input.metadata ?? {}),
       },
+    });
+
+    await trackEvent({
+      eventName: "admin_action",
+      userId: adminUserId,
+      path: "/admin/moderation",
+      properties: { targetType: input.targetType, action: input.action },
     });
 
     return ok({ success: true });

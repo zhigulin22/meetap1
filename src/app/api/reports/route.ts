@@ -28,7 +28,10 @@ export async function POST(req: Request) {
       details: parsed.data.details,
     });
 
-    await trackEvent({ eventName: "report_submitted", userId, path: "/feed", properties: { contentType: parsed.data.contentType } });
+    await Promise.all([
+      trackEvent({ eventName: "report_submitted", userId, path: "/feed", properties: { contentType: parsed.data.contentType } }),
+      trackEvent({ eventName: "report_created", userId, path: "/feed", properties: { contentType: parsed.data.contentType } }),
+    ]);
 
     return ok({ success: true });
   } catch {

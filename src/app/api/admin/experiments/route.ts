@@ -27,7 +27,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    await requireAdminUserId();
+    const adminUserId = await requireAdminUserId();
     const body = await req.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
@@ -40,6 +40,14 @@ export async function POST(req: Request) {
       const { error } = await supabaseAdmin.from("experiments").insert(payload);
       if (error) return fail(error.message, 500);
     }
+
+    await supabaseAdmin.from("moderation_actions").insert({
+      admin_user_id: adminUserId,
+      target_user_id: null,
+      action: "experiment_upsert",
+      reason: parsed.data.key,
+      metadata: payload,
+    });
 
     return ok({ success: true });
   } catch {

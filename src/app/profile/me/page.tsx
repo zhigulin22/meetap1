@@ -338,7 +338,7 @@ export default function MyProfilePage() {
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Link href={`/profile/${profile?.id ?? "me"}`} className="block"><Button variant="secondary" className="w-full">Посмотреть как видят другие</Button></Link>
-            {profile?.role === "admin" ? <Link href="/admin" className="block"><Button className="w-full">Admin</Button></Link> : null}
+            {["admin","moderator","analyst","content_manager","support"].includes(profile?.role) ? <Link href="/admin" className="block"><Button className="w-full">Admin</Button></Link> : null}
           </div>
         </CardContent>
       </Card>

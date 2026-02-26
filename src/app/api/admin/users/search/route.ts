@@ -21,12 +21,12 @@ export async function GET(req: Request) {
 
     let query = supabaseAdmin
       .from("users")
-      .select("id,name,phone,role,is_blocked,shadow_banned,blocked_reason,blocked_until,created_at,last_post_at,telegram_verified,profile_completed")
+      .select("id,name,phone,telegram_user_id,role,is_blocked,shadow_banned,blocked_reason,blocked_until,created_at,last_post_at,telegram_verified,profile_completed")
       .order("created_at", { ascending: false })
       .limit(limit);
 
     if (q) {
-      query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+      query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%,id.eq.${q},telegram_user_id.eq.${q}`);
     }
 
     const { data: users, error } = await query;

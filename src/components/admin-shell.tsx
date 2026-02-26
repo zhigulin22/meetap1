@@ -7,14 +7,18 @@ import {
   Beaker,
   Bot,
   ChartColumnIncreasing,
+  Database,
   Flag,
   Gauge,
+  HardDriveDownload,
   Menu,
+  Plug,
   Shield,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
   Users,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +37,11 @@ export type AdminSection =
   | "risk"
   | "reports"
   | "moderation"
-  | "assistant";
+  | "assistant"
+  | "system"
+  | "integrations"
+  | "security"
+  | "backup";
 
 const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", title: "Обзор", icon: Gauge },
@@ -47,6 +55,10 @@ const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<
   { id: "reports", title: "Жалобы", icon: Flag },
   { id: "moderation", title: "Модерация", icon: Shield },
   { id: "assistant", title: "AI Ассистент", icon: Bot },
+  { id: "system", title: "System Settings", icon: Wrench },
+  { id: "integrations", title: "Интеграции", icon: Plug },
+  { id: "security", title: "Безопасность", icon: Database },
+  { id: "backup", title: "Экспорт и backup", icon: HardDriveDownload },
 ];
 
 export function AdminShell({
@@ -79,7 +91,7 @@ export function AdminShell({
     <div className="flex h-full flex-col gap-2">
       <div className="mb-3 rounded-2xl border border-border bg-surface2/85 p-3">
         <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Control Center</p>
-        <p className="font-display text-lg font-semibold">Meetap Admin</p>
+        <p className="font-display text-lg font-semibold text-text">Meetap Admin</p>
         <p className="text-xs text-muted">growth · safety · product</p>
       </div>
 
@@ -95,10 +107,10 @@ export function AdminShell({
               setOpen(false);
             }}
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition",
+              "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition",
               active
                 ? "border-cyan/40 bg-[linear-gradient(135deg,#14284d,#1c3e6f)] text-[#e3efff] shadow-glow"
-                : "border-border bg-black/10 text-muted hover:text-text",
+                : "border-border bg-black/10 text-[#A8B3C7] hover:text-[#E6EDF6]",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -107,7 +119,7 @@ export function AdminShell({
         );
       })}
 
-      <div className="mt-auto rounded-2xl border border-border bg-black/10 p-3 text-xs text-muted">
+      <div className="mt-auto rounded-2xl border border-border bg-black/10 p-3 text-xs text-[#A8B3C7]">
         <p>Project: {pathname}</p>
         <p className="mt-1 inline-flex items-center gap-1 text-[#ffb86b]">
           <Flag className="h-3 w-3" /> Reactive moderation ON
@@ -140,7 +152,7 @@ export function AdminShell({
               <select
                 value={dateRange}
                 onChange={(e) => onDateRangeChange(e.target.value as "7d" | "14d" | "30d" | "90d")}
-                className="h-11 rounded-xl border border-border bg-surface2/85 px-3 text-sm"
+                className="admin-select"
               >
                 <option value="7d">7 дней</option>
                 <option value="14d">14 дней</option>
@@ -151,7 +163,7 @@ export function AdminShell({
               <select
                 value={segment}
                 onChange={(e) => onSegmentChange(e.target.value as "all" | "verified" | "new" | "active")}
-                className="h-11 rounded-xl border border-border bg-surface2/85 px-3 text-sm"
+                className="admin-select"
               >
                 <option value="all">Все пользователи</option>
                 <option value="verified">Верифицированные</option>
