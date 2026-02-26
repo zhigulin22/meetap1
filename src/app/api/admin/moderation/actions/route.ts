@@ -3,6 +3,7 @@ import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
 import { trackEvent } from "@/server/analytics";
+import { logAdminAction } from "@/server/admin-audit";
 
 export async function GET(req: Request) {
   try {
@@ -71,6 +72,10 @@ export async function POST(req: Request) {
         await supabaseAdmin.from("users").update({ shadow_banned: true }).eq("id", input.targetId);
       }
 
+      if (input.action === "mark_safe") {
+        await supabaseAdmin.from("users").update({ shadow_banned: false, message_limited: false }).eq("id", input.targetId);
+      }
+
       if (input.action === "warn_user") {
         await supabaseAdmin.from("user_flags").insert({
           user_id: input.targetId,
@@ -79,6 +84,13 @@ export async function POST(req: Request) {
           severity: "medium",
           status: "open",
         });
+      }
+
+      if ((input.metadata as any)?.limitMessaging === true) {
+        await supabaseAdmin.from("users").update({ message_limited: true }).eq("id", input.targetId);
+      }
+      if ((input.metadata as any)?.limitMessaging === false) {
+        await supabaseAdmin.from("users").update({ message_limited: false }).eq("id", input.targetId);
       }
     }
 
@@ -136,6 +148,14 @@ export async function POST(req: Request) {
         targetId: input.targetId,
         ...(input.metadata ?? {}),
       },
+    });
+
+    await logAdminAction({
+      adminId: adminUserId,
+      action: input.action,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      meta: { reason: input.reason, ...(input.metadata ?? {}) },
     });
 
     await trackEvent({

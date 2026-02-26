@@ -153,6 +153,7 @@ export const userSearchResponseSchema = z.object({
       role: z.string(),
       is_blocked: z.boolean(),
       shadow_banned: z.boolean().optional(),
+      message_limited: z.boolean().optional(),
       blocked_reason: z.string().nullable(),
       blocked_until: z.string().nullable(),
       created_at: z.string(),

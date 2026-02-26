@@ -30,6 +30,7 @@ export type Database = {
           blocked_reason: string | null;
           blocked_until: string | null;
           shadow_banned: boolean;
+          message_limited: boolean;
           deleted_at: string | null;
           password_hash: string | null;
           personality_profile: Json | null;
@@ -342,6 +343,42 @@ export type Database = {
           badge_id: string;
           earned_at: string;
           is_featured: boolean;
+        };
+      };
+      admin_audit_log: {
+        Row: {
+          id: string;
+          admin_id: string | null;
+          action: string;
+          target_type: string;
+          target_id: string | null;
+          meta: Json;
+          created_at: string;
+        };
+      };
+      demo_seed_runs: {
+        Row: {
+          id: string;
+          run_by: string | null;
+          config: Json;
+          created_at: string;
+        };
+      };
+      user_stats_daily: {
+        Row: {
+          id: string;
+          user_id: string;
+          day: string;
+          dau: boolean;
+          posts: number;
+          event_views: number;
+          event_joins: number;
+          connects_sent: number;
+          connects_replied: number;
+          msgs_sent: number;
+          endorsements_received: number;
+          reports_received: number;
+          created_at: string;
         };
       };
     };

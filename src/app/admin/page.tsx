@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -129,6 +130,8 @@ export default function AdminPage() {
   const [alertsForm, setAlertsForm] = useState({ metric: "tg_verify_rate", type: "drop", threshold: 0.2, window_days: 7 });
   const [expForm, setExpForm] = useState({ key: "", rollout_percent: 20, status: "draft", primary_metric: "WMC" });
   const [configForm, setConfigForm] = useState({ key: "feed_lock_days", value: '{"value":7}', description: "" });
+  const [metricsTab, setMetricsTab] = useState<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health">("growth");
+  const [simConfig, setSimConfig] = useState({ users: 300, days: 30, scenario: "normal" as "normal" | "spike" | "drop", intervalSec: 8, eventsPerTick: 25 });
 
   const toISO = new Date().toISOString();
   const fromISO = useMemo(() => {
@@ -174,11 +177,22 @@ export default function AdminPage() {
   const security = useQuery({ queryKey: ["admin-security"], queryFn: () => api<{ roleCounts: Record<string, number>; blockedUsers: number; activeSessions: number; recentAdminActions: any[] }>("/api/admin/security/overview") });
   const system = useQuery({ queryKey: ["admin-system"], queryFn: () => api<{ items: any[] }>("/api/admin/system/settings") });
 
+  const metricsLab = useQuery({
+    queryKey: ["admin-metrics-lab", metricsTab, fromISO, toISO, segment],
+    queryFn: () => api<{ kind: string; kpis: Array<{ name: string; value: number; subtitle?: string | null }>; trends: Array<{ key: string; points: Array<{ date: string; value: number }> }>; top: any[] }>(`/api/admin/metrics/${metricsTab}?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}`),
+  });
+
+  const liveSim = useQuery({
+    queryKey: ["admin-live-sim"],
+    queryFn: () => api<{ running: boolean; intervalSec: number; eventsPerTick: number; totalGenerated: number; lastTickAt: number }>("/api/admin/dev/live-simulation"),
+    refetchInterval: 4000,
+  });
+
   async function seedDemo() {
     try {
       setSeedLoading(true);
-      const res = await api<{ inserted: number }>("/api/admin/dev/seed-analytics", { method: "POST" });
-      toast.success(`Сгенерировано ${res.inserted} событий`);
+      const res = await api<{ insertedEvents: number }>("/api/admin/dev/seed-analytics", { method: "POST", body: JSON.stringify(simConfig) });
+      toast.success(`Сгенерировано ${res.insertedEvents} событий`);
       await Promise.all([
         overview.refetch(),
         funnels.refetch(),
@@ -194,6 +208,7 @@ export default function AdminPage() {
 
   async function checkTracking() {
     try {
+      await api("/api/admin/health/test-event", { method: "POST" });
       const res = await api<{ triggered: any[]; dataMissingEvents24h: string[] }>("/api/admin/alerts/check", { method: "POST" });
       if (res.dataMissingEvents24h.length) {
         toast.warning(`Нет данных 24ч: ${res.dataMissingEvents24h.join(", ")}`);
@@ -212,10 +227,44 @@ export default function AdminPage() {
   async function moderate(action: any) {
     try {
       await api("/api/admin/moderation/actions", { method: "POST", body: JSON.stringify({ ...action, reason: moderationReason }) });
+
+      if (action.targetType === "user") {
+        queryClient.setQueryData<any>(["admin-users-v5", userSearch], (prev) => {
+          if (!prev?.items) return prev;
+          return {
+            ...prev,
+            items: prev.items.map((u: any) => {
+              if (u.id !== action.targetId) return u;
+              if (action.action === "shadowban") return { ...u, shadow_banned: true };
+              if (action.action === "block_user") return { ...u, is_blocked: true };
+              if (action.action === "unblock_user") return { ...u, is_blocked: false };
+              if (action.action === "mark_safe") return { ...u, is_blocked: false, shadow_banned: false, message_limited: false };
+              return u;
+            }),
+          };
+        });
+
+        queryClient.setQueryData<any>(["admin-risk-v3"], (prev) => {
+          if (!prev?.items) return prev;
+          return {
+            ...prev,
+            items: prev.items.map((r: any) => {
+              if (r.id !== action.targetId) return r;
+              if (action.action === "mark_safe") return { ...r, risk_status: "low", risk_score: 0, signals: [] };
+              if (action.action === "block_user") return { ...r, risk_status: "high", risk_score: Math.max(90, r.risk_score ?? 0) };
+              if (action.action === "shadowban") return { ...r, risk_status: "medium", risk_score: Math.max(60, r.risk_score ?? 0) };
+              return r;
+            }),
+          };
+        });
+      }
+
       toast.success("Действие применено");
       queryClient.invalidateQueries({ queryKey: ["admin-moderation-v5"] });
       queryClient.invalidateQueries({ queryKey: ["admin-risk-v3"] });
       queryClient.invalidateQueries({ queryKey: ["admin-reports-v3"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-overview-v5"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-security"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка модерации");
     }
@@ -547,9 +596,15 @@ export default function AdminPage() {
                     </div>
                     <div className="text-xs text-muted">flags {u.openFlags} · reports {u.openReports}</div>
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {u.is_blocked ? <span className="rounded-full border border-danger px-2 py-0.5 text-xs text-danger">blocked</span> : null}
+                    {u.shadow_banned ? <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">shadowbanned</span> : null}
+                    {u.message_limited ? <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">limited</span> : null}
+                  </div>
                   <div className="mt-2 flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "user", targetId: u.id, action: "shadowban" })}>limit</Button>
                     <Button size="sm" variant="danger" onClick={() => moderate({ targetType: "user", targetId: u.id, action: "block_user" })}>block</Button>
+                    <Link href={`/admin/users/${u.id}`}><Button size="sm" variant="secondary">Открыть 360</Button></Link>
                   </div>
                 </div>
               ))}
@@ -573,6 +628,7 @@ export default function AdminPage() {
                     <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "user", targetId: r.id, action: "mark_safe" })}>Mark safe</Button>
                     <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "user", targetId: r.id, action: "shadowban" })}>Apply limit</Button>
                     <Button size="sm" variant="danger" onClick={() => moderate({ targetType: "user", targetId: r.id, action: "block_user" })}>Block</Button>
+                    <Link href={`/admin/users/${r.id}`}><Button size="sm" variant="secondary">View user</Button></Link>
                   </div>
                 </div>
               ))}
@@ -646,6 +702,84 @@ export default function AdminPage() {
               <div className="flex gap-2">
                 <Input value={aiQuestion} onChange={(e) => setAiQuestion(e.target.value)} placeholder="Почему упал TG verify за 7 дней?" />
                 <Button onClick={askAI}><Bot className="mr-1 h-4 w-4" />Спросить</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+
+      {section === "metrics_lab" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Метрики (Metrics Lab)</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {(["growth","activation","engagement","content","events","social","safety","ai","health"] as const).map((tab) => (
+                  <Button key={tab} size="sm" variant={metricsTab === tab ? "default" : "secondary"} onClick={() => setMetricsTab(tab)}>{tab}</Button>
+                ))}
+              </div>
+
+              {metricsLab.isLoading ? <Skeleton className="h-60 w-full" /> : null}
+
+              {!metricsLab.isLoading && !(metricsLab.data?.kpis?.length ?? 0) ? (
+                <EmptyState title="Метрики Lab пусты" onSeed={seedDemo} onCheck={checkTracking} />
+              ) : (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {(metricsLab.data?.kpis ?? []).map((k) => (
+                    <div key={k.name} className="rounded-xl border border-border bg-black/10 p-3">
+                      <p className="text-xs text-muted">{k.name}</p>
+                      <p className="text-xl font-semibold">{typeof k.value === "number" ? k.value : String(k.value)}</p>
+                      {k.subtitle ? <p className="text-xs text-muted">{k.subtitle}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {(metricsLab.data?.trends ?? []).slice(0,2).map((t) => (
+                  <TrendChart key={t.key} title={`${metricsTab} / ${t.key}`} points={t.points} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {section === "simulation" ? (
+        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle>Симуляция / Демо-данные</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <Input type="number" value={simConfig.users} onChange={(e) => setSimConfig((s) => ({ ...s, users: Number(e.target.value) }))} placeholder="users" />
+              <Input type="number" value={simConfig.days} onChange={(e) => setSimConfig((s) => ({ ...s, days: Number(e.target.value) }))} placeholder="days" />
+              <select className="admin-select w-full" value={simConfig.scenario} onChange={(e) => setSimConfig((s) => ({ ...s, scenario: e.target.value as any }))}>
+                <option value="normal">normal</option>
+                <option value="spike">spike</option>
+                <option value="drop">drop</option>
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={() => setSimConfig((s) => ({ ...s, days: 30 }))}>Сгенерировать 30 дней</Button>
+                <Button onClick={() => setSimConfig((s) => ({ ...s, days: 90 }))}>Сгенерировать 90 дней</Button>
+              </div>
+              <Button className="w-full" onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? "..." : "Run simulation"}</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Live Simulation</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <div className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <p>LIVE: <strong>{liveSim.data?.running ? "ON" : "OFF"}</strong></p>
+                <p>total events: {liveSim.data?.totalGenerated ?? 0}</p>
+                <p>interval: {liveSim.data?.intervalSec ?? simConfig.intervalSec}s</p>
+              </div>
+              <Input type="number" value={simConfig.intervalSec} onChange={(e) => setSimConfig((s) => ({ ...s, intervalSec: Number(e.target.value) }))} placeholder="interval sec" />
+              <Input type="number" value={simConfig.eventsPerTick} onChange={(e) => setSimConfig((s) => ({ ...s, eventsPerTick: Number(e.target.value) }))} placeholder="events per tick" />
+              <div className="flex gap-2">
+                <Button className="flex-1" onClick={async () => { await api("/api/admin/dev/live-simulation", { method: "POST", body: JSON.stringify({ action: "start", intervalSec: simConfig.intervalSec, eventsPerTick: simConfig.eventsPerTick }) }); liveSim.refetch(); }}>Start</Button>
+                <Button className="flex-1" variant="secondary" onClick={async () => { await api("/api/admin/dev/live-simulation", { method: "POST", body: JSON.stringify({ action: "stop" }) }); liveSim.refetch(); }}>Stop</Button>
+                <Button className="flex-1" variant="secondary" onClick={async () => { await api("/api/admin/dev/live-simulation", { method: "POST", body: JSON.stringify({ action: "tick", eventsPerTick: simConfig.eventsPerTick }) }); liveSim.refetch(); }}>Tick</Button>
               </div>
             </CardContent>
           </Card>
@@ -750,7 +884,9 @@ export default function AdminPage() {
         <Card>
           <CardHeader><CardTitle>Быстрые действия</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setSection("overview")}><SlidersHorizontal className="mr-1 h-4 w-4" />Метрики</Button>
+            <Button variant="secondary" onClick={() => setSection("overview")}><SlidersHorizontal className="mr-1 h-4 w-4" />Обзор</Button>
+            <Button variant="secondary" onClick={() => setSection("metrics_lab")}><SlidersHorizontal className="mr-1 h-4 w-4" />Metrics Lab</Button>
+            <Button variant="secondary" onClick={() => setSection("simulation")}><Plus className="mr-1 h-4 w-4" />Simulation</Button>
             <Button variant="secondary" onClick={() => setSection("users")}><Users className="mr-1 h-4 w-4" />Users 360</Button>
             <Button variant="secondary" onClick={() => setSection("moderation")}><Shield className="mr-1 h-4 w-4" />Модерация</Button>
             <Button variant="secondary" onClick={() => setSection("reports")}><Flag className="mr-1 h-4 w-4" />Reports</Button>
