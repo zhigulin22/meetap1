@@ -2,23 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Flag, Gauge, Menu, Settings2, Shield, Sparkles, Users, Wand2 } from "lucide-react";
+import {
+  BellRing,
+  Beaker,
+  Bot,
+  ChartColumnIncreasing,
+  Flag,
+  Gauge,
+  Menu,
+  Shield,
+  ShieldAlert,
+  SlidersHorizontal,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-type Section = "overview" | "funnels" | "retention" | "users" | "moderation" | "flags" | "assistant";
+export type AdminSection =
+  | "overview"
+  | "funnels"
+  | "retention"
+  | "experiments"
+  | "flags"
+  | "alerts"
+  | "users"
+  | "risk"
+  | "reports"
+  | "moderation"
+  | "assistant";
 
-const items: Array<{ id: Section; title: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { id: "overview", title: "Overview", icon: Gauge },
-  { id: "funnels", title: "Funnels", icon: CalendarDays },
-  { id: "retention", title: "Retention", icon: Sparkles },
-  { id: "users", title: "Users", icon: Users },
-  { id: "moderation", title: "Moderation", icon: Shield },
-  { id: "flags", title: "Feature Flags", icon: Settings2 },
-  { id: "assistant", title: "AI Assistant", icon: Wand2 },
+const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: "overview", title: "Обзор", icon: Gauge },
+  { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
+  { id: "retention", title: "Когорты", icon: Sparkles },
+  { id: "experiments", title: "Эксперименты", icon: Beaker },
+  { id: "flags", title: "Фичи и конфиг", icon: SlidersHorizontal },
+  { id: "alerts", title: "Алерты", icon: BellRing },
+  { id: "users", title: "Users 360", icon: Users },
+  { id: "risk", title: "Risk Center", icon: ShieldAlert },
+  { id: "reports", title: "Жалобы", icon: Flag },
+  { id: "moderation", title: "Модерация", icon: Shield },
+  { id: "assistant", title: "AI Ассистент", icon: Bot },
 ];
 
 export function AdminShell({
@@ -34,8 +62,8 @@ export function AdminShell({
   onSearch,
 }: {
   children: React.ReactNode;
-  section: Section;
-  onSectionChange: (v: Section) => void;
+  section: AdminSection;
+  onSectionChange: (v: AdminSection) => void;
   dateRange: "7d" | "14d" | "30d" | "90d";
   onDateRangeChange: (v: "7d" | "14d" | "30d" | "90d") => void;
   segment: "all" | "verified" | "new" | "active";
@@ -52,7 +80,7 @@ export function AdminShell({
       <div className="mb-3 rounded-2xl border border-border bg-surface2/85 p-3">
         <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Control Center</p>
         <p className="font-display text-lg font-semibold">Meetap Admin</p>
-        <p className="text-xs text-muted">risk · growth · product</p>
+        <p className="text-xs text-muted">growth · safety · product</p>
       </div>
 
       {items.map((item) => {
@@ -81,10 +109,14 @@ export function AdminShell({
 
       <div className="mt-auto rounded-2xl border border-border bg-black/10 p-3 text-xs text-muted">
         <p>Project: {pathname}</p>
-        <p className="mt-1 inline-flex items-center gap-1 text-[#ffb86b]"><Flag className="h-3 w-3" /> Reactive moderation ON</p>
+        <p className="mt-1 inline-flex items-center gap-1 text-[#ffb86b]">
+          <Flag className="h-3 w-3" /> Reactive moderation ON
+        </p>
       </div>
 
-      <Link href="/feed" className="text-center text-xs text-cyan underline">Вернуться в продукт</Link>
+      <Link href="/feed" className="text-center text-xs text-cyan underline">
+        Вернуться в продукт
+      </Link>
     </div>
   );
 
@@ -103,17 +135,17 @@ export function AdminShell({
                 <p className="font-display text-lg font-semibold">Admin Command</p>
               </div>
 
-              <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Global search: users, posts, events, messages..." />
+              <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Поиск: user, event, report, message..." />
 
               <select
                 value={dateRange}
                 onChange={(e) => onDateRangeChange(e.target.value as "7d" | "14d" | "30d" | "90d")}
                 className="h-11 rounded-xl border border-border bg-surface2/85 px-3 text-sm"
               >
-                <option value="7d">7d</option>
-                <option value="14d">14d</option>
-                <option value="30d">30d</option>
-                <option value="90d">90d</option>
+                <option value="7d">7 дней</option>
+                <option value="14d">14 дней</option>
+                <option value="30d">30 дней</option>
+                <option value="90d">90 дней</option>
               </select>
 
               <select
@@ -121,14 +153,14 @@ export function AdminShell({
                 onChange={(e) => onSegmentChange(e.target.value as "all" | "verified" | "new" | "active")}
                 className="h-11 rounded-xl border border-border bg-surface2/85 px-3 text-sm"
               >
-                <option value="all">All users</option>
-                <option value="verified">Verified</option>
-                <option value="new">New users</option>
-                <option value="active">Active users</option>
+                <option value="all">Все пользователи</option>
+                <option value="verified">Верифицированные</option>
+                <option value="new">Новые</option>
+                <option value="active">Активные</option>
               </select>
 
               <Button onClick={onAskAI}>
-                <Wand2 className="mr-1 h-4 w-4" /> AI
+                <Bot className="mr-1 h-4 w-4" /> AI
               </Button>
             </div>
           </header>

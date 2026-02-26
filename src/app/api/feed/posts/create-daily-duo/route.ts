@@ -94,7 +94,11 @@ export async function POST(req: Request) {
       .update({ last_post_at: new Date().toISOString(), xp: 10 })
       .eq("id", userId);
 
-    await trackEvent({ eventName: "daily_duo_published", userId, path: "/feed", properties: { postId: post.id } });
+    await Promise.all([
+      trackEvent({ eventName: "daily_duo_published", userId, path: "/feed", properties: { postId: post.id, type: "daily_duo" } }),
+      trackEvent({ eventName: "post_published_daily_duo", userId, path: "/feed", properties: { postId: post.id, type: "daily_duo" } }),
+      trackEvent({ eventName: "first_post", userId, path: "/feed", properties: { postId: post.id, type: "daily_duo" } }),
+    ]);
 
     return ok({ success: true, postId: post.id });
   } catch {

@@ -20,6 +20,39 @@ async function countEvents(eventName: string, fromISO: string, toISO: string, us
   return count ?? 0;
 }
 
+async function countAny(eventNames: string[], fromISO: string, toISO: string, userIds: string[] | null) {
+  const query = supabaseAdmin
+    .from("analytics_events")
+    .select("event_name", { count: "exact", head: true })
+    .in("event_name", eventNames)
+    .gte("created_at", fromISO)
+    .lte("created_at", toISO);
+
+  if (userIds && userIds.length) {
+    query.in("user_id", userIds);
+  }
+
+  const { count } = await query;
+  return count ?? 0;
+}
+
+async function sumNumericProperty(eventName: string, property: string, fromISO: string, toISO: string) {
+  const { data } = await supabaseAdmin
+    .from("analytics_events")
+    .select("properties")
+    .eq("event_name", eventName)
+    .gte("created_at", fromISO)
+    .lte("created_at", toISO)
+    .limit(5000);
+
+  let sum = 0;
+  for (const row of data ?? []) {
+    const value = Number((row.properties as Record<string, unknown> | null)?.[property] ?? 0);
+    if (Number.isFinite(value)) sum += value;
+  }
+  return Number(sum.toFixed(3));
+}
+
 export async function GET(req: Request) {
   try {
     await requireAdminUserId();
@@ -56,6 +89,8 @@ export async function GET(req: Request) {
       registrationCompleted,
       dailyDuo1d,
       dailyDuo7d,
+      videoPosts1d,
+      videoPosts7d,
       eventJoin1d,
       eventJoin7d,
       connectClicked,
@@ -63,6 +98,10 @@ export async function GET(req: Request) {
       reportsOpen,
       flagsOpen,
       blockedUsers,
+      wmc,
+      apiErrors1d,
+      aiCalls7d,
+      aiCostUsd7d,
     ] = await Promise.all([
       filterCountByUsers("users", "id", fromISO, toISO, userIds, "created_at"),
       filterCountByUsers("users", "id", d1, toISO, userIds, "created_at"),
@@ -90,12 +129,14 @@ export async function GET(req: Request) {
       countEvents("register_started", fromISO, toISO, userIds),
       countEvents("telegram_verified", fromISO, toISO, userIds),
       countEvents("registration_completed", fromISO, toISO, userIds),
-      countEvents("daily_duo_published", d1, toISO, userIds),
-      countEvents("daily_duo_published", d7, toISO, userIds),
+      countAny(["daily_duo_published", "post_published_daily_duo"], d1, toISO, userIds),
+      countAny(["daily_duo_published", "post_published_daily_duo"], d7, toISO, userIds),
+      countEvents("post_published_video", d1, toISO, userIds),
+      countEvents("post_published_video", d7, toISO, userIds),
       countEvents("event_joined", d1, toISO, userIds),
       countEvents("event_joined", d7, toISO, userIds),
-      countEvents("connect_clicked", fromISO, toISO, userIds),
-      countEvents("first_message_sent", fromISO, toISO, userIds),
+      countAny(["connect_clicked", "connect_sent"], fromISO, toISO, userIds),
+      countAny(["first_message_sent", "chat_message_sent", "connect_replied"], fromISO, toISO, userIds),
       (() => {
         const q = supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open");
         return q.then((x) => x.count ?? 0);
@@ -109,6 +150,10 @@ export async function GET(req: Request) {
         if (userIds && userIds.length) q.in("id", userIds);
         return q.then((x) => x.count ?? 0);
       })(),
+      countEvents("chat_message_sent", d7, toISO, userIds),
+      countEvents("api_error", d1, toISO, null),
+      countAny(["ai_face_validate", "ai_icebreaker", "ai_admin_insights"], d7, toISO, null),
+      sumNumericProperty("ai_cost", "usd", d7, toISO),
     ]);
 
     const dauMau = mau > 0 ? Number((dau / mau).toFixed(3)) : 0;
@@ -128,13 +173,19 @@ export async function GET(req: Request) {
         verifiedUsers,
         dailyDuo1d,
         dailyDuo7d,
+        videoPosts1d,
+        videoPosts7d,
         eventJoin1d,
         eventJoin7d,
         connectClicked,
         chatsStarted,
+        wmc,
         reportsOpen,
         flagsOpen,
         blockedUsers,
+        apiErrors1d,
+        aiCalls7d,
+        aiCostUsd7d,
       },
     });
   } catch {

@@ -13,20 +13,25 @@ export async function POST(req: Request) {
     const parsed = aiInsightsSchema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
 
-    const [overview, funnels, retention, reports, flags] = await Promise.all([
-      supabaseAdmin.from("analytics_events").select("event_name,created_at").order("created_at", { ascending: false }).limit(2000),
-      supabaseAdmin.from("analytics_events").select("event_name,user_id,created_at").order("created_at", { ascending: false }).limit(3000),
-      supabaseAdmin.from("users").select("id,created_at,telegram_verified,profile_completed").order("created_at", { ascending: false }).limit(2000),
-      supabaseAdmin.from("reports").select("id,reason,status,content_type,created_at").order("created_at", { ascending: false }).limit(300),
-      supabaseAdmin.from("content_flags").select("id,reason,status,risk_score,content_type,created_at").order("created_at", { ascending: false }).limit(300),
+    const [events, reports, flags, alerts, experiments] = await Promise.all([
+      supabaseAdmin.from("analytics_events").select("event_name,user_id,properties,created_at").order("created_at", { ascending: false }).limit(4000),
+      supabaseAdmin.from("reports").select("status,reason,content_type,created_at").order("created_at", { ascending: false }).limit(500),
+      supabaseAdmin.from("content_flags").select("status,reason,risk_score,content_type,created_at").order("created_at", { ascending: false }).limit(500),
+      supabaseAdmin.from("alerts").select("type,metric,threshold,window,status,last_triggered_at").order("created_at", { ascending: false }).limit(200),
+      supabaseAdmin.from("experiments").select("key,status,rollout_percent,primary_metric,start_at,end_at").order("created_at", { ascending: false }).limit(200),
     ]);
 
-    const context = {
-      events: overview.data ?? [],
-      funnelEvents: funnels.data ?? [],
-      users: retention.data ?? [],
-      reports: reports.data ?? [],
-      flags: flags.data ?? [],
+    const eventRows = events.data ?? [];
+    const eventCounter = new Map<string, number>();
+    for (const row of eventRows) eventCounter.set(row.event_name, (eventCounter.get(row.event_name) ?? 0) + 1);
+
+    const summaryContext = {
+      topEvents: [...eventCounter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 16),
+      openReports: (reports.data ?? []).filter((x) => x.status === "open").length,
+      openFlags: (flags.data ?? []).filter((x) => x.status === "open").length,
+      highRiskFlags: (flags.data ?? []).filter((x) => (x.risk_score ?? 0) >= 80).length,
+      alerts: alerts.data ?? [],
+      experiments: experiments.data ?? [],
       customContext: parsed.data.context ?? {},
     };
 
@@ -34,20 +39,22 @@ export async function POST(req: Request) {
     const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
     const system = `
-You are a principal product analyst AI for a social network admin panel.
-Respond strictly as JSON with keys:
-summary: string,
-anomalies: string[],
-causes: string[],
-actions: string[],
-sql: string[],
-filters: string[],
-riskAlerts: string[]
+Ты AI аналитик админки социальной платформы знакомств.
+Отвечай строго JSON:
+{
+  "summary": string,
+  "key_findings": string[],
+  "evidence": string[],
+  "recommended_actions": string[]
+}
+- Не повторяй одни и те же фразы.
+- Опирайся на переданные данные.
+- recommended_actions должны быть прикладными (эксперимент, alert, remote config, модерация).
 `;
 
-    const user = `
-Question: ${parsed.data.question}
-Data snapshot: ${JSON.stringify(context).slice(0, 120000)}
+    const userPrompt = `
+Вопрос: ${parsed.data.question}
+Срез данных: ${JSON.stringify(summaryContext).slice(0, 120000)}
 `;
 
     const response = await Promise.race([
@@ -55,41 +62,43 @@ Data snapshot: ${JSON.stringify(context).slice(0, 120000)}
         model: "gpt-4o-mini",
         input: [
           { role: "system", content: system },
-          { role: "user", content: user },
+          { role: "user", content: userPrompt },
         ],
         text: {
           format: {
             type: "json_schema",
-            name: "admin_ai_insights",
+            name: "admin_ai_insights_v2",
             schema: {
               type: "object",
               properties: {
                 summary: { type: "string" },
-                anomalies: { type: "array", items: { type: "string" } },
-                causes: { type: "array", items: { type: "string" } },
-                actions: { type: "array", items: { type: "string" } },
-                sql: { type: "array", items: { type: "string" } },
-                filters: { type: "array", items: { type: "string" } },
-                riskAlerts: { type: "array", items: { type: "string" } },
+                key_findings: { type: "array", items: { type: "string" } },
+                evidence: { type: "array", items: { type: "string" } },
+                recommended_actions: { type: "array", items: { type: "string" } },
               },
-              required: ["summary", "anomalies", "causes", "actions", "sql", "filters", "riskAlerts"],
+              required: ["summary", "key_findings", "evidence", "recommended_actions"],
               additionalProperties: false,
             },
           },
         },
       } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 14000)),
     ]);
 
     if (!response) {
       return ok({
-        summary: "AI timeout. Используйте стандартные метрики и ручной анализ секций Overview/Funnels/Retention.",
-        anomalies: ["Проверьте резкий рост reports/flags", "Проверьте падение registration_completed_rate"],
-        causes: ["Нестабильный onboarding", "Аномальная активность спама"],
-        actions: ["Проверить флаги high risk", "Разобрать drop-off между telegram_verified и registration_completed"],
-        sql: ["select event_name,count(*) from analytics_events group by 1 order by 2 desc;"],
-        filters: ["segment=verified", "range=last_14d"],
-        riskAlerts: ["При росте high-risk flags > 30% активировать stricter moderation"],
+        summary: "AI временно недоступен. Используйте панели Метрики/Воронки/Риск для ручного разбора.",
+        key_findings: [
+          `Открытые жалобы: ${summaryContext.openReports}`,
+          `Открытые флаги: ${summaryContext.openFlags}`,
+          `High risk флаги: ${summaryContext.highRiskFlags}`,
+        ],
+        evidence: summaryContext.topEvents.slice(0, 5).map((x) => `${x[0]}: ${x[1]}`),
+        recommended_actions: [
+          "Создать alert на рост open reports > 25% неделя к неделе",
+          "Проверить drop-off в воронке registration_completed → profile_completed",
+          "Запустить A/B тест упрощенного onboarding",
+        ],
       });
     }
 

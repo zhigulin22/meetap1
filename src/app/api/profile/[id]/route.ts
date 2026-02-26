@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/http";
+import { getCurrentUserId } from "@/server/auth";
 import { supabaseAdmin } from "@/supabase/admin";
 
 type PostRow = {
@@ -8,42 +9,20 @@ type PostRow = {
   created_at: string;
 };
 
-function buildPositiveFact(input: {
-  postsCount: number;
-  eventsCount: number;
-  likesGiven: number;
-  recentActive: boolean;
-}) {
+function buildPositiveFact(input: { postsCount: number; eventsCount: number; endorsements: number; recentActive: boolean }) {
+  if (input.endorsements >= 15) return "Часто получает положительные отметки после встреч";
   if (input.postsCount >= 20) return "Стабильно делится контентом и поддерживает сообщество";
-  if (input.eventsCount >= 8) return "Активно ходит на офлайн встречи и расширяет круг общения";
-  if (input.likesGiven >= 50) return "Часто поддерживает людей реакциями и вовлечен в общение";
-  if (input.recentActive) return "Регулярно заходит и поддерживает живой ритм общения";
-  return "Открыт(а) к новым знакомствам и постепенно развивает профиль";
-}
-
-function buildStatus(userId: string, stats: { publications: number; events: number; followers: number }) {
-  const statuses = [
-    "На волне новых знакомств",
-    "Открыт к умным разговорам",
-    "Лучше раскрывается офлайн",
-    "Нравится активный социальный темп",
-    "Предпочитает спокойный формат общения",
-    "Любит совместные активности",
-  ];
-
-  const hash = [...userId].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const base = statuses[hash % statuses.length];
-
-  if (stats.events >= 5) return `${base} · Часто ходит на события`;
-  if (stats.followers >= 20) return `${base} · Быстро находит контакт с людьми`;
-  if (stats.publications >= 12) return `${base} · Регулярно делится контентом`;
-  return `${base} · Мягкий вход в общение`;
+  if (input.eventsCount >= 8) return "Активно ходит на офлайн встречи";
+  if (input.recentActive) return "Регулярно заходит и поддерживает ритм общения";
+  return "Открыт(а) к новым знакомствам и нетворкингу";
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const viewerId = getCurrentUserId();
+
   const { data: profile } = await supabaseAdmin
     .from("users")
-    .select("id,name,avatar_url,university,work,hobbies,interests,facts,level,xp,created_at,last_post_at")
+    .select("id,name,avatar_url,bio,country,university,work,hobbies,interests,facts,level,last_post_at,created_at")
     .eq("id", params.id)
     .single();
 
@@ -51,65 +30,95 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return fail("Profile not found", 404);
   }
 
-  const [{ data: posts }, { data: photos }, { count: followersCount }, { data: eventRows }, { count: likesGiven }] =
-    await Promise.all([
-      supabaseAdmin
-        .from("posts")
-        .select("id,type,caption,created_at")
-        .eq("user_id", params.id)
-        .order("created_at", { ascending: false })
-        .limit(60),
-      supabaseAdmin.from("photos").select("post_id,kind,url"),
-      supabaseAdmin.from("connections").select("id", { count: "exact", head: true }).eq("to_user_id", params.id),
-      supabaseAdmin.from("event_members").select("id").eq("user_id", params.id),
-      supabaseAdmin
-        .from("reactions")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", params.id)
-        .eq("reaction_type", "like"),
-    ]);
+  const [privacyRes, postsRes, photosRes, eventsRes, endorsementsRes, badgesRes] = await Promise.all([
+    supabaseAdmin.from("user_privacy_settings").select("*").eq("user_id", params.id).maybeSingle(),
+    supabaseAdmin
+      .from("posts")
+      .select("id,type,caption,created_at")
+      .eq("user_id", params.id)
+      .in("moderation_status", ["clean", "limited"])
+      .order("created_at", { ascending: false })
+      .limit(60),
+    supabaseAdmin.from("photos").select("post_id,kind,url"),
+    supabaseAdmin
+      .from("event_members")
+      .select("created_at,event_id,events(id,title,event_date,city)")
+      .eq("user_id", params.id)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabaseAdmin.from("event_endorsements").select("id", { count: "exact", head: true }).eq("to_user_id", params.id),
+    supabaseAdmin
+      .from("user_badges")
+      .select("id,is_featured,badges(id,key,title,description,category,icon)")
+      .eq("user_id", params.id)
+      .order("earned_at", { ascending: false })
+      .limit(12),
+  ]);
+
+  const privacy = privacyRes.data ?? {
+    show_phone: false,
+    show_facts: true,
+    show_badges: true,
+    show_last_active: true,
+    show_event_history: true,
+    show_city: true,
+    show_work: true,
+    show_university: true,
+    who_can_message: "shared_events",
+  };
 
   const photoMap = new Map<string, Array<{ kind: string; url: string }>>();
-  for (const p of photos ?? []) {
+  for (const p of photosRes.data ?? []) {
     const list = photoMap.get(p.post_id) ?? [];
     list.push({ kind: p.kind, url: p.url });
     photoMap.set(p.post_id, list);
   }
 
-  const feed = ((posts ?? []) as PostRow[]).map((post) => ({
-    ...post,
-    photos: photoMap.get(post.id) ?? [],
+  const feed = ((postsRes.data ?? []) as PostRow[]).map((post) => ({ ...post, photos: photoMap.get(post.id) ?? [] }));
+  const videos = feed.filter((x) => x.type === "reel");
+  const photos = feed.filter((x) => x.type !== "reel");
+
+  const endorsementsCount = endorsementsRes.count ?? 0;
+  const eventsCount = (eventsRes.data ?? []).length;
+  const recentActive = profile.last_post_at ? Date.now() - new Date(profile.last_post_at).getTime() < 14 * 24 * 60 * 60 * 1000 : false;
+  const positiveFact = buildPositiveFact({ postsCount: feed.length, eventsCount, endorsements: endorsementsCount, recentActive });
+
+  const badges = (badgesRes.data ?? []).map((b: any) => ({
+    id: b.id,
+    is_featured: b.is_featured,
+    badge: Array.isArray(b.badges) ? b.badges[0] : b.badges,
   }));
 
-  const videos = feed.filter((x) => x.type === "reel");
-  const photosOnly = feed.filter((x) => x.type !== "reel");
+  const featuredBadge = badges.find((x: any) => x.is_featured)?.badge ?? null;
+  const topBadges = badges.slice(0, 3).map((x: any) => x.badge).filter(Boolean);
 
-  const recentActive = profile.last_post_at
-    ? Date.now() - new Date(profile.last_post_at).getTime() < 30 * 24 * 60 * 60 * 1000
-    : false;
-
-  const stats = {
-    followers: followersCount ?? 0,
-    publications: feed.length,
-    events: (eventRows ?? []).length,
-  };
-
-  const positiveFact = buildPositiveFact({
-    postsCount: feed.length,
-    eventsCount: stats.events,
-    likesGiven: likesGiven ?? 0,
-    recentActive,
-  });
+  const lastActiveLabel = !privacy.show_last_active && viewerId !== params.id
+    ? null
+    : recentActive
+      ? "был(а) недавно"
+      : "был(а) на этой неделе";
 
   return ok({
-    profile,
-    stats,
-    status: buildStatus(profile.id, stats),
-    positiveFact,
-    content: {
-      all: feed,
-      videos,
-      photos: photosOnly,
+    profile: {
+      id: profile.id,
+      name: profile.name,
+      avatar_url: profile.avatar_url,
+      bio: profile.bio,
+      country: privacy.show_city || viewerId === params.id ? profile.country : null,
+      university: privacy.show_university || viewerId === params.id ? profile.university : null,
+      work: privacy.show_work || viewerId === params.id ? profile.work : null,
+      interests: profile.interests ?? [],
+      facts: privacy.show_facts || viewerId === params.id ? profile.facts ?? [] : [],
+      level: profile.level,
+      lastActiveLabel,
+      endorsementsCount,
+      featuredBadge: privacy.show_badges || viewerId === params.id ? featuredBadge : null,
+      topBadges: privacy.show_badges || viewerId === params.id ? topBadges : [],
+      eventHistory: privacy.show_event_history || viewerId === params.id ? (eventsRes.data ?? []) : [],
+      eventHistoryCount: eventsCount,
+      messagePolicy: privacy.who_can_message,
     },
+    positiveFact,
+    content: { all: feed, videos, photos },
   });
 }

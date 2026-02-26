@@ -58,13 +58,19 @@ export const overviewResponseSchema = z.object({
     verifiedUsers: z.number(),
     dailyDuo1d: z.number(),
     dailyDuo7d: z.number(),
+    videoPosts1d: z.number(),
+    videoPosts7d: z.number(),
     eventJoin1d: z.number(),
     eventJoin7d: z.number(),
     connectClicked: z.number(),
     chatsStarted: z.number(),
+    wmc: z.number(),
     reportsOpen: z.number(),
     flagsOpen: z.number(),
     blockedUsers: z.number(),
+    apiErrors1d: z.number(),
+    aiCalls7d: z.number(),
+    aiCostUsd7d: z.number(),
   }),
 });
 
@@ -153,10 +159,7 @@ export const featureFlagsResponseSchema = z.object({
 
 export const aiInsightsResponseSchema = z.object({
   summary: z.string(),
-  anomalies: z.array(z.string()),
-  causes: z.array(z.string()),
-  actions: z.array(z.string()),
-  sql: z.array(z.string()),
-  filters: z.array(z.string()),
-  riskAlerts: z.array(z.string()),
+  key_findings: z.array(z.string()),
+  evidence: z.array(z.string()),
+  recommended_actions: z.array(z.string()),
 });

@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api-client";
 
@@ -15,6 +17,9 @@ export default function EventDetailPage() {
   const params = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [loadingJoin, setLoadingJoin] = useState(false);
+  const [endorsedIds, setEndorsedIds] = useState<string[]>([]);
+  const [endorseLoadingId, setEndorseLoadingId] = useState<string | null>(null);
+  const [endorseSearch, setEndorseSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["event", params.id],
@@ -44,10 +49,34 @@ export default function EventDetailPage() {
     queryClient.setQueryData<any>(["find3", params.id], res.items);
   }
 
+  async function endorse(toUserId: string) {
+    if (endorsedIds.includes(toUserId)) return;
+    try {
+      setEndorseLoadingId(toUserId);
+      await api(`/api/events/${params.id}/endorse`, { method: "POST", body: JSON.stringify({ toUserId }) });
+      setEndorsedIds((prev) => [...prev, toUserId]);
+      toast.success("Отметка отправлена");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось отправить отметку");
+    } finally {
+      setEndorseLoadingId(null);
+    }
+  }
+
   const suggested = queryClient.getQueryData<Array<{ id: string; name: string; common: string[] }>>([
     "find3",
     params.id,
   ]);
+
+  const filteredParticipants = useMemo(() => {
+    if (!data?.participants) return [];
+    const q = endorseSearch.trim().toLowerCase();
+    if (!q) return data.participants;
+    return data.participants.filter((p: any) => {
+      const user = Array.isArray(p.users) ? p.users[0] : p.users;
+      return user?.name?.toLowerCase().includes(q);
+    });
+  }, [data?.participants, endorseSearch]);
 
   if (isLoading || !data) {
     return (
@@ -108,6 +137,30 @@ export default function EventDetailPage() {
               ))}
             </div>
           ) : null}
+
+          <div className="space-y-2 rounded-2xl border border-border bg-black/10 p-3">
+            <p className="text-sm font-medium">Кого хочешь отметить после события?</p>
+            <p className="text-xs text-muted">Только 👍, без текста. Это улучшает рекомендации и уровни.</p>
+            <Input value={endorseSearch} onChange={(e) => setEndorseSearch(e.target.value)} placeholder="Поиск участника по имени" />
+            <div className="space-y-2">
+              {filteredParticipants.map((p: any) => {
+                const user = Array.isArray(p.users) ? p.users[0] : p.users;
+                if (!user) return null;
+                const sent = endorsedIds.includes(user.id);
+                return (
+                  <div key={user.id} className="flex items-center justify-between rounded-xl border border-border bg-black/10 p-2">
+                    <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm text-muted hover:text-text">
+                      <Image src={user.avatar_url || "https://placehold.co/100"} alt={user.name} width={100} height={100} className="h-8 w-8 rounded-full object-cover" unoptimized />
+                      {user.name}
+                    </Link>
+                    <Button size="sm" variant={sent ? "secondary" : "default"} onClick={() => endorse(user.id)} disabled={sent || endorseLoadingId === user.id}>
+                      {sent ? "Отмечен" : endorseLoadingId === user.id ? "..." : "Отметить 👍"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           <div>
             <p className="mb-2 text-sm font-medium">Участники</p>

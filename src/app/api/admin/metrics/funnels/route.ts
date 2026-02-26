@@ -5,14 +5,15 @@ import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
 import { supabaseAdmin } from "@/supabase/admin";
 
 const funnelSteps = [
-  "register_started",
-  "telegram_verified",
-  "registration_completed",
-  "profile_completed",
-  "daily_duo_published",
-  "event_joined",
-  "connect_clicked",
-  "first_message_sent",
+  { step: "register_started", aliases: ["register_started"] },
+  { step: "telegram_verified", aliases: ["telegram_verified"] },
+  { step: "registration_completed", aliases: ["registration_completed"] },
+  { step: "profile_completed", aliases: ["profile_completed"] },
+  { step: "first_post", aliases: ["first_post", "post_published_daily_duo", "post_published_video", "daily_duo_published"] },
+  { step: "first_event_join", aliases: ["first_event_join", "event_joined"] },
+  { step: "connect_sent", aliases: ["connect_sent", "connect_clicked"] },
+  { step: "replied", aliases: ["connect_replied", "first_message_sent"] },
+  { step: "continued_d1", aliases: ["continued_d1", "chat_message_sent"] },
 ] as const;
 
 export async function GET(req: Request) {
@@ -33,33 +34,45 @@ export async function GET(req: Request) {
     const { fromISO, toISO } = parseWindow(parsed.data.from, parsed.data.to, 30);
     const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
 
+    const allNames = [...new Set(funnelSteps.flatMap((step) => step.aliases))];
+
     const { data } = await supabaseAdmin
       .from("analytics_events")
       .select("event_name,user_id")
-      .in("event_name", [...funnelSteps])
+      .in("event_name", allNames)
       .gte("created_at", fromISO)
       .lte("created_at", toISO)
-      .limit(50000);
+      .limit(80000);
 
     const rows = (data ?? []).filter((x) => !userIds || (x.user_id && userIds.includes(x.user_id)));
 
-    const stepUsers = new Map<string, Set<string>>();
-    for (const step of funnelSteps) stepUsers.set(step, new Set());
+    const eventUsers = new Map<string, Set<string>>();
+    for (const name of allNames) eventUsers.set(name, new Set());
 
     for (const row of rows) {
       if (!row.user_id) continue;
-      const set = stepUsers.get(row.event_name);
+      const set = eventUsers.get(row.event_name);
       if (!set) continue;
       set.add(row.user_id);
     }
 
-    const base = stepUsers.get(funnelSteps[0])?.size ?? 0;
-    const steps = funnelSteps.map((step, idx) => {
-      const count = stepUsers.get(step)?.size ?? 0;
-      const prev = idx === 0 ? count : stepUsers.get(funnelSteps[idx - 1])?.size ?? 0;
+    const stepCounts = funnelSteps.map((step) => {
+      const merged = new Set<string>();
+      for (const alias of step.aliases) {
+        const users = eventUsers.get(alias);
+        if (!users) continue;
+        for (const userId of users) merged.add(userId);
+      }
+      return { step: step.step, users: merged };
+    });
+
+    const base = stepCounts[0]?.users.size ?? 0;
+    const steps = stepCounts.map((row, idx) => {
+      const count = row.users.size;
+      const prev = idx === 0 ? count : stepCounts[idx - 1]?.users.size ?? 0;
       const drop = prev > 0 ? Number((1 - count / prev).toFixed(3)) : 0;
       const conversionFromStart = base > 0 ? Number((count / base).toFixed(3)) : 0;
-      return { step, count, drop, conversionFromStart };
+      return { step: row.step, count, drop, conversionFromStart };
     });
 
     return ok({ range: { from: fromISO, to: toISO, segment: parsed.data.segment }, steps });

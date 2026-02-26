@@ -1,6 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getCurrentUserId } from "@/server/auth";
+import { trackEvent } from "@/server/analytics";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const userId = getCurrentUserId();
@@ -29,6 +30,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  if (userId) {
+    await trackEvent({ eventName: "event_viewed", userId, path: `/events/${params.id}`, properties: { eventId: params.id } });
+  }
 
   return ok({ event, participants: participants ?? [], joined: Boolean(myMembership?.id) });
 }

@@ -37,6 +37,21 @@ export type Database = {
           created_at: string;
         };
       };
+      user_privacy_settings: {
+        Row: {
+          user_id: string;
+          show_phone: boolean;
+          show_facts: boolean;
+          show_badges: boolean;
+          show_last_active: boolean;
+          show_event_history: boolean;
+          show_city: boolean;
+          show_work: boolean;
+          show_university: boolean;
+          who_can_message: string;
+          updated_at: string;
+        };
+      };
       posts: {
         Row: {
           id: string;
@@ -105,6 +120,15 @@ export type Database = {
           created_at: string;
         };
       };
+      event_endorsements: {
+        Row: {
+          id: string;
+          event_id: string;
+          from_user_id: string;
+          to_user_id: string;
+          created_at: string;
+        };
+      };
       connections: {
         Row: {
           id: string;
@@ -121,6 +145,18 @@ export type Database = {
           from_user_id: string;
           to_user_id: string | null;
           content: string;
+          created_at: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string;
+          payload: Json;
+          read_at: string | null;
           created_at: string;
         };
       };
@@ -171,17 +207,6 @@ export type Database = {
           resolved_at: string | null;
         };
       };
-      moderation_actions: {
-        Row: {
-          id: string;
-          admin_user_id: string | null;
-          target_user_id: string | null;
-          action: string;
-          reason: string | null;
-          metadata: Json;
-          created_at: string;
-        };
-      };
       reports: {
         Row: {
           id: string;
@@ -195,6 +220,17 @@ export type Database = {
           ai_summary: string | null;
           created_at: string;
           updated_at: string;
+        };
+      };
+      moderation_actions: {
+        Row: {
+          id: string;
+          admin_user_id: string | null;
+          target_user_id: string | null;
+          action: string;
+          reason: string | null;
+          metadata: Json;
+          created_at: string;
         };
       };
       content_flags: {
@@ -236,6 +272,57 @@ export type Database = {
           updated_by: string | null;
           created_at: string;
           updated_at: string;
+        };
+      };
+      experiments: {
+        Row: {
+          id: string;
+          key: string;
+          variants: Json;
+          rollout_percent: number;
+          start_at: string | null;
+          end_at: string | null;
+          primary_metric: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      alerts: {
+        Row: {
+          id: string;
+          type: string;
+          metric: string;
+          threshold: number;
+          window: string;
+          status: string;
+          last_triggered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      badges: {
+        Row: {
+          id: string;
+          key: string;
+          title: string;
+          description: string;
+          category: string;
+          is_seasonal: boolean;
+          season_key: string | null;
+          icon: string | null;
+          rules: Json;
+          is_active: boolean;
+          created_at: string;
+        };
+      };
+      user_badges: {
+        Row: {
+          id: string;
+          user_id: string;
+          badge_id: string;
+          earned_at: string;
+          is_featured: boolean;
         };
       };
     };
