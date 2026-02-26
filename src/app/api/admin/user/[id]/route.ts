@@ -1,5 +1,6 @@
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
+import { buildSingleUserRisk } from "@/server/risk";
 import { supabaseAdmin } from "@/supabase/admin";
 
 function dayKey(iso: string) {
@@ -30,6 +31,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       messages,
       dailyStats,
       adminAudit,
+      risk,
     ] = await Promise.all([
       supabaseAdmin
         .from("users")
@@ -54,6 +56,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       supabaseAdmin.from("messages").select("id,from_user_id,to_user_id,created_at").or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`).order("created_at", { ascending: false }).limit(1200),
       supabaseAdmin.from("user_stats_daily").select("*").eq("user_id", userId).order("day", { ascending: false }).limit(90),
       supabaseAdmin.from("admin_audit_log").select("id,action,target_type,target_id,meta,created_at,admin_id").eq("target_id", userId).order("created_at", { ascending: false }).limit(80),
+      buildSingleUserRisk(userId),
     ]);
 
     if (!profile.data) return fail("User not found", 404);
@@ -98,11 +101,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const medianReplyMin = replyMins.length ? replyMins[Math.floor(replyMins.length / 2)] : 0;
 
     const timeline = [...analyticsRows]
-      .slice(0, 50)
+      .slice(0, 200)
       .map((e) => ({ type: "event", label: e.event_name, created_at: e.created_at, payload: e.properties }));
 
     return ok({
-      user: profile.data,
+      user: {
+        ...profile.data,
+        risk_score: risk.riskScore,
+        risk_status: risk.riskStatus,
+      },
       summary: {
         postsTotal: (posts.data ?? []).length,
         dailyDuoCount: duoCount,
@@ -122,6 +129,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       },
       heatmap: [...heat.entries()].map(([day, value]) => ({ day, value })),
       timeline,
+      risk: {
+        score: risk.riskScore,
+        status: risk.riskStatus,
+        signals: risk.signals,
+      },
       activity: {
         posts: posts.data ?? [],
         comments: comments.data ?? [],

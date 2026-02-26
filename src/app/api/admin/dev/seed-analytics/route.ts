@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { logAdminAction } from "@/server/admin-audit";
 
 const schema = z.object({
-  users: z.number().int().min(200).max(2000).default(300),
+  users: z.number().int().min(10).max(2000).default(300),
   days: z.number().int().min(7).max(365).default(30),
   scenario: z.enum(["normal", "spike", "drop"]).default("normal"),
 });

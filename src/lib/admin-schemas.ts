@@ -150,7 +150,8 @@ export const userSearchResponseSchema = z.object({
     z.object({
       id: z.string(),
       name: z.string(),
-      phone: z.string(),
+      phone: z.string().nullable().optional(),
+      city: z.string().nullable().optional(),
       role: z.string(),
       is_blocked: z.boolean(),
       shadow_banned: z.boolean().optional(),
@@ -164,6 +165,12 @@ export const userSearchResponseSchema = z.object({
       openFlags: z.number(),
       openReports: z.number(),
       lastSeenAt: z.string().nullable(),
+      posts_30d: z.number().optional(),
+      joins_30d: z.number().optional(),
+      connects_sent_30d: z.number().optional(),
+      reply_rate: z.number().optional(),
+      risk_score: z.number().optional(),
+      status: z.string().optional(),
     }),
   ),
 });
@@ -229,12 +236,20 @@ export const aiInsightsResponseSchema = z.object({
 });
 
 export const diagnosticsResponseSchema = z.object({
-  env_ok: z.boolean(),
+  env: z.object({
+    SUPABASE_URL: z.boolean(),
+    SUPABASE_ANON_KEY: z.boolean(),
+    SUPABASE_SERVICE_ROLE: z.boolean(),
+    OPENAI_API_KEY: z.boolean(),
+    ADMIN_DEVTOOLS_ENABLED: z.boolean(),
+  }),
   supabase_ok: z.boolean(),
   tables: z.array(
     z.object({
       name: z.string(),
       exists: z.boolean(),
+      rows_24h: z.number(),
+      rows_7d: z.number(),
       rows_30d: z.number(),
     }),
   ),
@@ -246,6 +261,12 @@ export const diagnosticsResponseSchema = z.object({
     }),
   ),
   last_event_at: z.string().nullable(),
+  event_counts_24h: z.record(z.number()).optional(),
+  devtools: z.object({ enabled: z.boolean(), reason: z.string() }),
+  openai: z.object({ enabled: z.boolean(), reason: z.string() }),
+  can_read_analytics: z.boolean().optional(),
+  devtools_reason: z.string().optional(),
+  openai_reason: z.string().optional(),
   issues: z.array(z.string()),
   fixes: z.array(z.string()),
 });

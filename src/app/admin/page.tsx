@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Beaker,
@@ -36,6 +35,7 @@ import {
   userSearchResponseSchema,
 } from "@/lib/admin-schemas";
 import { api } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 const labels: Record<string, string> = {
   wmc: "Еженедельные содержательные диалоги (WMC)",
@@ -117,6 +117,77 @@ function TrendChart({ title, points }: { title: string; points: Array<{ date: st
   );
 }
 
+type ActionUiState = {
+  loading?: boolean;
+  success?: boolean;
+  error?: string | null;
+  label?: string;
+};
+
+function UpdatedBadge({ show, text = "Updated" }: { show?: boolean; text?: string }) {
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.span
+          initial={{ opacity: 0, y: 4, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -4, scale: 0.96 }}
+          transition={{ duration: 0.22 }}
+          className="inline-flex items-center rounded-full border border-action/50 bg-action/10 px-2 py-0.5 text-[10px] font-semibold text-action"
+        >
+          {text}
+        </motion.span>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function InlineError({ message }: { message?: string | null }) {
+  if (!message) return null;
+  return <div className="rounded-xl border border-danger/40 bg-danger/10 p-2 text-xs text-danger">{message}</div>;
+}
+
+function ActionButton({
+  state,
+  idleLabel,
+  loadingLabel,
+  successLabel,
+  disabledReason,
+  className,
+  onClick,
+  variant = "default",
+  size = "sm",
+}: {
+  state?: ActionUiState;
+  idleLabel: React.ReactNode;
+  loadingLabel?: string;
+  successLabel?: string;
+  disabledReason?: string;
+  className?: string;
+  onClick: () => void;
+  variant?: "default" | "secondary" | "ghost" | "danger";
+  size?: "default" | "sm" | "lg" | "icon";
+}) {
+  return (
+    <motion.div whileTap={{ scale: 0.98 }} transition={{ duration: 0.12 }} className={className}>
+      <Button
+        size={size}
+        variant={variant}
+        onClick={onClick}
+        disabled={Boolean(state?.loading) || Boolean(disabledReason)}
+        title={disabledReason}
+      >
+        {state?.loading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+        {state?.loading ? loadingLabel ?? "Applying..." : idleLabel}
+      </Button>
+      <div className="mt-1 min-h-[16px]">
+        <UpdatedBadge show={Boolean(state?.success)} text={successLabel} />
+      </div>
+    </motion.div>
+  );
+}
+
+
 export default function AdminPage() {
   const queryClient = useQueryClient();
   const [section, setSection] = useState<AdminSection>("overview");
@@ -138,6 +209,13 @@ export default function AdminPage() {
   const [configForm, setConfigForm] = useState({ key: "feed_lock_days", value: '{"value":7}', description: "" });
   const [metricsTab, setMetricsTab] = useState<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health">("growth");
   const [simConfig, setSimConfig] = useState({ users: 300, days: 30, scenario: "normal" as "normal" | "spike" | "drop", intervalSec: 8, eventsPerTick: 25 });
+  const [liveConfig, setLiveConfig] = useState({ users_count: 40, interval_sec: 8, mode: "normal" as "normal" | "chaos", intensity: "normal" as "low" | "normal" | "high", events_per_tick: 80 });
+  const [showDiagnosticsJson, setShowDiagnosticsJson] = useState(false);
+  const [isLiveBusy, setLiveBusy] = useState(false);
+  const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
+  const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
+  const [liveBurst, setLiveBurst] = useState<number>(0);
+  const liveTotalRef = useRef(0);
 
   const toISO = new Date().toISOString();
   const fromISO = useMemo(() => {
@@ -177,10 +255,10 @@ export default function AdminPage() {
 
   const experiments = useQuery({ queryKey: ["admin-experiments-v3"], queryFn: () => api<{ items: any[] }>("/api/admin/experiments") });
   const alerts = useQuery({ queryKey: ["admin-alerts-v3"], queryFn: () => api<{ items: any[] }>("/api/admin/alerts") });
-  const risk = useQuery({ queryKey: ["admin-risk-v3"], queryFn: () => api<{ items: any[] }>("/api/admin/risk") });
+  const risk = useQuery({ queryKey: ["admin-risk-v3"], queryFn: () => api<any>("/api/admin/risk") });
   const reports = useQuery({ queryKey: ["admin-reports-v3"], queryFn: () => api<{ items: any[] }>("/api/admin/reports") });
   const integrations = useQuery({ queryKey: ["admin-integrations"], queryFn: () => api<{ items: any[]; apiErrors7d: number }>("/api/admin/integrations/status") });
-  const security = useQuery({ queryKey: ["admin-security"], queryFn: () => api<{ roleCounts: Record<string, number>; blockedUsers: number; activeSessions: number; recentAdminActions: any[] }>("/api/admin/security/overview") });
+  const security = useQuery({ queryKey: ["admin-security"], queryFn: () => api<any>("/api/admin/security/overview") });
   const system = useQuery({ queryKey: ["admin-system"], queryFn: () => api<{ items: any[] }>("/api/admin/system/settings") });
 
   const metricsLab = useQuery({
@@ -188,24 +266,74 @@ export default function AdminPage() {
     queryFn: () => api<{ kind: string; kpis: Array<{ name: string; value: number; subtitle?: string | null }>; trends: Array<{ key: string; points: Array<{ date: string; value: number }> }>; top: any[] }>(`/api/admin/metrics/${metricsTab}?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}`),
   });
 
+  const seriesMetric = metricsTab === "growth" ? "new_users" : metricsTab === "social" ? "connect_replied" : metricsTab === "health" ? "events" : metricsTab === "ai" ? "ai_cost" : metricsTab === "engagement" ? "dau" : "posts";
+
+  const metricsSeries = useQuery({
+    queryKey: ["admin-metrics-series", seriesMetric, fromISO, toISO, segment],
+    queryFn: () => api<{ metric: string; points: Array<{ ts: string; value: number }> }>(`/api/admin/metrics/series?metric=${encodeURIComponent(seriesMetric)}&from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}&group_by=day`),
+  });
+
+  const topUsersMetric = metricsTab === "social" ? "connect_sent" : metricsTab === "events" ? "event_joined" : metricsTab === "safety" ? "reports_received" : "post_published_daily_duo";
+  const topUsersMetrics = useQuery({
+    queryKey: ["admin-top-users", topUsersMetric, fromISO, toISO],
+    queryFn: () => api<{ metric: string; items: Array<{ user_id: string; name: string; city: string | null; value: number }> }>(`/api/admin/metrics/top/users?metric=${encodeURIComponent(topUsersMetric)}&from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&limit=10`),
+  });
+
+  const topEventsMetric = metricsTab === "events" ? "joins" : "views";
+  const topEventsMetrics = useQuery({
+    queryKey: ["admin-top-events", topEventsMetric, fromISO, toISO],
+    queryFn: () => api<{ metric: string; items: Array<{ event_id: string; title: string; value: number; location: string | null }> }>(`/api/admin/metrics/top/events?metric=${encodeURIComponent(topEventsMetric)}&from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&limit=10`),
+  });
+
   const diagnostics = useQuery({
-    queryKey: ["admin-diagnostics-v1"],
+    queryKey: ["admin-diagnostics-v2"],
     queryFn: () => adminApi("/api/admin/diagnostics", diagnosticsResponseSchema),
-    enabled: false,
+    refetchInterval: 15000,
     retry: false,
   });
 
   const liveSim = useQuery({
-    queryKey: ["admin-live-sim"],
-    queryFn: () => api<{ running: boolean; intervalSec: number; eventsPerTick: number; totalGenerated: number; lastTickAt: number }>("/api/admin/dev/live-simulation"),
-    refetchInterval: 4000,
+    queryKey: ["admin-live-sim-v2"],
+    queryFn: () => api<{ devtools: { enabled: boolean; reason: string }; running: boolean; run: any | null; events_per_minute: number; events_24h: number; cron_warning: string | null }>("/api/admin/sim/state"),
+    refetchInterval: 5000,
   });
+
+  const refetchLiveSim = liveSim.refetch;
+  const refetchOverview = overview.refetch;
+  const refetchMetricsLab = metricsLab.refetch;
+
+  function setActionLoading(key: string) {
+    setActionUi((prev) => ({ ...prev, [key]: { loading: true, success: false, error: null } }));
+  }
+
+  function setActionSuccess(key: string, label = "Updated") {
+    setActionUi((prev) => ({ ...prev, [key]: { loading: false, success: true, error: null, label } }));
+    window.setTimeout(() => {
+      setActionUi((prev) => ({ ...prev, [key]: { ...(prev[key] ?? {}), success: false, error: null } }));
+    }, 2500);
+  }
+
+  function setActionError(key: string, message: string) {
+    setActionUi((prev) => ({ ...prev, [key]: { loading: false, success: false, error: message } }));
+  }
+
+  function pulseRow(id: string) {
+    const expireAt = Date.now() + 2400;
+    setUpdatedRows((prev) => ({ ...prev, [id]: expireAt }));
+    window.setTimeout(() => {
+      setUpdatedRows((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+    }, 2600);
+  }
 
   async function seedDemo() {
     try {
+      setActionLoading("seedDemo");
       setSeedLoading(true);
       const res = await api<{ insertedEvents: number }>("/api/admin/dev/seed-analytics", { method: "POST", body: JSON.stringify(simConfig) });
-      toast.success(`Сгенерировано ${res.insertedEvents} событий`);
       await Promise.all([
         overview.refetch(),
         funnels.refetch(),
@@ -213,8 +341,9 @@ export default function AdminPage() {
         users.refetch(),
         diagnostics.refetch(),
       ]);
+      setActionSuccess("seedDemo", "+" + res.insertedEvents + " events");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка seed");
+      setActionError("seedDemo", e instanceof Error ? e.message : "Ошибка seed");
     } finally {
       setSeedLoading(false);
     }
@@ -222,39 +351,106 @@ export default function AdminPage() {
 
   async function checkTracking() {
     try {
+      setActionLoading("checkTracking");
       await api("/api/admin/health/test-event", { method: "POST" });
       const res = await api<{ triggered: any[]; dataMissingEvents24h: string[] }>("/api/admin/alerts/check", { method: "POST" });
+      await Promise.all([alerts.refetch(), diagnostics.refetch()]);
       if (res.dataMissingEvents24h.length) {
-        toast.warning(`Нет данных 24ч: ${res.dataMissingEvents24h.join(", ")}`);
+        setActionError("checkTracking", "Нет данных 24ч: " + res.dataMissingEvents24h.join(", "));
       } else {
-        toast.success("Трекинг активен");
+        setActionSuccess("checkTracking", "Tracking OK");
       }
-      if (res.triggered.length) {
-        toast.info(`Сработало алертов: ${res.triggered.length}`);
-      }
-      alerts.refetch();
-      diagnostics.refetch();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка проверки");
+      setActionError("checkTracking", e instanceof Error ? e.message : "Ошибка проверки");
     }
   }
 
   async function runDiagnostics() {
+    setActionLoading("diagnostics");
     const res = await diagnostics.refetch();
     if (res.error) {
-      toast.error(res.error instanceof Error ? res.error.message : "Ошибка диагностики");
+      setActionError("diagnostics", res.error instanceof Error ? res.error.message : "Ошибка диагностики");
       return;
     }
     const issuesCount = res.data?.issues.length ?? 0;
     if (issuesCount > 0) {
-      toast.warning("Диагностика завершена: проблем " + issuesCount);
+      setActionError("diagnostics", "Проблем: " + issuesCount);
       return;
     }
-    toast.success("Диагностика: критичных проблем не найдено");
+    setActionSuccess("diagnostics", "Diagnostics OK");
+  }
+
+  async function fixCommonIssues() {
+    try {
+      setActionLoading("fixCommon");
+      const res = await api<{ actions: string[] }>("/api/admin/fix-common", { method: "POST" });
+      await Promise.all([overview.refetch(), funnels.refetch(), retention.refetch(), diagnostics.refetch(), liveSim.refetch(), metricsLab.refetch()]);
+      setActionSuccess("fixCommon", "Fixed: " + (res.actions?.length ?? 0));
+    } catch (e) {
+      setActionError("fixCommon", e instanceof Error ? e.message : "Fix failed");
+    }
+  }
+
+  async function seedMinimal() {
+    try {
+      setActionLoading("seedMinimal");
+      const res = await api<{ users: number; events: number }>("/api/admin/dev/seed-minimal", { method: "POST" });
+      await Promise.all([overview.refetch(), funnels.refetch(), retention.refetch(), diagnostics.refetch(), liveSim.refetch(), metricsLab.refetch(), users.refetch()]);
+      setActionSuccess("seedMinimal", "users " + res.users + " · events " + res.events);
+    } catch (e) {
+      setActionError("seedMinimal", e instanceof Error ? e.message : "Seed minimal failed");
+    }
+  }
+
+  async function startLive(config?: Partial<typeof liveConfig>) {
+    try {
+      setActionLoading("startLive");
+      setLiveBusy(true);
+      const payload = { ...liveConfig, ...config };
+      await api("/api/admin/sim/start", { method: "POST", body: JSON.stringify(payload) });
+      await Promise.all([liveSim.refetch(), diagnostics.refetch(), overview.refetch()]);
+      setActionSuccess("startLive", "Running");
+    } catch (e) {
+      setActionError("startLive", e instanceof Error ? e.message : "Live start failed");
+    } finally {
+      setLiveBusy(false);
+    }
+  }
+
+  async function stopLive() {
+    try {
+      setActionLoading("stopLive");
+      setLiveBusy(true);
+      await api("/api/admin/sim/stop", { method: "POST", body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? null }) });
+      await Promise.all([liveSim.refetch(), diagnostics.refetch(), overview.refetch()]);
+      setActionSuccess("stopLive", "Stopped");
+    } catch (e) {
+      setActionError("stopLive", e instanceof Error ? e.message : "Live stop failed");
+    } finally {
+      setLiveBusy(false);
+    }
+  }
+
+  async function tickLive() {
+    try {
+      setActionLoading("tickLive");
+      const res = await api<{ events_written: number }>("/api/admin/sim/tick", {
+        method: "POST",
+        body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? undefined, events_per_tick: liveConfig.events_per_tick }),
+      });
+      setLiveBurst(res.events_written);
+      window.setTimeout(() => setLiveBurst(0), 1000);
+      await Promise.all([liveSim.refetch(), overview.refetch(), funnels.refetch(), metricsLab.refetch(), users.refetch()]);
+      setActionSuccess("tickLive", "+" + res.events_written);
+    } catch (e) {
+      setActionError("tickLive", e instanceof Error ? e.message : "Tick failed");
+    }
   }
 
   async function moderate(action: any) {
     try {
+      const actionKey = "moderate-" + action.targetId;
+      setActionLoading(actionKey);
       await api("/api/admin/moderation/actions", { method: "POST", body: JSON.stringify({ ...action, reason: moderationReason }) });
 
       if (action.targetType === "user") {
@@ -288,14 +484,15 @@ export default function AdminPage() {
         });
       }
 
-      toast.success("Действие применено");
+      pulseRow(action.targetId);
+      setActionSuccess(actionKey, "Updated");
       queryClient.invalidateQueries({ queryKey: ["admin-moderation-v5"] });
       queryClient.invalidateQueries({ queryKey: ["admin-risk-v3"] });
       queryClient.invalidateQueries({ queryKey: ["admin-reports-v3"] });
       queryClient.invalidateQueries({ queryKey: ["admin-overview-v5"] });
       queryClient.invalidateQueries({ queryKey: ["admin-security"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка модерации");
+      setActionError("moderate-" + action.targetId, e instanceof Error ? e.message : "Ошибка модерации");
     }
   }
 
@@ -305,6 +502,7 @@ export default function AdminPage() {
     setAiQuestion("");
     setAiError(null);
     setAiLog((prev) => [...prev, { role: "user", text: q }]);
+    setActionLoading("askAI");
 
     try {
       const res = await adminApi("/api/admin/ai/insights", aiInsightsResponseSchema, {
@@ -335,15 +533,18 @@ export default function AdminPage() {
       setAiDebugPayload((res.debug as Record<string, unknown> | undefined) ?? null);
       setAiLog((prev) => [...prev, { role: "assistant", text: answer }]);
       setSection("assistant");
+      setActionSuccess("askAI", "Answered");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Ошибка AI";
       setAiError(message);
-      toast.error(message);
+      setActionError("askAI", message);
     }
   }
 
   async function applyAiAction(action: { id: string; type: "create_alert" | "create_experiment" | "update_flag"; label: string; payload: Record<string, unknown> }) {
+    const actionKey = "applyAi-" + action.id;
     try {
+      setActionLoading(actionKey);
       if (action.type === "create_alert") {
         await api("/api/admin/alerts", {
           method: "POST",
@@ -392,58 +593,135 @@ export default function AdminPage() {
 
       setAppliedAiActions((prev) => ({ ...prev, [action.id]: true }));
       await Promise.all([overview.refetch(), alerts.refetch(), experiments.refetch(), flags.refetch()]);
-      toast.success(action.label + " применено");
+      setActionSuccess(actionKey, "Applied");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось применить рекомендацию");
+      setActionError(actionKey, e instanceof Error ? e.message : "Не удалось применить рекомендацию");
     }
   }
 
   async function toggleFlag(flag: any) {
-    await api("/api/admin/feature-flags", {
-      method: "POST",
-      body: JSON.stringify({ ...flag, enabled: !flag.enabled }),
-    });
-    flags.refetch();
+    const actionKey = "flag-" + flag.id;
+    try {
+      setActionLoading(actionKey);
+      await api("/api/admin/feature-flags", {
+        method: "POST",
+        body: JSON.stringify({ ...flag, enabled: !flag.enabled }),
+      });
+      await flags.refetch();
+      setActionSuccess(actionKey, "Updated");
+    } catch (e) {
+      setActionError(actionKey, e instanceof Error ? e.message : "Не удалось обновить флаг");
+    }
   }
 
   async function createAlert() {
-    await api("/api/admin/alerts", { method: "POST", body: JSON.stringify(alertsForm) });
-    toast.success("Алерт создан");
-    alerts.refetch();
+    try {
+      setActionLoading("createAlert");
+      await api("/api/admin/alerts", { method: "POST", body: JSON.stringify(alertsForm) });
+      await alerts.refetch();
+      setActionSuccess("createAlert", "Saved");
+    } catch (e) {
+      setActionError("createAlert", e instanceof Error ? e.message : "Не удалось создать алерт");
+    }
   }
 
   async function createExperiment() {
-    if (!expForm.key.trim()) return toast.error("Укажи key");
-    await api("/api/admin/experiments", {
-      method: "POST",
-      body: JSON.stringify({ ...expForm, variants: { A: "control", B: "variant" } }),
-    });
-    toast.success("Эксперимент сохранен");
-    experiments.refetch();
+    if (!expForm.key.trim()) {
+      setActionError("createExperiment", "Укажи key");
+      return;
+    }
+    try {
+      setActionLoading("createExperiment");
+      await api("/api/admin/experiments", {
+        method: "POST",
+        body: JSON.stringify({ ...expForm, variants: { A: "control", B: "variant" } }),
+      });
+      await experiments.refetch();
+      setActionSuccess("createExperiment", "Saved");
+    } catch (e) {
+      setActionError("createExperiment", e instanceof Error ? e.message : "Не удалось сохранить эксперимент");
+    }
   }
 
   async function upsertConfig() {
     try {
+      setActionLoading("upsertConfig");
       await api("/api/admin/feature-flags", {
         method: "POST",
         body: JSON.stringify({ kind: "config", key: configForm.key, value: JSON.parse(configForm.value), description: configForm.description }),
       });
-      toast.success("Config сохранен");
-      flags.refetch();
-    } catch {
-      toast.error("Проверь JSON value");
+      await flags.refetch();
+      setActionSuccess("upsertConfig", "Saved");
+    } catch (e) {
+      setActionError("upsertConfig", e instanceof Error ? e.message : "Проверь JSON value");
     }
   }
 
   async function saveSystemSetting(key: string, value: Record<string, unknown>) {
-    await api("/api/admin/system/settings", { method: "PUT", body: JSON.stringify({ key, value }) });
-    toast.success("Сохранено");
-    system.refetch();
+    const actionKey = "saveSystem-" + key;
+    try {
+      setActionLoading(actionKey);
+      await api("/api/admin/system/settings", { method: "PUT", body: JSON.stringify({ key, value }) });
+      await system.refetch();
+      setActionSuccess(actionKey, "Saved");
+    } catch (e) {
+      setActionError(actionKey, e instanceof Error ? e.message : "Не удалось сохранить");
+    }
+  }
+
+  async function updateReportStatus(id: string, status: "in_review" | "resolved") {
+    const actionKey = "report-" + id;
+    try {
+      setActionLoading(actionKey);
+      await api("/api/admin/reports", { method: "PUT", body: JSON.stringify({ id, status }) });
+      pulseRow(id);
+      await reports.refetch();
+      setActionSuccess(actionKey, "Updated");
+    } catch (e) {
+      setActionError(actionKey, e instanceof Error ? e.message : "Не удалось обновить жалобу");
+    }
   }
 
   function exportCSV(table: string) {
     window.open(`/api/admin/export?table=${encodeURIComponent(table)}`, "_blank");
   }
+
+  useEffect(() => {
+    if (!liveSim.data?.running || !liveSim.data?.run?.id) return;
+    const interval = Math.max(3000, Number(liveSim.data?.run?.interval_sec ?? 8) * 1000);
+    const id = window.setInterval(() => {
+      api("/api/admin/sim/tick", {
+        method: "POST",
+        body: JSON.stringify({ run_id: liveSim.data?.run?.id, events_per_tick: liveConfig.events_per_tick }),
+      })
+        .then(() => Promise.all([refetchLiveSim(), refetchOverview(), refetchMetricsLab()]))
+        .catch(() => undefined);
+    }, interval);
+
+    return () => window.clearInterval(id);
+  }, [
+    liveSim.data?.running,
+    liveSim.data?.run?.id,
+    liveSim.data?.run?.interval_sec,
+    liveConfig.events_per_tick,
+    refetchLiveSim,
+    refetchOverview,
+    refetchMetricsLab,
+  ]);
+
+  useEffect(() => {
+    const total = Number(liveSim.data?.run?.total_events_generated ?? 0);
+    if (total > liveTotalRef.current) {
+      const diff = total - liveTotalRef.current;
+      if (diff > 0) {
+        setLiveBurst(diff);
+        window.setTimeout(() => setLiveBurst(0), 1000);
+      }
+    }
+    liveTotalRef.current = total;
+  }, [liveSim.data?.run?.total_events_generated]);
+
+  const isRowUpdated = (id: string) => (updatedRows[id] ?? 0) > Date.now();
 
   const isOverviewLoading = overview.isLoading;
   const noData = !isOverviewLoading && Object.keys(overview.data?.overview ?? {}).length === 0;
@@ -469,8 +747,8 @@ export default function AdminPage() {
       Boolean(diagnostics.data?.last_event_at) &&
       Date.now() - new Date(diagnostics.data?.last_event_at ?? 0).getTime() < 24 * 60 * 60 * 1000,
     metricsReady: !noData,
-    simulationEnabled: process.env.NEXT_PUBLIC_ADMIN_DEVTOOLS_ENABLED === "true" || process.env.NODE_ENV !== "production",
-    aiConnected: (overview.data?.health?.integrations.openAiConfigured ?? false) && (diagnostics.data?.env_ok ?? false),
+    simulationEnabled: diagnostics.data?.devtools.enabled ?? false,
+    aiConnected: diagnostics.data?.openai.enabled ?? false,
     alertsWorking: (alerts.data?.items?.length ?? 0) > 0 || (overview.data?.health?.integrations.integrationErrors7d ?? 0) >= 0,
   };
 
@@ -495,10 +773,13 @@ export default function AdminPage() {
                 <p key={idx} className="text-danger">• {message}</p>
               ))}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={runDiagnostics}>Run Diagnostics</Button>
-                <Button size="sm" variant="secondary" onClick={checkTracking}>Проверить трекинг</Button>
-                <Button size="sm" onClick={seedDemo}>Seed demo data</Button>
+                <ActionButton state={actionUi.diagnostics} variant="secondary" idleLabel="Run Diagnostics" loadingLabel="Running..." successLabel={actionUi.diagnostics?.label} onClick={runDiagnostics} />
+                <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить трекинг" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
+                <ActionButton state={actionUi.seedDemo} idleLabel="Seed demo data" loadingLabel="Seeding..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
+                <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix common issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />
+                <ActionButton state={actionUi.startLive} idleLabel="Start Live 40 Users" loadingLabel="Starting..." successLabel={actionUi.startLive?.label} onClick={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} />
               </div>
+              <InlineError message={actionUi.diagnostics?.error ?? actionUi.checkTracking?.error ?? actionUi.seedDemo?.error ?? actionUi.fixCommon?.error ?? actionUi.startLive?.error} />
             </CardContent>
           </Card>
         </div>
@@ -575,9 +856,21 @@ export default function AdminPage() {
               <CardHeader><CardTitle>Data Health / Diagnostics</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="rounded-xl border border-border bg-black/10 p-3">
-                  <p>ENV: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.env_ok ? "OK" : "ISSUES"}</strong></p>
+                  <p>Статус: <strong>{(diagnostics.data?.issues.length ?? 0) === 0 ? "OK" : (diagnostics.data?.event_counts_24h?.total ?? 0) > 0 ? "WARNING" : "ERROR"}</strong></p>
                   <p>Supabase: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.supabase_ok ? "OK" : "ISSUES"}</strong></p>
+                  <p>Devtools: <strong>{diagnostics.data?.devtools.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.devtools.reason ?? "-"}</p>
+                  <p>OpenAI: <strong>{diagnostics.data?.openai.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.openai.reason ?? "-"}</p>
                   <p>Последнее событие: <strong>{diagnostics.data?.last_event_at ? new Date(diagnostics.data.last_event_at).toLocaleString("ru-RU") : diagnostics.isFetched ? "нет" : "запусти диагностику"}</strong></p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <p className="mb-2 text-xs text-muted">События за 24ч</p>
+                  <p className="text-xs">total: {diagnostics.data?.event_counts_24h?.total ?? 0}</p>
+                  <p className="text-xs">register_started: {diagnostics.data?.event_counts_24h?.register_started ?? 0}</p>
+                  <p className="text-xs">telegram_verified: {diagnostics.data?.event_counts_24h?.telegram_verified ?? 0}</p>
+                  <p className="text-xs">registration_completed: {diagnostics.data?.event_counts_24h?.registration_completed ?? 0}</p>
+                  <p className="text-xs">posts duo/video: {(diagnostics.data?.event_counts_24h?.posts_duo ?? 0) + (diagnostics.data?.event_counts_24h?.posts_video ?? 0)}</p>
+                  <p className="text-xs">connect sent/replied: {(diagnostics.data?.event_counts_24h?.connect_sent ?? 0)}/{diagnostics.data?.event_counts_24h?.connect_replied ?? 0}</p>
                 </div>
 
                 <div className="rounded-xl border border-border bg-black/10 p-3">
@@ -590,9 +883,9 @@ export default function AdminPage() {
                 </div>
 
                 <div className="rounded-xl border border-border bg-black/10 p-3">
-                  <p className="mb-2 text-xs text-muted">Таблицы / rows 30d</p>
-                  {(diagnostics.data?.tables ?? []).slice(0, 6).map((table) => (
-                    <p key={table.name} className="text-xs">• {table.name}: {table.exists ? "ok" : "missing"} · {table.rows_30d}</p>
+                  <p className="mb-2 text-xs text-muted">Таблицы / rows 24h | 7d | 30d</p>
+                  {(diagnostics.data?.tables ?? []).slice(0, 8).map((table) => (
+                    <p key={table.name} className="text-xs">• {table.name}: {table.exists ? "ok" : "missing"} · {table.rows_24h}/{table.rows_7d}/{table.rows_30d}</p>
                   ))}
                   {!diagnostics.data?.tables?.length && diagnostics.isFetched ? <p className="text-xs text-muted">Нет результатов диагностики.</p> : null}
                 </div>
@@ -600,7 +893,9 @@ export default function AdminPage() {
                 {(diagnostics.data?.issues.length ?? 0) > 0 ? (
                   <div className="rounded-xl border border-danger/30 bg-danger/10 p-3">
                     <p className="mb-1 text-xs text-danger">Issues</p>
-                    {(diagnostics.data?.issues ?? []).slice(0, 4).map((issue, idx) => <p key={idx} className="text-xs">• {issue}</p>)}
+                    {(diagnostics.data?.issues ?? []).slice(0, 6).map((issue, idx) => <p key={idx} className="text-xs">• {issue}</p>)}
+                    <p className="mt-2 mb-1 text-xs text-muted">Fixes</p>
+                    {(diagnostics.data?.fixes ?? []).slice(0, 4).map((fix, idx) => <p key={idx} className="text-xs">• {fix}</p>)}
                   </div>
                 ) : diagnostics.isFetched ? (
                   <div className="rounded-xl border border-action/30 bg-action/10 p-3">
@@ -609,10 +904,27 @@ export default function AdminPage() {
                 ) : null}
 
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" onClick={runDiagnostics}>Run Diagnostics</Button>
-                  <Button size="sm" variant="secondary" onClick={checkTracking}>Проверить трекинг</Button>
-                  <Button size="sm" onClick={seedDemo}>Сгенерировать демо-данные</Button>
+                  <ActionButton state={actionUi.diagnostics} variant="secondary" idleLabel="Run Diagnostics" loadingLabel="Running..." successLabel={actionUi.diagnostics?.label} onClick={runDiagnostics} />
+                  <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix Common Issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />
+                  <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Check Tracking" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
+                  <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />
+                  <ActionButton
+                    state={actionUi.startLive}
+                    idleLabel="Start Live 40 Users"
+                    loadingLabel="Starting..."
+                    successLabel={actionUi.startLive?.label}
+                    disabledReason={!diagnostics.data?.devtools.enabled ? diagnostics.data?.devtools.reason : undefined}
+                    onClick={() => startLive({ users_count: 40, interval_sec: 8, mode: "normal", intensity: "normal" })}
+                  />
+                  <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
                 </div>
+                <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixCommon?.error ?? actionUi.checkTracking?.error ?? actionUi.seedMinimal?.error ?? actionUi.startLive?.error} />
+
+                {showDiagnosticsJson ? (
+                  <div className="rounded-xl border border-border bg-black/10 p-3">
+                    <pre className="max-h-64 overflow-auto text-[11px] leading-relaxed text-muted">{JSON.stringify(diagnostics.data ?? {}, null, 2)}</pre>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </div>
@@ -674,7 +986,8 @@ export default function AdminPage() {
                 <option value="paused">paused</option>
                 <option value="completed">completed</option>
               </select>
-              <Button className="w-full" onClick={createExperiment}><Beaker className="mr-1 h-4 w-4" />Сохранить эксперимент</Button>
+              <ActionButton className="w-full" state={actionUi.createExperiment} idleLabel={<><Beaker className="mr-1 h-4 w-4" />Сохранить эксперимент</>} loadingLabel="Сохранение..." successLabel={actionUi.createExperiment?.label} onClick={createExperiment} />
+              <InlineError message={actionUi.createExperiment?.error} />
             </CardContent>
           </Card>
 
@@ -706,7 +1019,7 @@ export default function AdminPage() {
                     <p className="font-medium">{f.key}</p>
                     <p className="text-xs text-muted">{f.description ?? "без описания"}</p>
                   </div>
-                  <Button size="sm" variant={f.enabled ? "secondary" : "default"} onClick={() => toggleFlag(f)}>{f.enabled ? "Выключить" : "Включить"}</Button>
+                  <ActionButton size="sm" state={actionUi[`flag-${f.id}`]} variant={f.enabled ? "secondary" : "default"} idleLabel={f.enabled ? "Выключить" : "Включить"} loadingLabel="Обновление..." successLabel={actionUi[`flag-${f.id}`]?.label} onClick={() => toggleFlag(f)} />
                 </div>
               ))}
               {!flags.data?.flags?.length ? <EmptyState title="Нет feature flags" onSeed={seedDemo} onCheck={checkTracking} /> : null}
@@ -719,7 +1032,8 @@ export default function AdminPage() {
               <Input placeholder="key" value={configForm.key} onChange={(e) => setConfigForm((s) => ({ ...s, key: e.target.value }))} />
               <Textarea placeholder='{"value":7}' value={configForm.value} onChange={(e) => setConfigForm((s) => ({ ...s, value: e.target.value }))} />
               <Input placeholder="description" value={configForm.description} onChange={(e) => setConfigForm((s) => ({ ...s, description: e.target.value }))} />
-              <Button className="w-full" onClick={upsertConfig}><SlidersHorizontal className="mr-1 h-4 w-4" />Сохранить config</Button>
+              <ActionButton className="w-full" state={actionUi.upsertConfig} idleLabel={<><SlidersHorizontal className="mr-1 h-4 w-4" />Сохранить config</>} loadingLabel="Сохранение..." successLabel={actionUi.upsertConfig?.label} onClick={upsertConfig} />
+              <InlineError message={actionUi.upsertConfig?.error} />
               {(flags.data?.configs ?? []).map((c) => (
                 <div key={c.id} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
                   <p className="font-medium">{c.key}</p>
@@ -741,9 +1055,10 @@ export default function AdminPage() {
               <Input type="number" placeholder="threshold" value={alertsForm.threshold} onChange={(e) => setAlertsForm((s) => ({ ...s, threshold: Number(e.target.value) }))} />
               <Input type="number" placeholder="window days" value={alertsForm.window_days} onChange={(e) => setAlertsForm((s) => ({ ...s, window_days: Number(e.target.value) }))} />
               <div className="flex gap-2">
-                <Button className="flex-1" onClick={createAlert}>Сохранить алерт</Button>
-                <Button className="flex-1" variant="secondary" onClick={checkTracking}>Проверить сейчас</Button>
+                <ActionButton className="flex-1" state={actionUi.createAlert} idleLabel="Сохранить алерт" loadingLabel="Сохранение..." successLabel={actionUi.createAlert?.label} onClick={createAlert} />
+                <ActionButton className="flex-1" state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить сейчас" loadingLabel="Проверка..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
               </div>
+              <InlineError message={actionUi.createAlert?.error ?? actionUi.checkTracking?.error} />
             </CardContent>
           </Card>
 
@@ -768,27 +1083,37 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Users 360</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Поиск по id/имени/телефону" />
-              {(users.data?.items ?? []).map((u) => (
-                <div key={u.id} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{u.name}</p>
-                      <p className="text-xs text-muted">{u.phone} · {u.role}</p>
+              <AnimatePresence initial={false}>
+                {(users.data?.items ?? []).map((u) => (
+                  <motion.div
+                    key={u.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(u.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{u.name}</p>
+                        <p className="text-xs text-muted">{u.phone} · {u.role}</p>
+                      </div>
+                      <div className="text-xs text-muted">flags {u.openFlags} · reports {u.openReports} · posts30 {u.posts_30d ?? 0} · joins30 {u.joins_30d ?? 0} · connect30 {u.connects_sent_30d ?? 0} · risk {u.risk_score ?? 0}</div>
                     </div>
-                    <div className="text-xs text-muted">flags {u.openFlags} · reports {u.openReports}</div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {u.is_blocked ? <span className="rounded-full border border-danger px-2 py-0.5 text-xs text-danger">blocked</span> : null}
-                    {u.shadow_banned ? <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">shadowbanned</span> : null}
-                    {u.message_limited ? <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">limited</span> : null}
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "user", targetId: u.id, action: "shadowban" })}>limit</Button>
-                    <Button size="sm" variant="danger" onClick={() => moderate({ targetType: "user", targetId: u.id, action: "block_user" })}>block</Button>
-                    <Link href={`/admin/users/${u.id}`}><Button size="sm" variant="secondary">Открыть 360</Button></Link>
-                  </div>
-                </div>
-              ))}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {u.is_blocked ? <span className="rounded-full border border-danger px-2 py-0.5 text-xs text-danger">blocked</span> : null}
+                      {u.shadow_banned ? <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">shadowbanned</span> : null}
+                      {u.message_limited ? <span className="rounded-full border border-warning px-2 py-0.5 text-xs text-warning">limited</span> : null}
+                      <UpdatedBadge show={isRowUpdated(u.id)} text="Updated" />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <ActionButton state={actionUi[`moderate-${u.id}`]} size="sm" variant="secondary" idleLabel="limit" loadingLabel="Applying..." successLabel={actionUi[`moderate-${u.id}`]?.label} onClick={() => moderate({ targetType: "user", targetId: u.id, action: "shadowban" })} />
+                      <ActionButton state={actionUi[`moderate-${u.id}`]} size="sm" variant="danger" idleLabel="block" loadingLabel="Applying..." successLabel={actionUi[`moderate-${u.id}`]?.label} onClick={() => moderate({ targetType: "user", targetId: u.id, action: "block_user" })} />
+                      <Link href={`/admin/users/${u.id}`}><Button size="sm" variant="secondary">Открыть 360</Button></Link>
+                    </div>
+                    <InlineError message={actionUi[`moderate-${u.id}`]?.error} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {!users.data?.items?.length ? <EmptyState title="Пользователи не найдены" onSeed={seedDemo} onCheck={checkTracking} /> : null}
             </CardContent>
           </Card>
@@ -796,26 +1121,51 @@ export default function AdminPage() {
       ) : null}
 
       {section === "risk" ? (
-        <div className="col-span-12">
+        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Card>
-            <CardHeader><CardTitle>Risk Center (внутренний)</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {(risk.data?.items ?? []).slice(0, 50).map((r) => (
-                <div key={r.id} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
-                  <p className="font-medium">{r.name}</p>
-                  <p className="text-xs text-muted">risk {r.risk_score} · {r.risk_status}</p>
-                  <p className="text-xs text-muted">signals: {(r.signals ?? []).join(", ") || "-"}</p>
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "user", targetId: r.id, action: "mark_safe" })}>Mark safe</Button>
-                    <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "user", targetId: r.id, action: "shadowban" })}>Apply limit</Button>
-                    <Button size="sm" variant="danger" onClick={() => moderate({ targetType: "user", targetId: r.id, action: "block_user" })}>Block</Button>
-                    <Link href={`/admin/users/${r.id}`}><Button size="sm" variant="secondary">View user</Button></Link>
-                  </div>
-                </div>
-              ))}
-              {!risk.data?.items?.length ? <EmptyState title="Нет риск-профилей" onSeed={seedDemo} onCheck={checkTracking} /> : null}
+            <CardHeader><CardTitle>Risk Distribution</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="rounded-xl border border-border bg-black/10 p-3">
+                <p>low: {risk.data?.distribution?.low ?? 0}</p>
+                <p>medium: {risk.data?.distribution?.medium ?? 0}</p>
+                <p>high: {risk.data?.distribution?.high ?? 0}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-black/10 p-3">
+                <p className="mb-1 text-xs text-muted">Top signals</p>
+                {(risk.data?.topSignals ?? []).map((s: any) => <p key={s.key} className="text-xs">• {s.key}: {s.count}</p>)}
+                {!(risk.data?.topSignals?.length ?? 0) ? <p className="text-xs text-muted">Нет сигналов</p> : null}
+              </div>
             </CardContent>
           </Card>
+
+          <div className="xl:col-span-2">
+            <Card>
+              <CardHeader><CardTitle>Risk Center (внутренний)</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <AnimatePresence initial={false}>
+                  {(risk.data?.items ?? []).slice(0, 80).map((r: any) => (
+                    <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(r.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{r.name}</p>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${r.risk_status === "high" ? "border-danger text-danger" : r.risk_status === "medium" ? "border-warning text-warning" : "border-action text-action"}`}>
+                          {r.risk_status} · {r.risk_score}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted">signals: {(r.signals ?? []).join(", ") || "-"}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <ActionButton state={actionUi[`moderate-${r.id}`]} size="sm" variant="secondary" idleLabel="Mark safe" loadingLabel="Applying..." successLabel={actionUi[`moderate-${r.id}`]?.label} onClick={() => moderate({ targetType: "user", targetId: r.id, action: "mark_safe" })} />
+                        <ActionButton state={actionUi[`moderate-${r.id}`]} size="sm" variant="secondary" idleLabel="Apply limit" loadingLabel="Applying..." successLabel={actionUi[`moderate-${r.id}`]?.label} onClick={() => moderate({ targetType: "user", targetId: r.id, action: "shadowban" })} />
+                        <ActionButton state={actionUi[`moderate-${r.id}`]} size="sm" variant="danger" idleLabel="Block" loadingLabel="Applying..." successLabel={actionUi[`moderate-${r.id}`]?.label} onClick={() => moderate({ targetType: "user", targetId: r.id, action: "block_user" })} />
+                        <Link href={`/admin/users/${r.id}`}><Button size="sm" variant="secondary">View user</Button></Link>
+                      </div>
+                      <InlineError message={actionUi[`moderate-${r.id}`]?.error} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {!risk.data?.items?.length ? <EmptyState title="Нет риск-профилей" onSeed={seedDemo} onCheck={checkTracking} /> : null}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       ) : null}
 
@@ -824,16 +1174,19 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Reports Inbox</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {(reports.data?.items ?? []).slice(0, 120).map((r) => (
-                <div key={r.id} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
-                  <p className="font-medium">{r.content_type} · {r.reason}</p>
-                  <p className="text-xs text-muted">{r.status}</p>
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => api("/api/admin/reports", { method: "PUT", body: JSON.stringify({ id: r.id, status: "in_review" }) }).then(() => reports.refetch())}>Review</Button>
-                    <Button size="sm" variant="secondary" onClick={() => api("/api/admin/reports", { method: "PUT", body: JSON.stringify({ id: r.id, status: "resolved" }) }).then(() => reports.refetch())}>Resolve</Button>
-                  </div>
-                </div>
-              ))}
+              <AnimatePresence initial={false}>
+                {(reports.data?.items ?? []).slice(0, 120).map((r) => (
+                  <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(r.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
+                    <p className="font-medium">{r.content_type} · {r.reason}</p>
+                    <p className="text-xs text-muted">{r.status}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <ActionButton state={actionUi[`report-${r.id}`]} size="sm" variant="secondary" idleLabel="Review" loadingLabel="Updating..." successLabel={actionUi[`report-${r.id}`]?.label} onClick={() => updateReportStatus(r.id, "in_review")} />
+                      <ActionButton state={actionUi[`report-${r.id}`]} size="sm" variant="secondary" idleLabel="Resolve" loadingLabel="Updating..." successLabel={actionUi[`report-${r.id}`]?.label} onClick={() => updateReportStatus(r.id, "resolved")} />
+                    </div>
+                    <InlineError message={actionUi[`report-${r.id}`]?.error} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {!reports.data?.items?.length ? <EmptyState title="Жалоб нет" onSeed={seedDemo} onCheck={checkTracking} /> : null}
             </CardContent>
           </Card>
@@ -846,20 +1199,23 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Reactive AI Flags</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               <Textarea value={moderationReason} onChange={(e) => setModerationReason(e.target.value)} />
-              {(moderation.data?.flags ?? []).slice(0, 50).map((f: any) => (
-                <div key={f.id} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium">{f.content_type} · risk {f.risk_score}</p>
-                    <AlertTriangle className="h-4 w-4 text-[#ffb86b]" />
-                  </div>
-                  <p className="text-xs text-muted">{f.reason}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => moderate({ targetType: "flag", targetId: f.id, action: "resolve_report" })}>Mark reviewed</Button>
-                    <Button size="sm" variant="danger" onClick={() => moderate({ targetType: f.content_type, targetId: f.content_id, action: "remove_content" })}>Remove</Button>
-                    <Button size="sm" onClick={() => moderate({ targetType: f.content_type, targetId: f.content_id, action: "mark_safe" })}>Mark safe</Button>
-                  </div>
-                </div>
-              ))}
+              <AnimatePresence initial={false}>
+                {(moderation.data?.flags ?? []).slice(0, 50).map((f: any) => (
+                  <motion.div key={f.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(f.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{f.content_type} · risk {f.risk_score}</p>
+                      <AlertTriangle className="h-4 w-4 text-[#ffb86b]" />
+                    </div>
+                    <p className="text-xs text-muted">{f.reason}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <ActionButton state={actionUi[`moderate-${f.id}`]} size="sm" variant="secondary" idleLabel="Mark reviewed" loadingLabel="Applying..." successLabel={actionUi[`moderate-${f.id}`]?.label} onClick={() => moderate({ targetType: "flag", targetId: f.id, action: "resolve_report" })} />
+                      <ActionButton state={actionUi[`moderate-${f.id}`]} size="sm" variant="danger" idleLabel="Remove" loadingLabel="Applying..." successLabel={actionUi[`moderate-${f.id}`]?.label} onClick={() => moderate({ targetType: f.content_type, targetId: f.content_id, action: "remove_content" })} />
+                      <ActionButton state={actionUi[`moderate-${f.id}`]} size="sm" idleLabel="Mark safe" loadingLabel="Applying..." successLabel={actionUi[`moderate-${f.id}`]?.label} onClick={() => moderate({ targetType: f.content_type, targetId: f.content_id, action: "mark_safe" })} />
+                    </div>
+                    <InlineError message={actionUi[`moderate-${f.id}`]?.error} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {!moderation.data?.flags?.length ? <EmptyState title="Нет открытых AI-флагов" onSeed={seedDemo} onCheck={checkTracking} /> : null}
             </CardContent>
           </Card>
@@ -889,14 +1245,7 @@ export default function AdminPage() {
                   {aiActions.map((action) => (
                     <div key={action.id} className="flex flex-col gap-2 rounded-lg border border-border p-2 text-xs sm:flex-row sm:items-center sm:justify-between">
                       <p>{action.label}</p>
-                      <Button
-                        size="sm"
-                        variant={appliedAiActions[action.id] ? "secondary" : "default"}
-                        onClick={() => applyAiAction(action)}
-                        disabled={Boolean(appliedAiActions[action.id])}
-                      >
-                        {appliedAiActions[action.id] ? "Applied" : "Apply suggestion"}
-                      </Button>
+                      <ActionButton size="sm" state={actionUi[`applyAi-${action.id}`]} variant={appliedAiActions[action.id] ? "secondary" : "default"} idleLabel={appliedAiActions[action.id] ? "Applied" : "Apply suggestion"} loadingLabel="Applying..." successLabel={actionUi[`applyAi-${action.id}`]?.label} disabledReason={appliedAiActions[action.id] ? "Уже применено" : undefined} onClick={() => applyAiAction(action)} />
                     </div>
                   ))}
                 </div>
@@ -912,8 +1261,9 @@ export default function AdminPage() {
               <div className="flex flex-wrap gap-2">
                 <Input value={aiQuestion} onChange={(e) => setAiQuestion(e.target.value)} placeholder="Почему упал TG verify за 7 дней?" />
                 <Button variant="secondary" onClick={() => setAiDebugMode((v) => !v)}>{aiDebugMode ? "Debug ON" : "Debug OFF"}</Button>
-                <Button onClick={askAI}><Bot className="mr-1 h-4 w-4" />Спросить</Button>
+                <ActionButton state={actionUi.askAI} idleLabel={<><Bot className="mr-1 h-4 w-4" />Спросить</>} loadingLabel="Анализ..." successLabel={actionUi.askAI?.label} onClick={askAI} />
               </div>
+              <InlineError message={actionUi.askAI?.error} />
             </CardContent>
           </Card>
         </div>
@@ -949,8 +1299,39 @@ export default function AdminPage() {
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {(metricsLab.data?.trends ?? []).slice(0,2).map((t) => (
-                  <TrendChart key={t.key} title={`${metricsTab} / ${t.key}`} points={t.points} />
+                  <TrendChart key={t.key} title={`trend: ${t.key}`} points={t.points} />
                 ))}
+                <TrendChart title="Unified series" points={(metricsSeries.data?.points ?? []).map((p) => ({ date: p.ts, value: p.value }))} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <p className="mb-2 text-sm font-medium">Top users ({topUsersMetrics.data?.metric ?? "-"})</p>
+                  {(topUsersMetrics.data?.items ?? []).length ? (
+                    (topUsersMetrics.data?.items ?? []).map((x) => (
+                      <div key={x.user_id} className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-b-0">
+                        <p>{x.name} {x.city ? `· ${x.city}` : ""}</p>
+                        <p className="font-medium">{x.value}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted">Нет данных. Запусти Live 40 users.</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <p className="mb-2 text-sm font-medium">Top events ({topEventsMetrics.data?.metric ?? "-"})</p>
+                  {(topEventsMetrics.data?.items ?? []).length ? (
+                    (topEventsMetrics.data?.items ?? []).map((x) => (
+                      <div key={x.event_id} className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-b-0">
+                        <p>{x.title}</p>
+                        <p className="font-medium">{x.value}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted">Нет данных. Запусти Live 40 users.</p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -973,27 +1354,97 @@ export default function AdminPage() {
                 <Button onClick={() => setSimConfig((s) => ({ ...s, days: 30 }))}>Сгенерировать 30 дней</Button>
                 <Button onClick={() => setSimConfig((s) => ({ ...s, days: 90 }))}>Сгенерировать 90 дней</Button>
               </div>
-              <Button className="w-full" onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? "..." : "Run simulation"}</Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />
+                <ActionButton state={actionUi.seedDemo} idleLabel="Run simulation" loadingLabel="Running..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
+              </div>
+              <InlineError message={actionUi.seedMinimal?.error ?? actionUi.seedDemo?.error} />
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Live Simulation</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <div className="rounded-xl border border-border bg-black/10 p-3 text-sm">
-                <p>LIVE: <strong>{liveSim.data?.running ? "ON" : "OFF"}</strong></p>
-                <p>total events: {liveSim.data?.totalGenerated ?? 0}</p>
-                <p>interval: {liveSim.data?.intervalSec ?? simConfig.intervalSec}s</p>
-              </div>
-              <Input type="number" value={simConfig.intervalSec} onChange={(e) => setSimConfig((s) => ({ ...s, intervalSec: Number(e.target.value) }))} placeholder="interval sec" />
-              <Input type="number" value={simConfig.eventsPerTick} onChange={(e) => setSimConfig((s) => ({ ...s, eventsPerTick: Number(e.target.value) }))} placeholder="events per tick" />
-              <div className="flex gap-2">
-                <Button className="flex-1" onClick={async () => { await api("/api/admin/dev/live-simulation", { method: "POST", body: JSON.stringify({ action: "start", intervalSec: simConfig.intervalSec, eventsPerTick: simConfig.eventsPerTick }) }); liveSim.refetch(); }}>Start</Button>
-                <Button className="flex-1" variant="secondary" onClick={async () => { await api("/api/admin/dev/live-simulation", { method: "POST", body: JSON.stringify({ action: "stop" }) }); liveSim.refetch(); }}>Stop</Button>
-                <Button className="flex-1" variant="secondary" onClick={async () => { await api("/api/admin/dev/live-simulation", { method: "POST", body: JSON.stringify({ action: "tick", eventsPerTick: simConfig.eventsPerTick }) }); liveSim.refetch(); }}>Tick</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            animate={{ boxShadow: liveSim.data?.running ? "0 0 0 1px rgba(82,204,131,0.35), 0 16px 36px rgba(82,204,131,0.2)" : "0 0 0 1px rgba(148,163,184,0.18)" }}
+            transition={{ duration: 0.28 }}
+          >
+            <Card>
+              <CardHeader><CardTitle>Live Simulation</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                  <p>
+                    LIVE: <strong className={cn(liveSim.data?.running ? "text-action" : "text-muted")}>{liveSim.data?.running ? "RUNNING" : "STOPPED"}</strong>
+                    {liveSim.data?.running ? <span className="ml-2 inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-action" /> : null}
+                  </p>
+                  <p>run id: {liveSim.data?.run?.id?.slice(0, 8) ?? "-"}</p>
+                  <p>users: {liveSim.data?.run?.users_count ?? liveConfig.users_count}</p>
+                  <p className="flex items-center gap-2">
+                    total events: <strong>{liveSim.data?.run?.total_events_generated ?? 0}</strong>
+                    <AnimatePresence>
+                      {liveBurst > 0 ? (
+                        <motion.span
+                          key={liveBurst}
+                          initial={{ opacity: 0, y: 6, scale: 0.9 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.9 }}
+                          className="rounded-full border border-cyan/40 bg-cyan/10 px-2 py-0.5 text-[10px] font-semibold text-cyan"
+                        >
+                          +{liveBurst} events
+                        </motion.span>
+                      ) : null}
+                    </AnimatePresence>
+                  </p>
+                  <p>
+                    events/min: 
+                    <motion.span
+                      key={liveSim.data?.events_per_minute ?? 0}
+                      initial={{ scale: 0.96, opacity: 0.7 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="ml-1 inline-block font-semibold"
+                    >
+                      {liveSim.data?.events_per_minute ?? 0}
+                    </motion.span>
+                  </p>
+                  <p>events 24h: {liveSim.data?.events_24h ?? 0}</p>
+                  <p>interval: {liveSim.data?.run?.interval_sec ?? liveConfig.interval_sec}s</p>
+                  <p>mode/intensity: {liveSim.data?.run?.mode ?? liveConfig.mode} / {liveSim.data?.run?.intensity ?? liveConfig.intensity}</p>
+                  {liveSim.data?.cron_warning ? <p className="text-xs text-warning">{liveSim.data.cron_warning}</p> : null}
+                </div>
+                <Input type="number" value={liveConfig.users_count} onChange={(e) => setLiveConfig((s) => ({ ...s, users_count: Number(e.target.value) }))} placeholder="users count" />
+                <Input type="number" value={liveConfig.interval_sec} onChange={(e) => setLiveConfig((s) => ({ ...s, interval_sec: Number(e.target.value) }))} placeholder="interval sec" />
+                <Input type="number" value={liveConfig.events_per_tick} onChange={(e) => setLiveConfig((s) => ({ ...s, events_per_tick: Number(e.target.value) }))} placeholder="events per tick" />
+                <select className="admin-select w-full" value={liveConfig.mode} onChange={(e) => setLiveConfig((s) => ({ ...s, mode: e.target.value as "normal" | "chaos" }))}>
+                  <option value="normal">normal</option>
+                  <option value="chaos">chaos</option>
+                </select>
+                <select className="admin-select w-full" value={liveConfig.intensity} onChange={(e) => setLiveConfig((s) => ({ ...s, intensity: e.target.value as "low" | "normal" | "high" }))}>
+                  <option value="low">low</option>
+                  <option value="normal">normal</option>
+                  <option value="high">high</option>
+                </select>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <ActionButton
+                    className="w-full"
+                    state={actionUi.startLive}
+                    idleLabel="Start"
+                    loadingLabel="Starting..."
+                    successLabel={actionUi.startLive?.label}
+                    disabledReason={!liveSim.data?.devtools?.enabled ? liveSim.data?.devtools?.reason : undefined}
+                    onClick={() => startLive()}
+                  />
+                  <ActionButton className="w-full" state={actionUi.stopLive} variant="secondary" idleLabel="Stop" loadingLabel="Stopping..." successLabel={actionUi.stopLive?.label} onClick={stopLive} />
+                  <ActionButton className="w-full" state={actionUi.tickLive} variant="secondary" idleLabel="Tick" loadingLabel="Ticking..." successLabel={actionUi.tickLive?.label} onClick={tickLive} />
+                </div>
+                <InlineError message={actionUi.startLive?.error ?? actionUi.stopLive?.error ?? actionUi.tickLive?.error} />
+                <div className="rounded-xl border border-border bg-black/10 p-3 text-xs">
+                  <p className="mb-1 text-muted">Recent actions</p>
+                  <AnimatePresence initial={false}>
+                    {(liveSim.data?.run?.recent_actions ?? []).slice(0, 10).map((x: string, idx: number) => (
+                      <motion.p key={x + idx} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>• {x}</motion.p>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
       ) : null}
 
@@ -1017,21 +1468,64 @@ export default function AdminPage() {
       {section === "security" ? (
         <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle>RBAC и сессии</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardHeader><CardTitle>Access & RBAC</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
               <div className="rounded-xl border border-border bg-black/10 p-3">
                 <p>Роли: {Object.entries(security.data?.roleCounts ?? {}).map(([k, v]) => `${k}:${v}`).join(" · ") || "-"}</p>
                 <p>Blocked users: {security.data?.blockedUsers ?? 0}</p>
                 <p>Active sessions: {security.data?.activeSessions ?? 0}</p>
-                <p className="text-xs text-muted">2FA: planned v2 (каркас)</p>
+                <p>Devtools: {security.data?.devtools?.enabled ? "enabled" : "disabled"} · {security.data?.devtools?.reason ?? "-"}</p>
+              </div>
+
+              <div className="rounded-xl border border-border bg-black/10 p-3">
+                <p className="mb-1 text-xs text-muted">Админы и роли</p>
+                {(security.data?.admins ?? []).slice(0, 8).map((a: any) => <p key={a.id} className="text-xs">• {a.name ?? a.id.slice(0, 6)} · {a.role}</p>)}
+                {!(security.data?.admins?.length ?? 0) ? <p className="text-xs text-muted">Нет админ-пользователей</p> : null}
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader><CardTitle>API Protection Checklist</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-xs">
+              <p>{security.data?.apiProtection?.rateLimitingEnabled ? "✅" : "⚠️"} rate limiting на /api/admin/*</p>
+              <p>{security.data?.apiProtection?.csrfProtection ? "✅" : "⚠️"} CSRF защита state-changing endpoints</p>
+              <p>{security.data?.apiProtection?.zodValidationCoverage ? "✅" : "⚠️"} Zod validation coverage</p>
+              <p>{security.data?.apiProtection?.serverOnlySecrets ? "✅" : "⚠️"} server-only secrets</p>
+
+              <div className="mt-3 rounded-xl border border-border bg-black/10 p-3">
+                <p className="mb-1 text-xs text-muted">Data Security</p>
+                <p>{security.data?.dataSecurity?.rlsEnabledAssumed ? "✅" : "⚠️"} RLS enabled</p>
+                <p>{security.data?.dataSecurity?.piiMaskedInUi ? "✅" : "⚠️"} PII masked in UI</p>
+                <p>{security.data?.dataSecurity?.logsContainSecrets ? "⚠️ logs contain secrets" : "✅ logs do not contain secrets"}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Threat Monitoring</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-xs">
+              <div className="rounded-xl border border-border bg-black/10 p-3">
+                <p>events24h: {security.data?.threatMonitoring?.events24h ?? 0}</p>
+                <p>reports24h: {security.data?.threatMonitoring?.reports24h ?? 0}</p>
+                <p>connect24h: {security.data?.threatMonitoring?.connect24h ?? 0}</p>
+                <p>aiErrors24h: {security.data?.threatMonitoring?.aiErrors24h ?? 0}</p>
+              </div>
+              {(security.data?.threatMonitoring?.triggers ?? []).map((t: any) => (
+                <div key={t.key} className={`rounded-xl border p-2 ${t.level === "critical" ? "border-danger/40 bg-danger/10 text-danger" : "border-warning/40 bg-warning/10 text-warning"}`}>
+                  <p className="font-medium">{t.key}</p>
+                  <p>{t.message}</p>
+                </div>
+              ))}
+              {!(security.data?.threatMonitoring?.triggers?.length ?? 0) ? <p className="text-muted">Триггеров нет</p> : null}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle>Audit log</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-xs">
-              {(security.data?.recentAdminActions ?? []).map((a: any) => <p key={a.id}>• {a.action} · {new Date(a.created_at).toLocaleString("ru-RU")}</p>)}
-              {!security.data?.recentAdminActions?.length ? <EmptyState title="Нет записей audit" onSeed={seedDemo} onCheck={checkTracking} /> : null}
+              {(security.data?.auditLog ?? security.data?.recentAdminActions ?? []).slice(0, 25).map((a: any) => <p key={a.id}>• {a.action} · {new Date(a.created_at).toLocaleString("ru-RU")}</p>)}
+              {!((security.data?.auditLog ?? security.data?.recentAdminActions ?? []).length) ? <EmptyState title="Нет записей audit" onSeed={seedDemo} onCheck={checkTracking} /> : null}
             </CardContent>
           </Card>
         </div>
@@ -1046,14 +1540,8 @@ export default function AdminPage() {
                 <div key={item.key} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
                   <p className="font-medium">{item.key}</p>
                   <p className="text-xs text-muted">{JSON.stringify(item.value)}</p>
-                  <Button
-                    size="sm"
-                    className="mt-2"
-                    variant="secondary"
-                    onClick={() => saveSystemSetting(item.key, item.value)}
-                  >
-                    Сохранить
-                  </Button>
+                  <ActionButton className="mt-2" size="sm" state={actionUi[`saveSystem-${item.key}`]} variant="secondary" idleLabel="Сохранить" loadingLabel="Сохранение..." successLabel={actionUi[`saveSystem-${item.key}`]?.label} onClick={() => saveSystemSetting(item.key, item.value)} />
+                  <InlineError message={actionUi[`saveSystem-${item.key}`]?.error} />
                 </div>
               ))}
               {!system.data?.items?.length ? <EmptyState title="System settings пусты" onSeed={seedDemo} onCheck={checkTracking} /> : null}

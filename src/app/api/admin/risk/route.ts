@@ -1,63 +1,74 @@
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
+import { buildRiskProfiles } from "@/server/risk";
 import { supabaseAdmin } from "@/supabase/admin";
 
 export async function GET() {
   try {
     await requireAdminUserId();
 
-    const [users, flags, reports] = await Promise.all([
-      supabaseAdmin
-        .from("users")
-        .select("id,name,phone,is_blocked,shadow_banned,blocked_reason,created_at")
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabaseAdmin
-        .from("content_flags")
-        .select("user_id,risk_score,status,reason,created_at")
-        .order("created_at", { ascending: false })
-        .limit(5000),
-      supabaseAdmin
-        .from("reports")
-        .select("target_user_id,status,reason,created_at")
-        .order("created_at", { ascending: false })
-        .limit(5000),
+    const usersRes = await supabaseAdmin
+      .from("users")
+      .select("id,name,phone,country,is_blocked,shadow_banned,message_limited,last_post_at,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const users = usersRes.data ?? [];
+    const userIds = users.map((u) => u.id);
+
+    const [riskMap, lastSeenRes] = await Promise.all([
+      buildRiskProfiles(userIds),
+      userIds.length
+        ? supabaseAdmin
+            .from("analytics_events")
+            .select("user_id,created_at")
+            .in("user_id", userIds)
+            .order("created_at", { ascending: false })
+            .limit(15000)
+        : Promise.resolve({ data: [] as Array<{ user_id: string; created_at: string }> }),
     ]);
 
-    const riskMap = new Map<string, { score: number; signals: string[] }>();
-
-    for (const f of flags.data ?? []) {
-      if (!f.user_id) continue;
-      const row = riskMap.get(f.user_id) ?? { score: 0, signals: [] };
-      row.score += Math.max(5, Math.floor((f.risk_score ?? 0) / 5));
-      if (row.signals.length < 6) row.signals.push(`flag: ${f.reason}`);
-      riskMap.set(f.user_id, row);
+    const lastSeenMap = new Map<string, string>();
+    for (const row of lastSeenRes.data ?? []) {
+      if (!row.user_id) continue;
+      if (!lastSeenMap.has(row.user_id)) lastSeenMap.set(row.user_id, row.created_at);
     }
 
-    for (const r of reports.data ?? []) {
-      if (!r.target_user_id) continue;
-      const row = riskMap.get(r.target_user_id) ?? { score: 0, signals: [] };
-      row.score += r.status === "open" ? 20 : 8;
-      if (row.signals.length < 6) row.signals.push(`report: ${r.reason}`);
-      riskMap.set(r.target_user_id, row);
-    }
-
-    const items = (users.data ?? [])
+    const items = users
       .map((u) => {
-        const risk = riskMap.get(u.id) ?? { score: 0, signals: [] };
-        const status = risk.score >= 80 ? "high" : risk.score >= 45 ? "medium" : "low";
+        const risk = riskMap.get(u.id) ?? { riskScore: 0, riskStatus: "low", signals: [] };
         return {
           ...u,
-          risk_score: Math.min(100, risk.score),
-          risk_status: status,
-          signals: risk.signals,
+          risk_score: risk.riskScore,
+          risk_status: risk.riskStatus,
+          signals: risk.signals.map((s) => `${s.label}: ${s.value}`),
+          top_signals: risk.signals,
+          last_seen_at: lastSeenMap.get(u.id) ?? null,
         };
       })
-      .filter((x) => x.risk_score > 0 || x.is_blocked || x.shadow_banned)
+      .filter((x) => x.risk_score > 0 || x.is_blocked || x.shadow_banned || x.message_limited)
       .sort((a, b) => b.risk_score - a.risk_score)
-      .slice(0, 200);
+      .slice(0, 300);
 
-    return ok({ items });
+    const distribution = {
+      low: items.filter((x) => x.risk_status === "low").length,
+      medium: items.filter((x) => x.risk_status === "medium").length,
+      high: items.filter((x) => x.risk_status === "high").length,
+    };
+
+    const topSignalsMap = new Map<string, number>();
+    for (const item of items) {
+      for (const sig of item.top_signals ?? []) {
+        topSignalsMap.set(sig.key, (topSignalsMap.get(sig.key) ?? 0) + 1);
+      }
+    }
+
+    const topSignals = [...topSignalsMap.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    return ok({ items, distribution, topSignals });
   } catch {
     return fail("Forbidden", 403);
   }

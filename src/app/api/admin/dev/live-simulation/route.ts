@@ -1,83 +1,31 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
-import { supabaseAdmin } from "@/supabase/admin";
+import { getDevtoolsStatus, getSimulationState, runSimulationTick, startSimulation, stopSimulation } from "@/server/simulation";
 import { logAdminAction } from "@/server/admin-audit";
-
-type LiveState = {
-  running: boolean;
-  intervalSec: number;
-  eventsPerTick: number;
-  totalGenerated: number;
-  lastTickAt: number;
-};
-
-const globalAny = globalThis as unknown as { __liveSimState?: LiveState };
-globalAny.__liveSimState = globalAny.__liveSimState ?? {
-  running: false,
-  intervalSec: 8,
-  eventsPerTick: 20,
-  totalGenerated: 0,
-  lastTickAt: 0,
-};
 
 const schema = z.object({
   action: z.enum(["start", "stop", "tick"]),
-  intervalSec: z.number().int().min(2).max(60).optional(),
-  eventsPerTick: z.number().int().min(1).max(300).optional(),
+  intervalSec: z.number().int().min(3).max(120).optional(),
+  eventsPerTick: z.number().int().min(1).max(5000).optional(),
+  users: z.number().int().min(10).max(2000).optional(),
+  mode: z.enum(["normal", "chaos"]).optional(),
+  intensity: z.enum(["low", "normal", "high"]).optional(),
 });
-
-const EVENT_NAMES = [
-  "event_viewed",
-  "event_joined",
-  "connect_sent",
-  "connect_replied",
-  "chat_message_sent",
-  "post_published_daily_duo",
-  "post_published_video",
-  "ai_cost",
-] as const;
-
-function rnd(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-async function tickGenerate(count: number) {
-  const { data: users } = await supabaseAdmin.from("users").select("id").limit(500);
-  const ids = (users ?? []).map((u) => u.id);
-  if (!ids.length) return 0;
-
-  const rows = [] as Array<{ event_name: string; user_id: string; path: string; properties: Record<string, unknown>; created_at: string }>;
-  for (let i = 0; i < count; i += 1) {
-    const name = EVENT_NAMES[rnd(0, EVENT_NAMES.length - 1)] ?? "event_viewed";
-    rows.push({
-      event_name: name,
-      user_id: ids[rnd(0, ids.length - 1)] as string,
-      path: name.includes("event") ? "/events" : name.includes("connect") ? "/contacts" : "/feed",
-      properties: { source: "live_sim", usd: name === "ai_cost" ? Number((Math.random() * 0.05).toFixed(4)) : undefined },
-      created_at: new Date().toISOString(),
-    });
-  }
-
-  await supabaseAdmin.from("analytics_events").insert(rows);
-  return rows.length;
-}
 
 export async function GET() {
   try {
     await requireAdminUserId();
-
-    const state = globalAny.__liveSimState as LiveState;
-    if (state.running) {
-      const now = Date.now();
-      if (now - state.lastTickAt >= state.intervalSec * 1000) {
-        const generated = await tickGenerate(state.eventsPerTick);
-        state.totalGenerated += generated;
-        state.lastTickAt = now;
-      }
-    }
-
-    return ok(state);
+    const state = await getSimulationState();
+    return ok({
+      running: state.running,
+      intervalSec: state.run?.interval_sec ?? 8,
+      eventsPerTick: state.run?.intensity === "high" ? 80 : state.run?.intensity === "low" ? 25 : 50,
+      totalGenerated: state.run?.total_events_generated ?? 0,
+      lastTickAt: state.run?.last_tick_at ? new Date(state.run.last_tick_at).getTime() : 0,
+      runId: state.run?.id ?? null,
+      recentActions: state.run?.recent_actions ?? [],
+    });
   } catch {
     return fail("Forbidden", 403);
   }
@@ -86,37 +34,54 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const adminId = await requireAdminUserId();
-
-    if (process.env.NODE_ENV === "production" && process.env.ADMIN_DEVTOOLS_ENABLED !== "true") {
-      return fail("Devtools disabled", 403);
-    }
+    const devtools = getDevtoolsStatus();
+    if (!devtools.enabled) return fail(`Devtools disabled: ${devtools.reason}`, 403);
 
     const body = await req.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
 
-    const state = globalAny.__liveSimState as LiveState;
-
     if (parsed.data.action === "start") {
-      state.running = true;
-      state.intervalSec = parsed.data.intervalSec ?? state.intervalSec;
-      state.eventsPerTick = parsed.data.eventsPerTick ?? state.eventsPerTick;
-      state.lastTickAt = 0;
-      await logAdminAction({ adminId, action: "live_sim_start", targetType: "system", meta: { intervalSec: state.intervalSec, eventsPerTick: state.eventsPerTick } });
+      const run = await startSimulation({
+        adminId,
+        usersCount: parsed.data.users ?? 40,
+        intervalSec: parsed.data.intervalSec ?? 8,
+        mode: parsed.data.mode ?? "normal",
+        intensity: parsed.data.intensity ?? "normal",
+      });
+      await logAdminAction({ adminId, action: "live_sim_start", targetType: "simulation", targetId: run.id, meta: parsed.data });
+      return ok({
+        running: true,
+        intervalSec: run.interval_sec,
+        eventsPerTick: parsed.data.eventsPerTick ?? 50,
+        totalGenerated: run.total_events_generated,
+        lastTickAt: run.last_tick_at ? new Date(run.last_tick_at).getTime() : 0,
+        runId: run.id,
+        recentActions: run.recent_actions ?? [],
+      });
     }
+
+    const state = await getSimulationState();
+    const runId = state.run?.id;
 
     if (parsed.data.action === "stop") {
-      state.running = false;
-      await logAdminAction({ adminId, action: "live_sim_stop", targetType: "system", meta: { totalGenerated: state.totalGenerated } });
+      await stopSimulation(runId);
+      await logAdminAction({ adminId, action: "live_sim_stop", targetType: "simulation", targetId: runId ?? null });
+      return ok({ running: false, intervalSec: state.run?.interval_sec ?? 8, eventsPerTick: parsed.data.eventsPerTick ?? 50, totalGenerated: state.run?.total_events_generated ?? 0, lastTickAt: Date.now(), runId: runId ?? null, recentActions: state.run?.recent_actions ?? [] });
     }
 
-    if (parsed.data.action === "tick") {
-      const generated = await tickGenerate(parsed.data.eventsPerTick ?? state.eventsPerTick);
-      state.totalGenerated += generated;
-      state.lastTickAt = Date.now();
-    }
-
-    return ok(state);
+    if (!runId) return fail("No active simulation", 422);
+    const tick = await runSimulationTick(runId, parsed.data.eventsPerTick);
+    const refresh = await getSimulationState();
+    return ok({
+      running: true,
+      intervalSec: refresh.run?.interval_sec ?? 8,
+      eventsPerTick: parsed.data.eventsPerTick ?? 50,
+      totalGenerated: refresh.run?.total_events_generated ?? tick.eventsWritten,
+      lastTickAt: refresh.run?.last_tick_at ? new Date(refresh.run.last_tick_at).getTime() : Date.now(),
+      runId,
+      recentActions: tick.sampleEvents,
+    });
   } catch {
     return fail("Forbidden", 403);
   }
