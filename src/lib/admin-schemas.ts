@@ -36,6 +36,7 @@ export const featureFlagUpsertSchema = z.object({
 export const aiInsightsSchema = z.object({
   question: z.string().min(3).max(1600),
   context: z.record(z.unknown()).optional(),
+  debug: z.boolean().optional().default(false),
 });
 
 export const userSearchSchema = z.object({
@@ -208,4 +209,43 @@ export const aiInsightsResponseSchema = z.object({
   key_findings: z.array(z.string()),
   evidence: z.array(z.string()),
   recommended_actions: z.array(z.string()),
+  actions: z
+    .array(
+      z.object({
+        id: z.string(),
+        type: z.enum(["create_alert", "create_experiment", "update_flag"]),
+        label: z.string(),
+        payload: z.record(z.unknown()),
+      }),
+    )
+    .default([]),
+  debug: z
+    .object({
+      used_fallback: z.boolean(),
+      context: z.record(z.unknown()).optional(),
+      error: z.string().optional(),
+    })
+    .optional(),
+});
+
+export const diagnosticsResponseSchema = z.object({
+  env_ok: z.boolean(),
+  supabase_ok: z.boolean(),
+  tables: z.array(
+    z.object({
+      name: z.string(),
+      exists: z.boolean(),
+      rows_30d: z.number(),
+    }),
+  ),
+  rls: z.array(
+    z.object({
+      table: z.string(),
+      can_select: z.boolean(),
+      note: z.string(),
+    }),
+  ),
+  last_event_at: z.string().nullable(),
+  issues: z.array(z.string()),
+  fixes: z.array(z.string()),
 });

@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { adminApi } from "@/lib/admin-client";
 import {
   aiInsightsResponseSchema,
+  diagnosticsResponseSchema,
   featureFlagsResponseSchema,
   funnelsResponseSchema,
   moderationQueueResponseSchema,
@@ -125,6 +126,11 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiLog, setAiLog] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [aiDebugMode, setAiDebugMode] = useState(false);
+  const [aiDebugPayload, setAiDebugPayload] = useState<Record<string, unknown> | null>(null);
+  const [aiActions, setAiActions] = useState<Array<{ id: string; type: "create_alert" | "create_experiment" | "update_flag"; label: string; payload: Record<string, unknown> }>>([]);
+  const [appliedAiActions, setAppliedAiActions] = useState<Record<string, boolean>>({});
+  const [aiError, setAiError] = useState<string | null>(null);
   const [moderationReason, setModerationReason] = useState("Нарушение правил платформы");
   const [isSeedLoading, setSeedLoading] = useState(false);
   const [alertsForm, setAlertsForm] = useState({ metric: "tg_verify_rate", type: "drop", threshold: 0.2, window_days: 7 });
@@ -182,6 +188,13 @@ export default function AdminPage() {
     queryFn: () => api<{ kind: string; kpis: Array<{ name: string; value: number; subtitle?: string | null }>; trends: Array<{ key: string; points: Array<{ date: string; value: number }> }>; top: any[] }>(`/api/admin/metrics/${metricsTab}?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}`),
   });
 
+  const diagnostics = useQuery({
+    queryKey: ["admin-diagnostics-v1"],
+    queryFn: () => adminApi("/api/admin/diagnostics", diagnosticsResponseSchema),
+    enabled: false,
+    retry: false,
+  });
+
   const liveSim = useQuery({
     queryKey: ["admin-live-sim"],
     queryFn: () => api<{ running: boolean; intervalSec: number; eventsPerTick: number; totalGenerated: number; lastTickAt: number }>("/api/admin/dev/live-simulation"),
@@ -198,6 +211,7 @@ export default function AdminPage() {
         funnels.refetch(),
         retention.refetch(),
         users.refetch(),
+        diagnostics.refetch(),
       ]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка seed");
@@ -219,9 +233,24 @@ export default function AdminPage() {
         toast.info(`Сработало алертов: ${res.triggered.length}`);
       }
       alerts.refetch();
+      diagnostics.refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка проверки");
     }
+  }
+
+  async function runDiagnostics() {
+    const res = await diagnostics.refetch();
+    if (res.error) {
+      toast.error(res.error instanceof Error ? res.error.message : "Ошибка диагностики");
+      return;
+    }
+    const issuesCount = res.data?.issues.length ?? 0;
+    if (issuesCount > 0) {
+      toast.warning("Диагностика завершена: проблем " + issuesCount);
+      return;
+    }
+    toast.success("Диагностика: критичных проблем не найдено");
   }
 
   async function moderate(action: any) {
@@ -274,6 +303,7 @@ export default function AdminPage() {
     if (aiQuestion.trim().length < 3) return;
     const q = aiQuestion.trim();
     setAiQuestion("");
+    setAiError(null);
     setAiLog((prev) => [...prev, { role: "user", text: q }]);
 
     try {
@@ -281,6 +311,7 @@ export default function AdminPage() {
         method: "POST",
         body: JSON.stringify({
           question: q,
+          debug: aiDebugMode,
           context: {
             overview: overview.data?.overview,
             comparisons: overview.data?.comparisons,
@@ -294,15 +325,76 @@ export default function AdminPage() {
 
       const answer = [
         res.summary,
-        `Ключевые выводы: ${res.key_findings.join(" | ")}`,
-        `Доказательства: ${res.evidence.join(" | ")}`,
-        `Рекомендованные действия: ${res.recommended_actions.join(" | ")}`,
+        "Ключевые выводы: " + res.key_findings.join(" | "),
+        "Доказательства: " + res.evidence.join(" | "),
+        "Рекомендованные действия: " + res.recommended_actions.join(" | "),
       ].join("\n\n");
 
+      setAiActions(res.actions ?? []);
+      setAppliedAiActions({});
+      setAiDebugPayload((res.debug as Record<string, unknown> | undefined) ?? null);
       setAiLog((prev) => [...prev, { role: "assistant", text: answer }]);
       setSection("assistant");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка AI");
+      const message = e instanceof Error ? e.message : "Ошибка AI";
+      setAiError(message);
+      toast.error(message);
+    }
+  }
+
+  async function applyAiAction(action: { id: string; type: "create_alert" | "create_experiment" | "update_flag"; label: string; payload: Record<string, unknown> }) {
+    try {
+      if (action.type === "create_alert") {
+        await api("/api/admin/alerts", {
+          method: "POST",
+          body: JSON.stringify({
+            type: String(action.payload.type ?? "drop"),
+            metric: String(action.payload.metric ?? "tg_verify_rate"),
+            threshold: Number(action.payload.threshold ?? 0.2),
+            window_days: Number(action.payload.window_days ?? 7),
+            status: String(action.payload.status ?? "active"),
+          }),
+        });
+        setSection("alerts");
+      }
+
+      if (action.type === "create_experiment") {
+        const status = String(action.payload.status ?? "draft");
+        await api("/api/admin/experiments", {
+          method: "POST",
+          body: JSON.stringify({
+            key: String(action.payload.key ?? ("ai_experiment_" + Date.now())),
+            variants: (action.payload.variants as Record<string, unknown>) ?? { A: "control", B: "variant" },
+            rollout_percent: Number(action.payload.rollout_percent ?? 20),
+            status: ["draft", "running", "paused", "completed"].includes(status) ? status : "draft",
+            primary_metric: String(action.payload.primary_metric ?? "WMC"),
+            start_at: null,
+            end_at: null,
+          }),
+        });
+        setSection("experiments");
+      }
+
+      if (action.type === "update_flag") {
+        await api("/api/admin/feature-flags", {
+          method: "POST",
+          body: JSON.stringify({
+            key: String(action.payload.key ?? "feed_lock_days"),
+            description: String(action.payload.description ?? "AI suggestion"),
+            enabled: Boolean(action.payload.enabled ?? true),
+            rollout: Number(action.payload.rollout ?? 100),
+            scope: String(action.payload.scope ?? "global"),
+            payload: (action.payload.payload as Record<string, unknown>) ?? { value: 7 },
+          }),
+        });
+        setSection("flags");
+      }
+
+      setAppliedAiActions((prev) => ({ ...prev, [action.id]: true }));
+      await Promise.all([overview.refetch(), alerts.refetch(), experiments.refetch(), flags.refetch()]);
+      toast.success(action.label + " применено");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось применить рекомендацию");
     }
   }
 
@@ -356,6 +448,32 @@ export default function AdminPage() {
   const isOverviewLoading = overview.isLoading;
   const noData = !isOverviewLoading && Object.keys(overview.data?.overview ?? {}).length === 0;
 
+  const queryErrors = [
+    overview.error,
+    funnels.error,
+    retention.error,
+    users.error,
+    moderation.error,
+    flags.error,
+    alerts.error,
+    risk.error,
+    reports.error,
+    metricsLab.error,
+    diagnostics.error,
+  ]
+    .filter(Boolean)
+    .map((error) => (error instanceof Error ? error.message : "Request failed"));
+
+  const checklist = {
+    eventsTracked:
+      Boolean(diagnostics.data?.last_event_at) &&
+      Date.now() - new Date(diagnostics.data?.last_event_at ?? 0).getTime() < 24 * 60 * 60 * 1000,
+    metricsReady: !noData,
+    simulationEnabled: process.env.NEXT_PUBLIC_ADMIN_DEVTOOLS_ENABLED === "true" || process.env.NODE_ENV !== "production",
+    aiConnected: (overview.data?.health?.integrations.openAiConfigured ?? false) && (diagnostics.data?.env_ok ?? false),
+    alertsWorking: (alerts.data?.items?.length ?? 0) > 0 || (overview.data?.health?.integrations.integrationErrors7d ?? 0) >= 0,
+  };
+
   return (
     <AdminShell
       section={section}
@@ -368,6 +486,24 @@ export default function AdminPage() {
       search={search}
       onSearch={setSearch}
     >
+      {queryErrors.length ? (
+        <div className="col-span-12">
+          <Card className="border-danger/40 bg-danger/10">
+            <CardHeader><CardTitle>Проблемы загрузки данных</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {queryErrors.slice(0, 6).map((message, idx) => (
+                <p key={idx} className="text-danger">• {message}</p>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={runDiagnostics}>Run Diagnostics</Button>
+                <Button size="sm" variant="secondary" onClick={checkTracking}>Проверить трекинг</Button>
+                <Button size="sm" onClick={seedDemo}>Seed demo data</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       {section === "overview" ? (
         <>
           {isOverviewLoading ? (
@@ -398,7 +534,7 @@ export default function AdminPage() {
             <TrendChart title="Connect replied trend" points={overview.data?.trends?.connectReplied ?? []} />
           </div>
 
-          <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
             <Card>
               <CardHeader><CardTitle>Мини-воронка</CardTitle></CardHeader>
               <CardContent className="space-y-2">
@@ -431,6 +567,51 @@ export default function AdminPage() {
                   {(overview.data?.health?.lastAdminActions ?? []).slice(0, 6).map((a: any) => (
                     <p key={a.id} className="text-xs">• {a.action} · {new Date(a.created_at).toLocaleString("ru-RU")}</p>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Data Health / Diagnostics</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <p>ENV: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.env_ok ? "OK" : "ISSUES"}</strong></p>
+                  <p>Supabase: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.supabase_ok ? "OK" : "ISSUES"}</strong></p>
+                  <p>Последнее событие: <strong>{diagnostics.data?.last_event_at ? new Date(diagnostics.data.last_event_at).toLocaleString("ru-RU") : diagnostics.isFetched ? "нет" : "запусти диагностику"}</strong></p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <p className="mb-2 text-xs text-muted">Admin Checklist</p>
+                  <p className="text-xs">{checklist.eventsTracked ? "✔" : "✖"} события пишутся</p>
+                  <p className="text-xs">{checklist.metricsReady ? "✔" : "✖"} метрики считаются</p>
+                  <p className="text-xs">{checklist.simulationEnabled ? "✔" : "✖"} симуляция доступна</p>
+                  <p className="text-xs">{checklist.aiConnected ? "✔" : "✖"} AI подключен</p>
+                  <p className="text-xs">{checklist.alertsWorking ? "✔" : "✖"} alerts работают</p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <p className="mb-2 text-xs text-muted">Таблицы / rows 30d</p>
+                  {(diagnostics.data?.tables ?? []).slice(0, 6).map((table) => (
+                    <p key={table.name} className="text-xs">• {table.name}: {table.exists ? "ok" : "missing"} · {table.rows_30d}</p>
+                  ))}
+                  {!diagnostics.data?.tables?.length && diagnostics.isFetched ? <p className="text-xs text-muted">Нет результатов диагностики.</p> : null}
+                </div>
+
+                {(diagnostics.data?.issues.length ?? 0) > 0 ? (
+                  <div className="rounded-xl border border-danger/30 bg-danger/10 p-3">
+                    <p className="mb-1 text-xs text-danger">Issues</p>
+                    {(diagnostics.data?.issues ?? []).slice(0, 4).map((issue, idx) => <p key={idx} className="text-xs">• {issue}</p>)}
+                  </div>
+                ) : diagnostics.isFetched ? (
+                  <div className="rounded-xl border border-action/30 bg-action/10 p-3">
+                    <p className="text-xs text-action">Критичных проблем не найдено.</p>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={runDiagnostics}>Run Diagnostics</Button>
+                  <Button size="sm" variant="secondary" onClick={checkTracking}>Проверить трекинг</Button>
+                  <Button size="sm" onClick={seedDemo}>Сгенерировать демо-данные</Button>
                 </div>
               </CardContent>
             </Card>
@@ -690,6 +871,8 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>AI Admin Analyst</CardTitle></CardHeader>
             <CardContent className="space-y-3">
+              {aiError ? <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-xs text-danger">Ошибка AI: {aiError}</div> : null}
+
               <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-black/10 p-3">
                 {!aiLog.length ? <p className="text-xs text-muted">Спроси: почему упал TG verify, где провал в воронке, что влияет на WMC.</p> : null}
                 {aiLog.map((m, i) => (
@@ -699,8 +882,36 @@ export default function AdminPage() {
                   </motion.div>
                 ))}
               </div>
-              <div className="flex gap-2">
+
+              {aiActions.length ? (
+                <div className="space-y-2 rounded-xl border border-border bg-black/10 p-3">
+                  <p className="text-xs text-muted">Исполнимые рекомендации</p>
+                  {aiActions.map((action) => (
+                    <div key={action.id} className="flex flex-col gap-2 rounded-lg border border-border p-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                      <p>{action.label}</p>
+                      <Button
+                        size="sm"
+                        variant={appliedAiActions[action.id] ? "secondary" : "default"}
+                        onClick={() => applyAiAction(action)}
+                        disabled={Boolean(appliedAiActions[action.id])}
+                      >
+                        {appliedAiActions[action.id] ? "Applied" : "Apply suggestion"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {aiDebugMode && aiDebugPayload ? (
+                <div className="space-y-2 rounded-xl border border-border bg-black/10 p-3">
+                  <p className="text-xs text-muted">AI debug context</p>
+                  <pre className="max-h-48 overflow-auto text-[11px] leading-relaxed text-muted">{JSON.stringify(aiDebugPayload, null, 2)}</pre>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
                 <Input value={aiQuestion} onChange={(e) => setAiQuestion(e.target.value)} placeholder="Почему упал TG verify за 7 дней?" />
+                <Button variant="secondary" onClick={() => setAiDebugMode((v) => !v)}>{aiDebugMode ? "Debug ON" : "Debug OFF"}</Button>
                 <Button onClick={askAI}><Bot className="mr-1 h-4 w-4" />Спросить</Button>
               </div>
             </CardContent>
@@ -891,6 +1102,7 @@ export default function AdminPage() {
             <Button variant="secondary" onClick={() => setSection("moderation")}><Shield className="mr-1 h-4 w-4" />Модерация</Button>
             <Button variant="secondary" onClick={() => setSection("reports")}><Flag className="mr-1 h-4 w-4" />Reports</Button>
             <Button variant="secondary" onClick={checkTracking}><RefreshCw className="mr-1 h-4 w-4" />Проверить трекинг</Button>
+            <Button variant="secondary" onClick={runDiagnostics}><RefreshCw className="mr-1 h-4 w-4" />Run Diagnostics</Button>
             <Button onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}Seed demo data</Button>
           </CardContent>
         </Card>
