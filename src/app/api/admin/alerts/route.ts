@@ -17,7 +17,13 @@ export async function GET() {
     await requireAdminUserId();
     const { data, error } = await supabaseAdmin.from("alerts").select("*").order("created_at", { ascending: false });
     if (error) return fail(error.message, 500);
-    return ok({ items: data ?? [] });
+
+    const items = (data ?? []).map((row: any) => ({
+      ...row,
+      window: row.alert_window ?? row.window ?? "7d",
+    }));
+
+    return ok({ items });
   } catch {
     return fail("Forbidden", 403);
   }
@@ -30,7 +36,16 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
 
-    const payload = { ...parsed.data, updated_at: new Date().toISOString() };
+    const payload = {
+      id: parsed.data.id,
+      type: parsed.data.type,
+      metric: parsed.data.metric,
+      threshold: parsed.data.threshold,
+      alert_window: parsed.data.window,
+      status: parsed.data.status,
+      updated_at: new Date().toISOString(),
+    };
+
     if (parsed.data.id) {
       const { error } = await supabaseAdmin.from("alerts").update(payload).eq("id", parsed.data.id);
       if (error) return fail(error.message, 500);

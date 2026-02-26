@@ -30,7 +30,7 @@ create table if not exists public.alerts (
   type text not null,
   metric text not null,
   threshold numeric not null,
-  window text not null,
+  alert_window text not null,
   status text not null default 'active',
   last_triggered_at timestamptz,
   created_at timestamptz not null default now(),

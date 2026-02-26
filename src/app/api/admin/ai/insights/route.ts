@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       supabaseAdmin.from("analytics_events").select("event_name,user_id,properties,created_at").order("created_at", { ascending: false }).limit(4000),
       supabaseAdmin.from("reports").select("status,reason,content_type,created_at").order("created_at", { ascending: false }).limit(500),
       supabaseAdmin.from("content_flags").select("status,reason,risk_score,content_type,created_at").order("created_at", { ascending: false }).limit(500),
-      supabaseAdmin.from("alerts").select("type,metric,threshold,window,status,last_triggered_at").order("created_at", { ascending: false }).limit(200),
+      supabaseAdmin.from("alerts").select("type,metric,threshold,alert_window,status,last_triggered_at").order("created_at", { ascending: false }).limit(200),
       supabaseAdmin.from("experiments").select("key,status,rollout_percent,primary_metric,start_at,end_at").order("created_at", { ascending: false }).limit(200),
     ]);
 
