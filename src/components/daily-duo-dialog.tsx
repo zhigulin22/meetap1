@@ -64,6 +64,13 @@ async function applyFilterToFile(file: File, cssFilter: string, namePrefix: stri
   }
 }
 
+function getCameraZoomLabel(device: MediaDeviceInfo): string {
+  const label = device.label.toLowerCase();
+  if (label.includes("ultra wide") || label.includes("ultra-wide") || label.includes("0.5x")) return "0.5×";
+  if (label.includes("telephoto") || label.includes("tele")) return "2×";
+  return "1×";
+}
+
 export function DailyDuoDialog({
   open,
   onOpenChange,
@@ -79,6 +86,9 @@ export function DailyDuoDialog({
   const [captureStep, setCaptureStep] = useState<CaptureStep>("front");
   const [phase, setPhase] = useState<Phase>("capture_front");
   const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
 
   const [front, setFront] = useState<File | null>(null);
   const [back, setBack] = useState<File | null>(null);
@@ -89,6 +99,14 @@ export function DailyDuoDialog({
   const frontPreview = useMemo(() => (front ? URL.createObjectURL(front) : null), [front]);
   const backPreview = useMemo(() => (back ? URL.createObjectURL(back) : null), [back]);
   const activeFilter = FILTERS.find((f) => f.id === selectedFilter) ?? FILTERS[0];
+
+  // Back cameras: all cameras that are not front-facing (by label)
+  const backCameras = useMemo(() => {
+    return availableCameras.filter((d) => {
+      const label = d.label.toLowerCase();
+      return label.length > 0 && !label.includes("front") && !label.includes("user");
+    });
+  }, [availableCameras]);
 
   useEffect(() => {
     return () => {
@@ -111,6 +129,9 @@ export function DailyDuoDialog({
     setBack(null);
     setCaption("");
     setSelectedFilter("none");
+    setAvailableCameras([]);
+    setSelectedDeviceId(null);
+    setActiveDeviceId(null);
   }, [open]);
 
   useEffect(() => {
@@ -132,12 +153,14 @@ export function DailyDuoDialog({
       streamRef.current?.getTracks().forEach((t) => t.stop());
 
       try {
+        // Use specific deviceId if selected, otherwise use facingMode.
+        // Removed width/height ideal constraints — they cause digital zoom on many devices.
+        const videoConstraints: MediaTrackConstraints = selectedDeviceId
+          ? { deviceId: { exact: selectedDeviceId } }
+          : { facingMode: { ideal: facing } };
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: facing },
-            width: { ideal: 1080 },
-            height: { ideal: 1920 },
-          },
+          video: videoConstraints,
           audio: false,
         });
 
@@ -151,6 +174,20 @@ export function DailyDuoDialog({
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => null);
         }
+
+        // Track which device is currently active (for zoom button highlighting)
+        const currentDeviceId = stream.getVideoTracks()[0]?.getSettings()?.deviceId ?? null;
+        if (!cancelled) setActiveDeviceId(currentDeviceId);
+
+        // Enumerate cameras after permission is granted (labels only available after permission)
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          if (!cancelled) {
+            setAvailableCameras(devices.filter((d) => d.kind === "videoinput"));
+          }
+        } catch {
+          // Enumeration not supported on this device
+        }
       } catch {
         toast.error("Нет доступа к камере. Используй скрепку для галереи.");
       }
@@ -161,7 +198,7 @@ export function DailyDuoDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, phase, facing]);
+  }, [open, phase, facing, selectedDeviceId]);
 
   async function capturePhoto() {
     const video = videoRef.current;
@@ -173,7 +210,17 @@ export function DailyDuoDialog({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Front camera preview is CSS-mirrored (scaleX(-1)) for natural selfie feel.
+    // Flip the canvas so the saved image is NOT mirrored.
+    if (facing === "user") {
+      ctx.save();
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    } else {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92),
@@ -186,6 +233,7 @@ export function DailyDuoDialog({
       setCaptureStep("back");
       setPhase("capture_back");
       setFacing("environment");
+      setSelectedDeviceId(null);
       return;
     }
 
@@ -200,6 +248,7 @@ export function DailyDuoDialog({
       setCaptureStep("back");
       setPhase("capture_back");
       setFacing("environment");
+      setSelectedDeviceId(null);
       return;
     }
 
@@ -214,6 +263,7 @@ export function DailyDuoDialog({
       setCaptureStep("front");
       setPhase("capture_front");
       setFacing("user");
+      setSelectedDeviceId(null);
       return;
     }
 
@@ -221,6 +271,7 @@ export function DailyDuoDialog({
     setCaptureStep("back");
     setPhase("capture_back");
     setFacing("environment");
+    setSelectedDeviceId(null);
   }
 
   async function publish() {
@@ -260,7 +311,14 @@ export function DailyDuoDialog({
       {phase !== "edit" ? (
         <>
           <div className="relative h-full w-full overflow-hidden">
-            <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+            {/* scaleX(-1) mirrors the front camera preview so it looks like a natural selfie */}
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+              style={{ transform: facing === "user" ? "scaleX(-1)" : "none" }}
+            />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
             <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
               <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">Закрыть</button>
@@ -268,13 +326,39 @@ export function DailyDuoDialog({
                 {phase === "capture_front" ? "Сделай первый кадр" : "Сделай второй кадр"}
               </div>
               <button
-                onClick={() => setFacing((x) => (x === "user" ? "environment" : "user"))}
+                onClick={() => {
+                  setSelectedDeviceId(null);
+                  setFacing((x) => (x === "user" ? "environment" : "user"));
+                }}
                 className="grid h-10 w-10 place-items-center rounded-full bg-black/45"
                 aria-label="Сменить камеру"
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Zoom selector — shown only for back camera when multiple cameras are available */}
+            {facing === "environment" && backCameras.length > 1 && (
+              <div className="absolute bottom-32 left-0 right-0 flex justify-center gap-2">
+                {backCameras.map((cam) => {
+                  const zoomLabel = getCameraZoomLabel(cam);
+                  const isActive = cam.deviceId === activeDeviceId;
+                  return (
+                    <button
+                      key={cam.deviceId}
+                      onClick={() => setSelectedDeviceId(cam.deviceId)}
+                      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold backdrop-blur-sm transition-all ${
+                        isActive
+                          ? "bg-white/90 text-black shadow-md"
+                          : "bg-black/50 text-white/90"
+                      }`}
+                    >
+                      {zoomLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="absolute bottom-5 left-0 right-0 px-4 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
               <div className="mx-auto flex max-w-sm items-center justify-between rounded-3xl border border-white/20 bg-black/40 px-4 py-3 backdrop-blur-xl">
