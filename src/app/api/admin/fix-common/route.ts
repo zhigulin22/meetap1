@@ -13,6 +13,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { eventDictionarySeedRows } from "@/server/event-dictionary";
 import { recomputeUserStatsDaily } from "@/server/recompute-aggregates";
 import { computeSeries } from "@/server/metrics-series";
+import { createMissingAdminTables } from "@/server/admin-tables";
 
 const schema = z.object({
   action: z
@@ -33,9 +34,14 @@ async function runAction(action: z.infer<typeof schema>["action"], adminId: stri
   const actions: string[] = [];
 
   if (action === "create_missing_tables") {
+    const created = await createMissingAdminTables();
+    actions.push(`create_missing_tables:${created.tables_present ? "ok" : "partial"}`);
     return {
-      actions: ["manual_sql_required"],
-      note: "Нужна миграция через Supabase SQL Editor (см. supabase/migrations).",
+      actions,
+      created: created.created,
+      tables_present: created.tables_present,
+      missing_before: created.missing_before,
+      missing_after: created.missing_after,
     };
   }
 

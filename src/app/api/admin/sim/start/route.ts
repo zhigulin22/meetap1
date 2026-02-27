@@ -3,6 +3,7 @@ import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { getDevtoolsStatus, startSimulation } from "@/server/simulation";
 import { logAdminAction } from "@/server/admin-audit";
+import { assertSimulationTablesReady } from "@/server/admin-tables";
 
 const schema = z.object({
   users_count: z.number().int().min(10).max(2000).default(40),
@@ -16,6 +17,8 @@ export async function POST(req: Request) {
     const adminId = await requireAdminUserId();
     const status = await getDevtoolsStatus();
     if (!status.enabled) return fail(`Devtools disabled: ${status.reason}`, 403);
+
+    await assertSimulationTablesReady();
 
     const body = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
@@ -38,7 +41,10 @@ export async function POST(req: Request) {
     });
 
     return ok({ run_id: run.id, status: run.status, run });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Forbidden";
+    if (message.toLowerCase().includes("missing tables")) return fail(message, 409);
+    if (message === "Forbidden") return fail(message, 403);
+    return fail(message, 400);
   }
 }

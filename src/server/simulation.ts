@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/supabase/admin";
+import { assertSimulationTablesReady } from "@/server/admin-tables";
 
 type SimMode = "normal" | "chaos";
 type SimIntensity = "low" | "normal" | "high";
@@ -53,6 +54,11 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function isMissingColumnError(message: string, column: string) {
+  const m = message.toLowerCase();
+  return m.includes("column") && m.includes(column.toLowerCase()) && m.includes("does not exist");
+}
+
 export async function getDevtoolsStatus() {
   const isProd = process.env.NODE_ENV === "production";
   const enabledByEnv = process.env.ADMIN_DEVTOOLS_ENABLED === "true";
@@ -74,12 +80,7 @@ export async function getDevtoolsStatus() {
     } as const;
   }
 
-  const safeMode = await supabaseAdmin
-    .from("system_settings")
-    .select("value")
-    .eq("key", "admin_devtools_safe_mode")
-    .maybeSingle();
-
+  const safeMode = await supabaseAdmin.from("system_settings").select("value").eq("key", "admin_devtools_safe_mode").maybeSingle();
   const safeEnabled = Boolean((safeMode.data?.value as Record<string, unknown> | null)?.enabled === true);
 
   if (safeEnabled) {
@@ -154,31 +155,46 @@ function persona(): SimUser["persona"] {
   };
 }
 
-async function createUsersIfNeeded(target: number) {
-  const { data: existing } = await supabaseAdmin
+async function queryDemoUsers(limit: number) {
+  const byFlag = await supabaseAdmin
+    .from("users")
+    .select("id,name")
+    .eq("role", "user")
+    .eq("is_demo", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (!byFlag.error) return byFlag.data ?? [];
+
+  const byName = await supabaseAdmin
     .from("users")
     .select("id,name")
     .eq("role", "user")
     .ilike("name", "Demo %")
     .order("created_at", { ascending: false })
-    .limit(target);
+    .limit(limit);
 
-  const users = existing ?? [];
-  if (users.length >= target) {
-    return users.map((u) => u.id);
-  }
+  return byName.data ?? [];
+}
 
-  const need = target - users.length;
-  const rows: Array<Record<string, unknown>> = [];
+async function createUsersIfNeeded(target: number) {
+  const existing = await queryDemoUsers(target);
+  if (existing.length >= target) return existing.map((u) => u.id);
+
+  const need = target - existing.length;
+  const fullRows: Array<Record<string, unknown>> = [];
   for (let i = 0; i < need; i += 1) {
     const base = `${pick(NAMES)} ${String.fromCharCode(65 + (i % 26))}.`;
-    rows.push({
+    const city = pick(CITIES);
+    fullRows.push({
       name: `Demo ${base}`,
       phone: phone(),
       telegram_verified: chance(0.75),
       profile_completed: chance(0.65),
-      country: pick(CITIES),
       role: "user",
+      is_demo: true,
+      city,
+      country: city,
       interests: Array.from(new Set(Array.from({ length: rnd(3, 5) }, () => pick(INTERESTS)))),
       hobbies: Array.from(new Set(Array.from({ length: rnd(2, 4) }, () => pick(INTERESTS)))),
       facts: ["Demo user", "Seeded by simulation", "Safe for testing"],
@@ -186,19 +202,30 @@ async function createUsersIfNeeded(target: number) {
     });
   }
 
-  for (let i = 0; i < rows.length; i += 200) {
-    await supabaseAdmin.from("users").insert(rows.slice(i, i + 200));
+  const fallbackRows = fullRows.map((x) => {
+    const copy = { ...x };
+    delete copy.is_demo;
+    delete copy.city;
+    return copy;
+  });
+
+  for (let i = 0; i < fullRows.length; i += 200) {
+    const chunk = fullRows.slice(i, i + 200);
+    const { error } = await supabaseAdmin.from("users").insert(chunk);
+    if (!error) continue;
+
+    if (isMissingColumnError(error.message, "is_demo") || isMissingColumnError(error.message, "city")) {
+      const fallback = fallbackRows.slice(i, i + 200);
+      const fallbackResult = await supabaseAdmin.from("users").insert(fallback);
+      if (fallbackResult.error) throw new Error(fallbackResult.error.message);
+      continue;
+    }
+
+    throw new Error(error.message);
   }
 
-  const { data: after } = await supabaseAdmin
-    .from("users")
-    .select("id")
-    .eq("role", "user")
-    .ilike("name", "Demo %")
-    .order("created_at", { ascending: false })
-    .limit(target);
-
-  return (after ?? []).map((x) => x.id);
+  const after = await queryDemoUsers(target);
+  return after.map((x) => x.id);
 }
 
 async function ensureSimulationUsers(runId: string, usersCount: number): Promise<SimUser[]> {
@@ -277,10 +304,8 @@ export async function startSimulation(input: {
   mode: SimMode;
   intensity: SimIntensity;
 }) {
-  await supabaseAdmin
-    .from("simulation_runs")
-    .update({ status: "stopped", stopped_at: nowIso(), updated_at: nowIso() })
-    .eq("status", "running");
+  await assertSimulationTablesReady();
+  await supabaseAdmin.from("simulation_runs").update({ status: "stopped", stopped_at: nowIso(), updated_at: nowIso() }).eq("status", "running");
 
   const { data, error } = await supabaseAdmin
     .from("simulation_runs")
@@ -298,27 +323,17 @@ export async function startSimulation(input: {
     .select("id,status,users_count,interval_sec,mode,intensity,total_events_generated,recent_actions,started_at,stopped_at,last_tick_at")
     .single();
 
-  if (error || !data) {
-    throw new Error(error?.message ?? "Failed to start simulation");
-  }
-
+  if (error || !data) throw new Error(error?.message ?? "Failed to start simulation");
   await ensureSimulationUsers(data.id, input.usersCount);
   return data as SimRun;
 }
 
 export async function stopSimulation(runId?: string) {
   if (runId) {
-    await supabaseAdmin
-      .from("simulation_runs")
-      .update({ status: "stopped", stopped_at: nowIso(), updated_at: nowIso() })
-      .eq("id", runId);
+    await supabaseAdmin.from("simulation_runs").update({ status: "stopped", stopped_at: nowIso(), updated_at: nowIso() }).eq("id", runId);
     return;
   }
-
-  await supabaseAdmin
-    .from("simulation_runs")
-    .update({ status: "stopped", stopped_at: nowIso(), updated_at: nowIso() })
-    .eq("status", "running");
+  await supabaseAdmin.from("simulation_runs").update({ status: "stopped", stopped_at: nowIso(), updated_at: nowIso() }).eq("status", "running");
 }
 
 function eventCountPerTick(usersCount: number, intensity: SimIntensity, mode: SimMode) {
@@ -347,7 +362,7 @@ function addStats(map: Map<string, Record<string, number | boolean>>, userId: st
   if (eventName === "event_joined") stat.event_joins = Number(stat.event_joins) + 1;
   if (eventName === "connect_sent") stat.connects_sent = Number(stat.connects_sent) + 1;
   if (eventName === "connect_replied") stat.connects_replied = Number(stat.connects_replied) + 1;
-  if (eventName === "chat_message_sent") stat.msgs_sent = Number(stat.msgs_sent) + 1;
+  if (eventName === "message_sent") stat.msgs_sent = Number(stat.msgs_sent) + 1;
   if (eventName === "endorsement_sent") stat.endorsements_received = Number(stat.endorsements_received) + 1;
   if (eventName === "report_created") stat.reports_received = Number(stat.reports_received) + 1;
 
@@ -355,6 +370,7 @@ function addStats(map: Map<string, Record<string, number | boolean>>, userId: st
 }
 
 export async function runSimulationTick(runId: string, forceEventsPerTick?: number) {
+  await assertSimulationTablesReady();
   const runRes = await supabaseAdmin
     .from("simulation_runs")
     .select("id,status,users_count,interval_sec,mode,intensity,total_events_generated,recent_actions,started_at,stopped_at,last_tick_at")
@@ -378,10 +394,10 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
   for (let i = 0; i < total; i += 1) {
     const u = weightedPick(users);
     const p = Math.random();
-    let eventName = "event_viewed";
+    let eventName: string;
 
     if (p < 0.4) {
-      eventName = chance(0.5) ? "event_viewed" : "feed_viewed";
+      eventName = "event_viewed";
     } else if (p < 0.6) {
       eventName = "event_joined";
     } else if (p < 0.72) {
@@ -390,22 +406,21 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
       eventName = "connect_sent";
     } else if (p < 0.95) {
       const canReply = u.persona.reply_speed === "fast" ? chance(0.65) : u.persona.reply_speed === "medium" ? chance(0.45) : chance(0.28);
-      eventName = canReply ? "connect_replied" : "chat_message_sent";
-    } else if (p < 0.98) {
-      eventName = chance(0.7) ? "report_created" : "flag_created";
+      eventName = canReply ? "connect_replied" : "message_sent";
     } else {
-      eventName = chance(0.8) ? "ai_face_validate" : "ai_error";
+      eventName = "report_created";
     }
 
     if (chance(0.02)) eventName = "register_started";
     if (chance(0.015) && run.mode !== "chaos") eventName = "telegram_verified";
     if (chance(0.012)) eventName = "registration_completed";
+    if (chance(0.01)) eventName = "profile_completed";
 
     const createdAt = nowIso();
     const properties: Record<string, unknown> = {
       source: "live_sim",
-          is_demo: true,
-          demo_run_id: run.id,
+      is_demo: true,
+      demo_run_id: run.id,
       city: u.persona.city,
       platform: u.persona.platform,
       event_id: `sim_event_${rnd(1, 50)}`,
@@ -414,15 +429,10 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
       intensity: run.intensity,
     };
 
-    if (eventName === "ai_face_validate") {
-      properties.endpoint = "face_validate";
-      properties.usd = Number((Math.random() * 0.03).toFixed(4));
-    }
-
     rows.push({
       event_name: eventName,
       user_id: u.user_id,
-      path: eventName.includes("event") ? "/events" : eventName.includes("connect") ? "/contacts" : "/feed",
+      path: eventName.includes("event") ? "/events" : eventName.includes("connect") || eventName === "message_sent" ? "/contacts" : "/feed",
       properties,
       created_at: createdAt,
     });
@@ -441,6 +451,8 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
         properties: {
           source: "live_sim",
           mode: "chaos",
+          is_demo: true,
+          demo_run_id: run.id,
           message_hash: "same_spam_hash",
           city: pick(CITIES),
           platform: "web",
@@ -450,25 +462,18 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
       addStats(stats, spammer, "connect_sent", createdAt);
     }
 
-    rows.push({
-      event_name: "ai_error",
-      user_id: spammer,
-      path: "/admin",
-      properties: { source: "live_sim", mode: "chaos", kind: "timeout" },
-      created_at: nowIso(),
-    });
-
     const target = users[rnd(0, users.length - 1)]?.user_id;
     if (target) {
       for (let i = 0; i < 5; i += 1) {
+        const createdAt = nowIso();
         rows.push({
           event_name: "report_created",
           user_id: target,
           path: "/reports",
-          properties: { source: "live_sim", mode: "chaos", reason: "spam_wave" },
-          created_at: nowIso(),
+          properties: { source: "live_sim", mode: "chaos", is_demo: true, demo_run_id: run.id, reason: "spam_wave" },
+          created_at: createdAt,
         });
-        addStats(stats, target, "report_created", nowIso());
+        addStats(stats, target, "report_created", createdAt);
       }
 
       await supabaseAdmin.from("risk_signals").insert({
@@ -483,8 +488,14 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
     actions.unshift("CHAOS: spam burst + reports spike generated");
   }
 
+  let eventsWritten = 0;
+  let lastDbEventAt: string | null = null;
   for (let i = 0; i < rows.length; i += 1000) {
-    await supabaseAdmin.from("analytics_events").insert(rows.slice(i, i + 1000));
+    const chunk = rows.slice(i, i + 1000);
+    const { error } = await supabaseAdmin.from("analytics_events").insert(chunk);
+    if (error) throw new Error(error.message);
+    eventsWritten += chunk.length;
+    lastDbEventAt = chunk[chunk.length - 1]?.created_at ?? lastDbEventAt;
   }
 
   const statRows = [...stats.entries()].map(([key, stat]) => {
@@ -512,13 +523,19 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
     .from("simulation_runs")
     .update({
       last_tick_at: nowIso(),
-      total_events_generated: Number(run.total_events_generated ?? 0) + rows.length,
+      total_events_generated: Number(run.total_events_generated ?? 0) + eventsWritten,
       recent_actions: actions,
       updated_at: nowIso(),
     })
     .eq("id", run.id);
 
-  return { eventsWritten: rows.length, sampleEvents: actions.slice(0, 10), runId: run.id };
+  return {
+    eventsWritten,
+    sampleEvents: actions.slice(0, 10),
+    runId: run.id,
+    dbWritten: eventsWritten > 0,
+    lastDbEventAt,
+  };
 }
 
 export async function runSimulationCronTick() {
@@ -572,8 +589,8 @@ export async function seedMinimalData() {
     "event_joined",
     "connect_sent",
     "connect_replied",
-    "chat_message_sent",
-    "ai_face_validate",
+    "message_sent",
+    "report_created",
   ] as const;
 
   for (let i = 0; i < 100; i += 1) {
@@ -582,7 +599,7 @@ export async function seedMinimalData() {
     rows.push({
       event_name: name,
       user_id: userId,
-      path: name.includes("event") ? "/events" : name.includes("connect") ? "/contacts" : "/feed",
+      path: name.includes("event") ? "/events" : name.includes("connect") || name === "message_sent" ? "/contacts" : "/feed",
       properties: {
         source: "seed_minimal",
         is_demo: true,
@@ -590,12 +607,12 @@ export async function seedMinimalData() {
         platform: pick(["ios", "android", "web"]),
         event_id: `seed_event_${rnd(1, 5)}`,
         message_hash: `seed_${rnd(1, 50)}`,
-        usd: name === "ai_face_validate" ? Number((Math.random() * 0.02).toFixed(4)) : undefined,
       },
       created_at: new Date(Date.now() - rnd(0, 12) * 60 * 60 * 1000).toISOString(),
     });
   }
 
-  await supabaseAdmin.from("analytics_events").insert(rows);
+  const insertRes = await supabaseAdmin.from("analytics_events").insert(rows);
+  if (insertRes.error) throw new Error(insertRes.error.message);
   return { users: users.length, events: rows.length };
 }

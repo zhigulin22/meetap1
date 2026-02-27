@@ -3,6 +3,7 @@ import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { getSimulationState, runSimulationTick } from "@/server/simulation";
 import { logAdminAction } from "@/server/admin-audit";
+import { assertSimulationTablesReady } from "@/server/admin-tables";
 
 const schema = z.object({
   run_id: z.string().uuid().optional(),
@@ -12,6 +13,8 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const adminId = await requireAdminUserId();
+    await assertSimulationTablesReady();
+
     const body = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
@@ -27,11 +30,25 @@ export async function POST(req: Request) {
       action: "simulation_tick",
       targetType: "simulation",
       targetId: runId,
-      meta: { events_per_tick: parsed.data.events_per_tick ?? null, events_written: result.eventsWritten },
+      meta: {
+        events_per_tick: parsed.data.events_per_tick ?? null,
+        events_written: result.eventsWritten,
+        db_written: result.dbWritten,
+        last_db_event_at: result.lastDbEventAt,
+      },
     });
 
-    return ok({ run_id: runId, events_written: result.eventsWritten, sample_events: result.sampleEvents });
-  } catch {
-    return fail("Forbidden", 403);
+    return ok({
+      run_id: runId,
+      events_written: result.eventsWritten,
+      db_written: result.dbWritten,
+      last_db_event_at: result.lastDbEventAt,
+      sample_events: result.sampleEvents,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Forbidden";
+    if (message.toLowerCase().includes("missing tables")) return fail(message, 409);
+    if (message === "Forbidden") return fail(message, 403);
+    return fail(message, 400);
   }
 }
