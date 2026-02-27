@@ -113,8 +113,8 @@ export function AdminShell({
             className={cn(
               "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition",
               active
-                ? "border-cyan/40 bg-[linear-gradient(135deg,#14284d,#1c3e6f)] text-[#e3efff] shadow-glow"
-                : "border-border bg-black/10 text-[#A8B3C7] hover:text-[#E6EDF6]",
+                ? "border-cyan/40 bg-[linear-gradient(135deg,#193968,#1e4a7f)] text-[#e3efff] shadow-glow"
+                : "border-border bg-surface2/70 text-muted hover:text-text",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -123,7 +123,7 @@ export function AdminShell({
         );
       })}
 
-      <div className="mt-auto rounded-2xl border border-border bg-black/10 p-3 text-xs text-[#A8B3C7]">
+      <div className="mt-auto rounded-2xl border border-border bg-surface2/70 p-3 text-xs text-muted">
         <p>Project: {pathname}</p>
         <p className="mt-1 inline-flex items-center gap-1 text-[#ffb86b]">
           <Flag className="h-3 w-3" /> Reactive moderation ON

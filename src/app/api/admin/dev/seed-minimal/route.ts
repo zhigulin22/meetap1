@@ -6,7 +6,7 @@ import { getDevtoolsStatus, seedMinimalData } from "@/server/simulation";
 export async function POST() {
   try {
     const adminId = await requireAdminUserId();
-    const status = getDevtoolsStatus();
+    const status = await getDevtoolsStatus();
     if (!status.enabled) return fail(`Devtools disabled: ${status.reason}`, 403);
 
     const res = await seedMinimalData();

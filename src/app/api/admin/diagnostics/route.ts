@@ -3,6 +3,9 @@ import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { getDevtoolsStatus } from "@/server/simulation";
 import { supabaseAdmin } from "@/supabase/admin";
+import { computeSeries } from "@/server/metrics-series";
+import { canonicalizeEventName, knownEventNames } from "@/server/event-dictionary";
+import { parseWindow } from "@/server/admin-metrics";
 
 type TableRow = {
   name: string;
@@ -32,6 +35,9 @@ const TABLES: Array<{ name: string; dateColumn: string }> = [
   { name: "simulation_runs", dateColumn: "created_at" },
   { name: "simulation_users", dateColumn: "created_at" },
   { name: "risk_signals", dateColumn: "created_at" },
+  { name: "event_dictionary", dateColumn: "event_name" },
+  { name: "user_stats_daily", dateColumn: "created_at" },
+  { name: "system_settings", dateColumn: "updated_at" },
 ];
 
 function boolEnv(name: string) {
@@ -40,12 +46,14 @@ function boolEnv(name: string) {
 
 function shortError(msg?: string) {
   if (!msg) return "unknown";
-  return msg.length > 160 ? `${msg.slice(0, 157)}...` : msg;
+  return msg.length > 200 ? `${msg.slice(0, 197)}...` : msg;
 }
 
 async function tableWindowCount(table: string, dateColumn: string, sinceISO: string) {
   const probe = await supabaseAdmin.from(table).select("id", { count: "exact", head: true }).limit(1);
   if (probe.error) return { exists: false, count: 0 };
+
+  if (dateColumn === "event_name") return { exists: true, count: probe.count ?? 0 };
 
   const scoped = await supabaseAdmin
     .from(table)
@@ -94,7 +102,7 @@ export async function GET() {
       ADMIN_DEVTOOLS_ENABLED: process.env.ADMIN_DEVTOOLS_ENABLED === "true" || process.env.NODE_ENV !== "production",
     };
 
-    const [supabaseProbe, lastEvent, tableRows, rlsRows, keyCounts24h] = await Promise.all([
+    const [supabaseProbe, lastEvent, tableRows, rlsRows, topEvents24h, devtools, seriesProbe] = await Promise.all([
       supabaseAdmin.from("users").select("id", { count: "exact", head: true }).limit(1),
       supabaseAdmin.from("analytics_events").select("created_at").order("created_at", { ascending: false }).limit(1),
       Promise.all(
@@ -114,78 +122,33 @@ export async function GET() {
           } as TableRow;
         }),
       ),
-      Promise.all(["analytics_events", "reports", "feature_flags", "alerts"].map((t) => checkRls(t))),
+      Promise.all(["analytics_events", "reports", "feature_flags", "alerts", "event_dictionary"].map((t) => checkRls(t))),
       supabaseAdmin
         .from("analytics_events")
-        .select("event_name", { count: "exact" })
+        .select("event_name")
         .gte("created_at", d24)
-        .in("event_name", [
-          "register_started",
-          "telegram_verified",
-          "registration_completed",
-          "profile_completed",
-          "post_published_daily_duo",
-          "post_published_video",
-          "event_joined",
-          "connect_sent",
-          "connect_replied",
-          "chat_message_sent",
-          "ai_error",
-        ]),
+        .limit(120000),
+      getDevtoolsStatus(),
+      (() => {
+        const window = parseWindow(d7, new Date().toISOString(), 7);
+        return computeSeries({ metric: "dau", fromISO: window.fromISO, toISO: window.toISO, userIds: null });
+      })(),
     ]);
 
     const supabase_ok = !supabaseProbe.error;
 
     const eventMap = new Map<string, number>();
-    for (const row of keyCounts24h.data ?? []) {
-      eventMap.set(row.event_name, (eventMap.get(row.event_name) ?? 0) + 1);
+    for (const row of topEvents24h.data ?? []) {
+      const canonical = canonicalizeEventName(row.event_name);
+      eventMap.set(canonical, (eventMap.get(canonical) ?? 0) + 1);
     }
-
-    const devtools = getDevtoolsStatus();
-    const openai = {
-      enabled: env.OPENAI_API_KEY,
-      reason: env.OPENAI_API_KEY ? "OPENAI_API_KEY found" : "OPENAI_API_KEY missing",
-    };
-
-    const canReadAnalytics = rlsRows.find((x) => x.table === "analytics_events")?.can_select ?? false;
-
-    const issues: string[] = [];
-    const fixes: string[] = [];
-
-    if (!supabase_ok) {
-      issues.push(`Supabase connection failed: ${shortError(supabaseProbe.error?.message)}`);
-      fixes.push("Проверь NEXT_PUBLIC_SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY.");
-    }
-
-    for (const [key, value] of Object.entries(env)) {
-      if (!value) {
-        issues.push(`ENV missing/disabled: ${key}`);
-      }
-    }
-
-    if (!env.ADMIN_DEVTOOLS_ENABLED) {
-      fixes.push("Включи ADMIN_DEVTOOLS_ENABLED=true для devtools в production.");
-    }
-
-    const missingTables = tableRows.filter((x) => !x.exists).map((x) => x.name);
-    if (missingTables.length) {
-      issues.push(`Missing tables: ${missingTables.join(", ")}`);
-      fixes.push("Примени SQL миграции до 011 включительно.");
-    }
-
-    const analyticsTable = tableRows.find((x) => x.name === "analytics_events");
-    if ((analyticsTable?.rows_24h ?? 0) === 0) {
-      issues.push("0 events in analytics_events for 24h");
-      fixes.push("Нажми Start Live 40 Users или Seed Minimal.");
-    }
-
-    if (!canReadAnalytics) {
-      issues.push("RLS/permissions: cannot read analytics_events via anon");
-      fixes.push("Проверь RLS policies, либо читай через server routes (service role).\n");
-    }
+    const top_event_names = [...eventMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([event_name, count_24h]) => ({ event_name, count_24h }));
 
     const event_counts_24h = {
-      total: analyticsTable?.rows_24h ?? 0,
+      total: [...eventMap.values()].reduce((a, b) => a + b, 0),
       register_started: eventMap.get("register_started") ?? 0,
       telegram_verified: eventMap.get("telegram_verified") ?? 0,
       registration_completed: eventMap.get("registration_completed") ?? 0,
@@ -199,23 +162,129 @@ export async function GET() {
       ai_error: eventMap.get("ai_error") ?? 0,
     };
 
+    const openai = {
+      enabled: env.OPENAI_API_KEY,
+      reason: env.OPENAI_API_KEY ? "OPENAI_API_KEY found" : "OPENAI_API_KEY missing",
+      fix_steps: env.OPENAI_API_KEY
+        ? []
+        : [
+            "Добавь OPENAI_API_KEY в Vercel Project Settings -> Environment Variables",
+            "Сделай redeploy проекта",
+          ],
+    };
+
+    const canReadAnalytics = rlsRows.find((x) => x.table === "analytics_events")?.can_select ?? false;
+    const rlsIssues = rlsRows.filter((x) => !x.can_select).map((x) => `${x.table}: ${x.note}`);
+
+    const issues: string[] = [];
+    const fixes: string[] = [];
+    const recommended_fixes: Array<{ key: string; title: string; why: string; action_endpoint?: string }> = [];
+
+    if (!supabase_ok) {
+      issues.push(`Supabase connection failed: ${shortError(supabaseProbe.error?.message)}`);
+      fixes.push("Проверь NEXT_PUBLIC_SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY.");
+    }
+
+    for (const [key, value] of Object.entries(env)) {
+      if (!value) issues.push(`ENV missing/disabled: ${key}`);
+    }
+
+    const missingTables = tableRows.filter((x) => !x.exists).map((x) => x.name);
+    if (missingTables.length) {
+      issues.push(`Missing tables: ${missingTables.join(", ")}`);
+      fixes.push("Примени SQL миграции до последней версии.");
+      recommended_fixes.push({
+        key: "create_missing_tables",
+        title: "Create missing tables",
+        why: "Некоторые таблицы отсутствуют",
+        action_endpoint: "/api/admin/fix-common",
+      });
+    }
+
+    const analyticsTable = tableRows.find((x) => x.name === "analytics_events");
+    const events24h = analyticsTable?.rows_24h ?? 0;
+
+    if (events24h === 0) {
+      issues.push("0 events in analytics_events for 24h");
+      fixes.push("Нажми Start Live 40 Users или Seed Minimal.");
+      recommended_fixes.push({ key: "seed_minimal", title: "Seed minimal", why: "Нет событий за 24ч", action_endpoint: "/api/admin/fix-common" });
+      recommended_fixes.push({ key: "start_live_40", title: "Start Live 40 Users", why: "Нужен поток событий для графиков", action_endpoint: "/api/admin/fix-common" });
+    }
+
+    const known = new Set(knownEventNames());
+    const unknownTop = top_event_names.filter((x) => !known.has(x.event_name));
+    if (top_event_names.length > 0 && unknownTop.length === top_event_names.length) {
+      issues.push("Event names mismatch: top events do not match metric dictionary");
+      fixes.push("Установи event_dictionary mapping (auto-fix available).");
+      recommended_fixes.push({
+        key: "install_event_dictionary",
+        title: "Install event dictionary mapping",
+        why: "Имена событий не совпадают со словарём метрик",
+        action_endpoint: "/api/admin/fix-common",
+      });
+    }
+
+    if (!canReadAnalytics) {
+      issues.push("RLS/permissions: cannot read analytics_events via anon");
+      fixes.push("Проверь RLS policies или читай только через server routes.");
+    }
+
+    if (!devtools.enabled) {
+      fixes.push(...devtools.fixSteps);
+      recommended_fixes.push({
+        key: "enable_devtools_safe_mode",
+        title: "Enable DevTools in production (safe)",
+        why: devtools.reason,
+        action_endpoint: "/api/admin/fix-common",
+      });
+    }
+
+    if (!env.OPENAI_API_KEY) {
+      recommended_fixes.push({
+        key: "openai_missing",
+        title: "OpenAI key missing",
+        why: "AI ассистент не сможет отвечать",
+      });
+    }
+
+    const metricsEndpoints = {
+      series_ok: Array.isArray(seriesProbe.points),
+      sample_points_count: seriesProbe.points.length,
+      errors: Array.isArray(seriesProbe.points) ? undefined : "Series format mismatch",
+    };
+
+    if (metricsEndpoints.sample_points_count === 0 && events24h > 0) {
+      issues.push("metrics/series returns empty points while events exist");
+      fixes.push("Проверь диапазон дат/таймзону и mapping event names.");
+      recommended_fixes.push({ key: "write_test_event", title: "Write test event", why: "Проверка pipeline и графика", action_endpoint: "/api/admin/fix-common" });
+    }
+
+    recommended_fixes.push({ key: "recompute_aggregates", title: "Recompute aggregates", why: "Пересчитать user_stats_daily", action_endpoint: "/api/admin/fix-common" });
+
     return ok({
       env,
+      env_present: env,
       supabase_ok,
       tables: tableRows,
-      rls: rlsRows,
+      rls: {
+        ok: rlsIssues.length === 0,
+        issues: rlsIssues,
+        details: rlsRows,
+      },
       last_event_at: lastEvent.data?.[0]?.created_at ?? null,
       event_counts_24h,
+      top_event_names,
+      metrics_endpoints: metricsEndpoints,
       devtools: {
         enabled: devtools.enabled,
         reason: devtools.reason,
+        fix_steps: devtools.fixSteps,
       },
+      can_read_analytics: canReadAnalytics,
       openai,
       issues,
       fixes,
-      can_read_analytics: canReadAnalytics,
-      devtools_reason: devtools.reason,
-      openai_reason: openai.reason,
+      recommended_fixes,
     });
   } catch {
     return fail("Forbidden", 403);

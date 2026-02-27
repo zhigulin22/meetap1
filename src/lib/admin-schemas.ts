@@ -243,6 +243,15 @@ export const diagnosticsResponseSchema = z.object({
     OPENAI_API_KEY: z.boolean(),
     ADMIN_DEVTOOLS_ENABLED: z.boolean(),
   }),
+  env_present: z
+    .object({
+      SUPABASE_URL: z.boolean(),
+      SUPABASE_ANON_KEY: z.boolean(),
+      SUPABASE_SERVICE_ROLE: z.boolean(),
+      OPENAI_API_KEY: z.boolean(),
+      ADMIN_DEVTOOLS_ENABLED: z.boolean(),
+    })
+    .optional(),
   supabase_ok: z.boolean(),
   tables: z.array(
     z.object({
@@ -253,20 +262,56 @@ export const diagnosticsResponseSchema = z.object({
       rows_30d: z.number(),
     }),
   ),
-  rls: z.array(
+  rls: z.union([
+    z.array(
+      z.object({
+        table: z.string(),
+        can_select: z.boolean(),
+        note: z.string(),
+      }),
+    ),
     z.object({
-      table: z.string(),
-      can_select: z.boolean(),
-      note: z.string(),
+      ok: z.boolean(),
+      issues: z.array(z.string()),
+      details: z.array(
+        z.object({
+          table: z.string(),
+          can_select: z.boolean(),
+          note: z.string(),
+        }),
+      ),
     }),
-  ),
+  ]),
   last_event_at: z.string().nullable(),
+  top_event_names: z.array(
+    z.object({
+      event_name: z.string(),
+      count_24h: z.number(),
+    }),
+  ).optional(),
+  metrics_endpoints: z
+    .object({
+      series_ok: z.boolean(),
+      sample_points_count: z.number(),
+      errors: z.string().optional(),
+    })
+    .optional(),
   event_counts_24h: z.record(z.number()).optional(),
-  devtools: z.object({ enabled: z.boolean(), reason: z.string() }),
-  openai: z.object({ enabled: z.boolean(), reason: z.string() }),
+  devtools: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
+  openai: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
   can_read_analytics: z.boolean().optional(),
   devtools_reason: z.string().optional(),
   openai_reason: z.string().optional(),
+  recommended_fixes: z
+    .array(
+      z.object({
+        key: z.string(),
+        title: z.string(),
+        why: z.string(),
+        action_endpoint: z.string().optional(),
+      }),
+    )
+    .optional(),
   issues: z.array(z.string()),
   fixes: z.array(z.string()),
 });

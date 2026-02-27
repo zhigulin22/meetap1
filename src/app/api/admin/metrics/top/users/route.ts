@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow } from "@/server/admin-metrics";
+import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
 import { supabaseAdmin } from "@/supabase/admin";
 
 type UserRow = {
@@ -16,6 +17,14 @@ const schema = z.object({
   to: z.string().datetime().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
+
+function aliasesForMetric(metric: string) {
+  if (metric === "connect_sent") return aliasesForCanonicals(["connect_sent"]);
+  if (metric === "event_joined") return aliasesForCanonicals(["event_joined"]);
+  if (metric === "post_published_daily_duo") return aliasesForCanonicals(["post_published_daily_duo"]);
+  if (metric === "post_published_video") return aliasesForCanonicals(["post_published_video"]);
+  return [metric];
+}
 
 export async function GET(req: Request) {
   try {
@@ -67,8 +76,8 @@ export async function GET(req: Request) {
 
     const rows = await supabaseAdmin
       .from("analytics_events")
-      .select("user_id")
-      .eq("event_name", parsed.data.metric)
+      .select("user_id,event_name")
+      .in("event_name", aliasesForMetric(parsed.data.metric))
       .gte("created_at", fromISO)
       .lte("created_at", toISO)
       .limit(100000);
@@ -76,6 +85,13 @@ export async function GET(req: Request) {
     const counts = new Map<string, number>();
     for (const row of rows.data ?? []) {
       if (!row.user_id) continue;
+      const canonical = canonicalizeEventName(row.event_name);
+      const accepted =
+        (parsed.data.metric === "connect_sent" && canonical === "connect_sent") ||
+        (parsed.data.metric === "event_joined" && canonical === "event_joined") ||
+        (parsed.data.metric === "post_published_daily_duo" && canonical === "post_published_daily_duo") ||
+        (parsed.data.metric === "post_published_video" && canonical === "post_published_video");
+      if (!accepted) continue;
       counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
     }
 

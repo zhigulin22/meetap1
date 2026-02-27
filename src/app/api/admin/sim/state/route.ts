@@ -7,7 +7,7 @@ export async function GET() {
   try {
     await requireAdminUserId();
 
-    const [state, devtools] = await Promise.all([getSimulationState(), Promise.resolve(getDevtoolsStatus())]);
+    const [state, devtools] = await Promise.all([getSimulationState(), getDevtoolsStatus()]);
 
     const minuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

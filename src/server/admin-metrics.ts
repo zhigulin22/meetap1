@@ -7,15 +7,18 @@ export function parseWindow(from?: string, to?: string, fallbackDays = 30) {
   const start = from ? new Date(from) : new Date(end.getTime() - fallbackDays * 24 * 60 * 60 * 1000);
 
   const safeEnd = Number.isNaN(end.getTime()) ? new Date() : end;
-  const safeStart = Number.isNaN(start.getTime())
+  const safeStartRaw = Number.isNaN(start.getTime())
     ? new Date(safeEnd.getTime() - fallbackDays * 24 * 60 * 60 * 1000)
     : start;
 
+  const safeStart = safeStartRaw.getTime() <= safeEnd.getTime() ? safeStartRaw : safeEnd;
+  const safeTo = safeStartRaw.getTime() <= safeEnd.getTime() ? safeEnd : safeStartRaw;
+
   return {
     from: safeStart,
-    to: safeEnd,
+    to: safeTo,
     fromISO: safeStart.toISOString(),
-    toISO: safeEnd.toISOString(),
+    toISO: safeTo.toISOString(),
   };
 }
 

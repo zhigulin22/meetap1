@@ -1,3 +1,5 @@
+import { aliasesForCanonical, aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
+
 import { supabaseAdmin } from "@/supabase/admin";
 
 export type MetricPoint = { date: string; value: number };
@@ -30,42 +32,48 @@ export async function fetchEventRows(fromISO: string, toISO: string, names?: str
   return data ?? [];
 }
 
-export function makeTrend(rows: Array<{ event_name: string; created_at: string }>, eventNames: string[], fromISO: string, toISO: string): MetricPoint[] {
+function makeTrend(rows: Array<{ event_name: string; created_at: string }>, canonicalNames: string[], fromISO: string, toISO: string): MetricPoint[] {
   const days = rangeDays(fromISO, toISO);
   const map = new Map<string, number>();
+  const canonicalSet = new Set(canonicalNames);
   for (const row of rows) {
-    if (!eventNames.includes(row.event_name)) continue;
+    if (!canonicalSet.has(canonicalizeEventName(row.event_name))) continue;
     const d = dayKey(row.created_at);
     map.set(d, (map.get(d) ?? 0) + 1);
   }
   return days.map((d) => ({ date: d, value: map.get(d) ?? 0 }));
 }
 
-export function countBy(rows: Array<{ event_name: string }>) {
+function countByCanonical(rows: Array<{ event_name: string }>) {
   const map = new Map<string, number>();
-  for (const r of rows) map.set(r.event_name, (map.get(r.event_name) ?? 0) + 1);
+  for (const r of rows) {
+    const key = canonicalizeEventName(r.event_name);
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
   return map;
+}
+
+function kpi(name: string, value: number, subtitle?: string) {
+  return { name, value, subtitle: subtitle ?? null };
 }
 
 export async function getMetricsBlock(kind: string, fromISO: string, toISO: string) {
   const rows = await fetchEventRows(fromISO, toISO);
-  const c = countBy(rows as Array<{ event_name: string }>);
-
-  const kpi = (name: string, value: number, subtitle?: string) => ({ name, value, subtitle: subtitle ?? null });
+  const c = countByCanonical(rows as Array<{ event_name: string }>);
 
   if (kind === "growth") {
     const reg = c.get("register_started") ?? 0;
     const ver = c.get("telegram_verified") ?? 0;
     const comp = c.get("registration_completed") ?? 0;
+    const profile = c.get("profile_completed") ?? 0;
     return {
       kpis: [
         kpi("New Users", comp),
-        kpi("TG Verify Rate", reg > 0 ? Number((ver / reg).toFixed(3)) : 0),
-        kpi("Registration Completion", reg > 0 ? Number((comp / reg).toFixed(3)) : 0),
+        kpi("TG Verify Rate", reg > 0 ? Number((ver / reg).toFixed(4)) : 0),
+        kpi("Registration Completion", reg > 0 ? Number((comp / reg).toFixed(4)) : 0),
+        kpi("Profile Completion", comp > 0 ? Number((profile / comp).toFixed(4)) : 0),
       ],
-      trends: [
-        { key: "registrations", points: makeTrend(rows as any, ["register_started", "registration_completed"], fromISO, toISO) },
-      ],
+      trends: [{ key: "growth", points: makeTrend(rows as any, ["register_started", "telegram_verified", "registration_completed"], fromISO, toISO) }],
       top: [],
     };
   }
@@ -73,94 +81,146 @@ export async function getMetricsBlock(kind: string, fromISO: string, toISO: stri
   if (kind === "activation") {
     const reg = c.get("registration_completed") ?? 0;
     const profile = c.get("profile_completed") ?? 0;
-    const firstPost = c.get("first_post") ?? (c.get("post_published_daily_duo") ?? 0);
+    const firstPost = (c.get("post_published_daily_duo") ?? 0) + (c.get("post_published_video") ?? 0);
+    const firstEventJoin = c.get("event_joined") ?? 0;
     return {
       kpis: [
         kpi("Profile Completed", profile),
         kpi("First Post", firstPost),
-        kpi("Profile Completion Rate", reg > 0 ? Number((profile / reg).toFixed(3)) : 0),
+        kpi("First Event Join", firstEventJoin),
+        kpi("Profile Completion Rate", reg > 0 ? Number((profile / reg).toFixed(4)) : 0),
       ],
-      trends: [{ key: "activation", points: makeTrend(rows as any, ["profile_completed", "first_post"], fromISO, toISO) }],
+      trends: [{ key: "activation", points: makeTrend(rows as any, ["profile_completed", "post_published_daily_duo", "post_published_video", "event_joined"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "engagement") {
     const uniqueUsers = new Set((rows as any[]).map((r) => r.user_id).filter(Boolean)).size;
+    const totalEvents = rows.length;
     return {
       kpis: [
         kpi("Active Users", uniqueUsers),
-        kpi("Events per user/day", uniqueUsers > 0 ? Number((rows.length / uniqueUsers).toFixed(2)) : 0),
-        kpi("Stickiness Proxy", Number(((c.get("chat_message_sent") ?? 0) / Math.max(1, c.get("register_started") ?? 1)).toFixed(3))),
+        kpi("Events/day", Number((totalEvents / Math.max(1, rangeDays(fromISO, toISO).length)).toFixed(2))),
+        kpi("Events per user", uniqueUsers > 0 ? Number((totalEvents / uniqueUsers).toFixed(2)) : 0),
       ],
-      trends: [{ key: "engagement", points: makeTrend(rows as any, ["chat_message_sent", "connect_sent", "event_joined"], fromISO, toISO) }],
+      trends: [{ key: "engagement", points: makeTrend(rows as any, ["feed_viewed", "chat_message_sent", "event_joined", "connect_sent"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "content") {
+    const duo = c.get("post_published_daily_duo") ?? 0;
+    const video = c.get("post_published_video") ?? 0;
+    const activeUsers = new Set((rows as any[]).map((r) => r.user_id).filter(Boolean)).size;
     return {
       kpis: [
-        kpi("Daily Duo", c.get("post_published_daily_duo") ?? c.get("daily_duo_published") ?? 0),
-        kpi("Video Posts", c.get("post_published_video") ?? 0),
-        kpi("Weekly posters %", 0, "placeholder"),
+        kpi("Daily Duo", duo),
+        kpi("Video Posts", video),
+        kpi("Posts per active user", activeUsers > 0 ? Number(((duo + video) / activeUsers).toFixed(3)) : 0),
       ],
-      trends: [{ key: "posts", points: makeTrend(rows as any, ["post_published_daily_duo", "post_published_video", "daily_duo_published"], fromISO, toISO) }],
+      trends: [{ key: "content", points: makeTrend(rows as any, ["post_published_daily_duo", "post_published_video"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "events") {
+    const viewed = c.get("event_viewed") ?? 0;
+    const joined = c.get("event_joined") ?? 0;
     return {
-      kpis: [kpi("Event Viewed", c.get("event_viewed") ?? 0), kpi("Event Joined", c.get("event_joined") ?? 0), kpi("Event Attended", c.get("event_attended") ?? 0)],
-      trends: [{ key: "events", points: makeTrend(rows as any, ["event_viewed", "event_joined", "event_attended"], fromISO, toISO) }],
+      kpis: [
+        kpi("Event Viewed", viewed),
+        kpi("Event Joined", joined),
+        kpi("Join Rate", viewed > 0 ? Number((joined / viewed).toFixed(4)) : 0),
+      ],
+      trends: [{ key: "events", points: makeTrend(rows as any, ["event_viewed", "event_joined"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "social") {
-    const sent = c.get("connect_sent") ?? c.get("connect_clicked") ?? 0;
-    const rep = c.get("connect_replied") ?? c.get("first_message_sent") ?? 0;
-    const cont = c.get("chat_message_sent") ?? 0;
+    const sent = c.get("connect_sent") ?? 0;
+    const rep = c.get("connect_replied") ?? 0;
+    const msgs = c.get("chat_message_sent") ?? 0;
     return {
       kpis: [
         kpi("Connect Sent", sent),
         kpi("Connect Replied", rep),
-        kpi("Continued D+1", cont),
-        kpi("Reply Rate", sent > 0 ? Number((rep / sent).toFixed(3)) : 0),
+        kpi("Reply Rate", sent > 0 ? Number((rep / sent).toFixed(4)) : 0),
+        kpi("WMC", msgs),
       ],
-      trends: [{ key: "social", points: makeTrend(rows as any, ["connect_sent", "connect_replied", "chat_message_sent", "connect_clicked"], fromISO, toISO) }],
+      trends: [{ key: "social", points: makeTrend(rows as any, ["connect_sent", "connect_replied", "chat_message_sent"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "safety") {
+    const reports = c.get("report_created") ?? 0;
+    const flags = c.get("flag_created") ?? 0;
     return {
-      kpis: [kpi("Reports", c.get("report_created") ?? c.get("report_submitted") ?? 0), kpi("Flags", c.get("flag_created") ?? 0), kpi("Admin Actions", c.get("admin_action") ?? 0)],
-      trends: [{ key: "safety", points: makeTrend(rows as any, ["report_created", "flag_created", "admin_action", "report_submitted"], fromISO, toISO) }],
+      kpis: [kpi("Reports", reports), kpi("Flags", flags), kpi("Report/Flag Ratio", flags > 0 ? Number((reports / flags).toFixed(4)) : reports > 0 ? 1 : 0)],
+      trends: [{ key: "safety", points: makeTrend(rows as any, ["report_created", "flag_created"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "ai") {
     let cost = 0;
+    let requests = 0;
+    let errors = 0;
+    const aiRequestAliases = aliasesForCanonicals(["ai_cost", "ai_error", "ai_face_validate", "ai_icebreaker", "ai_admin_insights"]);
+    const aliasSet = new Set(aiRequestAliases);
+
     for (const r of rows as any[]) {
-      if (r.event_name === "ai_cost") cost += Number(r.properties?.usd ?? 0);
+      if (!aliasSet.has(r.event_name)) continue;
+      const canonical = canonicalizeEventName(r.event_name);
+      if (canonical === "ai_cost") {
+        cost += Number(r.properties?.usd ?? 0);
+        requests += 1;
+      } else if (canonical === "ai_error") {
+        errors += 1;
+      } else if (r.event_name.startsWith("ai_")) {
+        requests += 1;
+      }
     }
+
     return {
-      kpis: [kpi("AI Requests", (c.get("ai_face_validate") ?? 0) + (c.get("ai_icebreaker") ?? 0) + (c.get("ai_admin_insights") ?? 0)), kpi("AI Cost", Number(cost.toFixed(3))), kpi("AI Errors", c.get("ai_error") ?? 0)],
-      trends: [{ key: "ai", points: makeTrend(rows as any, ["ai_face_validate", "ai_icebreaker", "ai_admin_insights", "ai_error"], fromISO, toISO) }],
+      kpis: [
+        kpi("AI Requests", requests),
+        kpi("AI Cost", Number(cost.toFixed(4))),
+        kpi("AI Error Rate", requests > 0 ? Number((errors / requests).toFixed(4)) : 0),
+      ],
+      trends: [{ key: "ai", points: makeTrend(rows as any, ["ai_cost", "ai_error"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "health") {
+    const apiErr = c.get("api_error") ?? 0;
+    const totalDays = Math.max(1, rangeDays(fromISO, toISO).length);
+    const eventsPerDay = Number((rows.length / totalDays).toFixed(2));
+
     return {
-      kpis: [kpi("API Errors", c.get("api_error") ?? 0), kpi("Latency p95", 0, "see overview"), kpi("Events/day", Math.round(rows.length / Math.max(1, rangeDays(fromISO, toISO).length)))],
-      trends: [{ key: "health", points: makeTrend(rows as any, ["api_error", "admin_test_event"], fromISO, toISO) }],
+      kpis: [
+        kpi("API Errors", apiErr),
+        kpi("Events/day", eventsPerDay),
+        kpi("Data Pipeline", rows.length > 0 ? 1 : 0, rows.length > 0 ? "ok" : "no events"),
+      ],
+      trends: [{ key: "health", points: makeTrend(rows as any, ["admin_test_event", "api_error", "ai_error"], fromISO, toISO) }],
       top: [],
     };
   }
 
   return { kpis: [], trends: [], top: [] };
+}
+
+export function eventAliasesForFunnelStep(step: string) {
+  if (step === "register_started") return aliasesForCanonical("register_started");
+  if (step === "telegram_verified") return aliasesForCanonical("telegram_verified");
+  if (step === "registration_completed") return aliasesForCanonical("registration_completed");
+  if (step === "profile_completed") return aliasesForCanonical("profile_completed");
+  if (step === "first_post") return aliasesForCanonicals(["post_published_daily_duo", "post_published_video"]);
+  if (step === "event_joined") return aliasesForCanonical("event_joined");
+  if (step === "connect_replied") return aliasesForCanonical("connect_replied");
+  return [step];
 }

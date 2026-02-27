@@ -76,7 +76,7 @@ export async function GET() {
       recentAdminActions: actions.data ?? [],
       auditLog: audit.data ?? [],
       admins: admins.data ?? [],
-      devtools: getDevtoolsStatus(),
+      devtools: await getDevtoolsStatus(),
       apiProtection: {
         rateLimitingEnabled: true,
         csrfProtection: false,

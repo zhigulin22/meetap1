@@ -75,6 +75,18 @@ const funnelTitleMap: Record<string, string> = {
   connect_replied: "connect_replied",
 };
 
+const metricsTabLabels: Record<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health", string> = {
+  growth: "Рост",
+  activation: "Активация",
+  engagement: "Вовлеченность",
+  content: "Контент",
+  events: "События",
+  social: "Знакомства",
+  safety: "Безопасность",
+  ai: "AI и стоимость",
+  health: "Стабильность",
+};
+
 function formatDelta(v?: number) {
   if (v === undefined) return null;
   const pct = Math.round(v * 100);
@@ -95,16 +107,47 @@ function EmptyState({ title, onSeed, onCheck }: { title: string; onSeed: () => v
   );
 }
 
+function formatMetricValue(name: string, value: number) {
+  const lower = name.toLowerCase();
+  const isRate = /rate|completion|conversion|stickiness|липкость|доля/.test(lower);
+  const isMoney = /cost|usd|\$|стоим/.test(lower);
+  if (!Number.isFinite(value)) return "0";
+  if (isRate) return `${(value * 100).toFixed(1)}%`;
+  if (isMoney) return `$${value.toFixed(3)}`;
+  if (Math.abs(value) >= 1000) return Math.round(value).toLocaleString("ru-RU");
+  if (Number.isInteger(value)) return value.toLocaleString("ru-RU");
+  return value.toFixed(2);
+}
+
 function TrendChart({ title, points }: { title: string; points: Array<{ date: string; value: number }> }) {
   const max = Math.max(1, ...points.map((p) => p.value));
+  const sum = points.reduce((acc, p) => acc + p.value, 0);
+  const avg = points.length ? sum / points.length : 0;
+  const last = points[points.length - 1]?.value ?? 0;
+
   return (
     <Card>
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-surface2/70 p-2 text-sm">
+          <div>
+            <p className="text-xs text-muted">Сумма</p>
+            <p className="font-semibold">{Math.round(sum).toLocaleString("ru-RU")}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">Среднее/день</p>
+            <p className="font-semibold">{avg.toFixed(2)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">Последняя точка</p>
+            <p className="font-semibold">{last.toLocaleString("ru-RU")}</p>
+          </div>
+        </div>
+
         {!points.length ? (
-          <div className="text-xs text-muted">Нет точек</div>
+          <div className="text-sm text-muted">Нет точек</div>
         ) : (
-          <div className="grid grid-cols-12 items-end gap-1 h-28">
+          <div className="grid h-28 grid-cols-12 items-end gap-1">
             {points.slice(-24).map((p) => (
               <div key={p.date} className="flex flex-col items-center gap-1">
                 <div className="w-2 rounded-t bg-cyan/70" style={{ height: `${Math.max(4, (p.value / max) * 84)}px` }} />
@@ -112,6 +155,17 @@ function TrendChart({ title, points }: { title: string; points: Array<{ date: st
             ))}
           </div>
         )}
+
+        {points.length ? (
+          <div className="max-h-32 overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
+            {points.slice(-8).map((p) => (
+              <div key={p.date} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/40 py-1 text-sm last:border-b-0">
+                <span>{p.date}</span>
+                <span className="font-semibold">{p.value.toLocaleString("ru-RU")}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -380,14 +434,19 @@ export default function AdminPage() {
     setActionSuccess("diagnostics", "Diagnostics OK");
   }
 
-  async function fixCommonIssues() {
+  async function fixCommonIssues(action: string = "run_all") {
     try {
-      setActionLoading("fixCommon");
-      const res = await api<{ actions: string[] }>("/api/admin/fix-common", { method: "POST" });
-      await Promise.all([overview.refetch(), funnels.refetch(), retention.refetch(), diagnostics.refetch(), liveSim.refetch(), metricsLab.refetch()]);
-      setActionSuccess("fixCommon", "Fixed: " + (res.actions?.length ?? 0));
+      const actionKey = action === "run_all" ? "fixCommon" : "autofix-" + action;
+      setActionLoading(actionKey);
+      const res = await api<{ actions: string[]; note?: string }>("/api/admin/fix-common", { method: "POST", body: JSON.stringify({ action }) });
+      await Promise.all([overview.refetch(), funnels.refetch(), retention.refetch(), diagnostics.refetch(), liveSim.refetch(), metricsLab.refetch(), users.refetch(), risk.refetch(), reports.refetch()]);
+      const label = res.note ? res.note : "Applied: " + (res.actions?.length ?? 0);
+      setActionSuccess(actionKey, label);
+      if (action !== "run_all") setActionSuccess("fixCommon", "Updated");
     } catch (e) {
-      setActionError("fixCommon", e instanceof Error ? e.message : "Fix failed");
+      const actionKey = action === "run_all" ? "fixCommon" : "autofix-" + action;
+      setActionError(actionKey, e instanceof Error ? e.message : "Fix failed");
+      if (action !== "run_all") setActionError("fixCommon", e instanceof Error ? e.message : "Fix failed");
     }
   }
 
@@ -403,6 +462,8 @@ export default function AdminPage() {
   }
 
   async function startLive(config?: Partial<typeof liveConfig>) {
+    const confirmed = window.confirm("Запустить Live Simulation и записывать демо-события в базу?");
+    if (!confirmed) return;
     try {
       setActionLoading("startLive");
       setLiveBusy(true);
@@ -752,6 +813,74 @@ export default function AdminPage() {
     alertsWorking: (alerts.data?.items?.length ?? 0) > 0 || (overview.data?.health?.integrations.integrationErrors7d ?? 0) >= 0,
   };
 
+  const diagnosticsRlsRows = useMemo(() => {
+    const raw = diagnostics.data?.rls;
+    if (!raw) return [] as Array<{ table: string; can_select: boolean; note: string }>;
+    if (Array.isArray(raw)) return raw;
+    return raw.details ?? [];
+  }, [diagnostics.data?.rls]);
+
+  const diagnosticsRlsIssues = useMemo(() => {
+    const raw = diagnostics.data?.rls;
+    if (!raw) return [] as string[];
+    if (Array.isArray(raw)) return raw.filter((x) => !x.can_select).map((x) => `${x.table}: ${x.note}`);
+    return raw.issues ?? [];
+  }, [diagnostics.data?.rls]);
+
+  const diagnosticsRootCause = useMemo(() => {
+    const reasons: string[] = [];
+    if ((diagnostics.data?.event_counts_24h?.total ?? 0) > 0 && (diagnostics.data?.metrics_endpoints?.sample_points_count ?? 0) === 0) {
+      reasons.push("Есть события, но series вернула 0 точек");
+    }
+    if (diagnostics.data?.metrics_endpoints?.errors) reasons.push("Series endpoint error: " + diagnostics.data.metrics_endpoints.errors);
+    if (diagnosticsRlsIssues.length) reasons.push("RLS блокирует чтение части таблиц");
+    if ((diagnostics.data?.top_event_names?.length ?? 0) > 0 && (diagnostics.data?.issues ?? []).some((x) => x.toLowerCase().includes("event names mismatch"))) {
+      reasons.push("Имена событий не совпадают со словарем метрик");
+    }
+    if ((diagnostics.data?.event_counts_24h?.total ?? 0) === 0) reasons.push("За 24ч нет событий analytics");
+    return reasons;
+  }, [diagnostics.data?.event_counts_24h?.total, diagnostics.data?.metrics_endpoints?.sample_points_count, diagnostics.data?.metrics_endpoints?.errors, diagnostics.data?.top_event_names, diagnostics.data?.issues, diagnosticsRlsIssues.length]);
+
+  const normalizedSeriesPoints = useMemo(() => {
+    const source = metricsSeries.data?.points ?? [];
+    if (source.length) return source;
+    const from = new Date(fromISO);
+    const to = new Date(toISO);
+    from.setUTCHours(0, 0, 0, 0);
+    const out: Array<{ ts: string; value: number }> = [];
+    while (from <= to) {
+      out.push({ ts: from.toISOString().slice(0, 10), value: 0 });
+      from.setUTCDate(from.getUTCDate() + 1);
+    }
+    return out;
+  }, [metricsSeries.data?.points, fromISO, toISO]);
+
+  const conversionRows = useMemo(() => {
+    const ov = overview.data?.overview;
+    if (!ov) return [] as Array<{ label: string; value: number }>;
+    const connectReplyRate = ov.connectClicked > 0 ? ov.chatsStarted / ov.connectClicked : 0;
+    const contentPosts7d = Number(ov.dailyDuo7d ?? 0) + Number(ov.videoPosts7d ?? 0);
+    const eventJoinPerPost = contentPosts7d > 0 ? Number(ov.eventJoin7d ?? 0) / contentPosts7d : 0;
+
+    return [
+      { label: "Верификация Telegram", value: Number(ov.telegramVerifiedRate ?? 0) },
+      { label: "Завершение регистрации", value: Number(ov.registrationCompletedRate ?? 0) },
+      { label: "Заполнение профиля", value: Number(ov.profileCompletionRate ?? 0) },
+      { label: "Ответ на connect", value: Number(connectReplyRate) },
+      { label: "Join/Post Rate (7д)", value: Number(eventJoinPerPost) },
+      { label: "Липкость DAU/MAU", value: Number(ov.dauMau ?? 0) },
+    ];
+  }, [overview.data?.overview]);
+
+  const funnelRows = useMemo(() => {
+    return (funnels.data?.steps ?? []).map((step) => ({
+      step: funnelTitleMap[step.step] ?? step.step,
+      users: step.count,
+      conversion: String(Math.round(step.conversionFromStart * 100)) + "%",
+      drop: String(Math.round(step.drop * 100)) + "%",
+    }));
+  }, [funnels.data?.steps]);
+
   return (
     <AdminShell
       section={section}
@@ -798,7 +927,7 @@ export default function AdminPage() {
                   <CardContent className="p-4">
                     <p className="text-xs text-muted">{labels[k] ?? k}</p>
                     <p className="mt-2 text-2xl font-semibold text-text">
-                      {typeof v === "number" ? (k.toLowerCase().includes("rate") || k === "dauMau" || k === "profileCompletionRate" ? `${Math.round(v * 100)}%` : v) : String(v)}
+                      {typeof v === "number" ? formatMetricValue(k, v) : String(v)}
                     </p>
                     {k === "registrationCompletedRate" ? formatDelta(overview.data?.comparisons?.registrationDiff) : null}
                     {k === "connectClicked" ? formatDelta(overview.data?.comparisons?.connectDiff) : null}
@@ -815,12 +944,12 @@ export default function AdminPage() {
             <TrendChart title="Connect replied trend" points={overview.data?.trends?.connectReplied ?? []} />
           </div>
 
-          <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-4">
             <Card>
               <CardHeader><CardTitle>Мини-воронка</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {(overview.data?.miniFunnel ?? []).map((step) => (
-                  <div key={step.step} className="rounded-xl border border-border bg-black/10 p-3">
+                  <div key={step.step} className="rounded-xl border border-border bg-surface2/70 p-3">
                     <div className="flex items-center justify-between text-sm">
                       <p>{funnelTitleMap[step.step] ?? step.step}</p>
                       <p>{step.count}</p>
@@ -833,9 +962,22 @@ export default function AdminPage() {
             </Card>
 
             <Card>
+              <CardHeader><CardTitle>Конверсии приложения</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {conversionRows.map((row) => (
+                  <div key={row.label} className="flex items-center justify-between rounded-xl border border-border bg-surface2/70 px-3 py-2 text-sm">
+                    <span>{row.label}</span>
+                    <span className="font-semibold">{formatMetricValue(row.label, row.value)}</span>
+                  </div>
+                ))}
+                {!conversionRows.length ? <p className="text-sm text-muted">Нет данных для расчёта конверсий.</p> : null}
+              </CardContent>
+            </Card>
+
+            <Card>
               <CardHeader><CardTitle>Health + Integrations</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="rounded-xl border border-border bg-black/10 p-3">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p>p95 latency: <strong>{Math.round(overview.data?.health?.p95Latency ?? 0)} ms</strong></p>
                   <p>Ошибки интеграций 7д: <strong>{overview.data?.health?.integrations.integrationErrors7d ?? 0}</strong></p>
                   <p>TG: {(overview.data?.health?.integrations.telegramConfigured ?? false) ? "OK" : "MISSING"}</p>
@@ -843,7 +985,7 @@ export default function AdminPage() {
                   <p>Supabase: {(overview.data?.health?.integrations.supabaseConfigured ?? false) ? "OK" : "MISSING"}</p>
                 </div>
 
-                <div className="rounded-xl border border-border bg-black/10 p-3">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p className="mb-1 text-xs text-muted">Последние действия админов</p>
                   {(overview.data?.health?.lastAdminActions ?? []).slice(0, 6).map((a: any) => (
                     <p key={a.id} className="text-xs">• {a.action} · {new Date(a.created_at).toLocaleString("ru-RU")}</p>
@@ -855,7 +997,7 @@ export default function AdminPage() {
             <Card>
               <CardHeader><CardTitle>Data Health / Diagnostics</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <div className="rounded-xl border border-border bg-black/10 p-3">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p>Статус: <strong>{(diagnostics.data?.issues.length ?? 0) === 0 ? "OK" : (diagnostics.data?.event_counts_24h?.total ?? 0) > 0 ? "WARNING" : "ERROR"}</strong></p>
                   <p>Supabase: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.supabase_ok ? "OK" : "ISSUES"}</strong></p>
                   <p>Devtools: <strong>{diagnostics.data?.devtools.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.devtools.reason ?? "-"}</p>
@@ -863,7 +1005,7 @@ export default function AdminPage() {
                   <p>Последнее событие: <strong>{diagnostics.data?.last_event_at ? new Date(diagnostics.data.last_event_at).toLocaleString("ru-RU") : diagnostics.isFetched ? "нет" : "запусти диагностику"}</strong></p>
                 </div>
 
-                <div className="rounded-xl border border-border bg-black/10 p-3">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p className="mb-2 text-xs text-muted">События за 24ч</p>
                   <p className="text-xs">total: {diagnostics.data?.event_counts_24h?.total ?? 0}</p>
                   <p className="text-xs">register_started: {diagnostics.data?.event_counts_24h?.register_started ?? 0}</p>
@@ -872,8 +1014,25 @@ export default function AdminPage() {
                   <p className="text-xs">posts duo/video: {(diagnostics.data?.event_counts_24h?.posts_duo ?? 0) + (diagnostics.data?.event_counts_24h?.posts_video ?? 0)}</p>
                   <p className="text-xs">connect sent/replied: {(diagnostics.data?.event_counts_24h?.connect_sent ?? 0)}/{diagnostics.data?.event_counts_24h?.connect_replied ?? 0}</p>
                 </div>
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="mb-2 text-xs text-muted">Почему графики могут быть пустыми</p>
+                  {diagnosticsRootCause.length ? (
+                    diagnosticsRootCause.map((reason) => <p key={reason} className="text-xs">• {reason}</p>)
+                  ) : (
+                    <p className="text-xs text-muted">Критичных причин не найдено.</p>
+                  )}
+                  <p className="mt-2 text-xs">Series endpoint: <strong>{diagnostics.data?.metrics_endpoints?.series_ok ? "OK" : "ISSUE"}</strong> · points: <strong>{diagnostics.data?.metrics_endpoints?.sample_points_count ?? 0}</strong></p>
+                </div>
 
-                <div className="rounded-xl border border-border bg-black/10 p-3">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="mb-2 text-xs text-muted">Top event names (24h)</p>
+                  {(diagnostics.data?.top_event_names ?? []).slice(0, 8).map((item) => (
+                    <p key={item.event_name} className="text-xs">• {item.event_name}: {item.count_24h}</p>
+                  ))}
+                  {!diagnostics.data?.top_event_names?.length ? <p className="text-xs text-muted">Нет событий за 24ч.</p> : null}
+                </div>
+
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p className="mb-2 text-xs text-muted">Admin Checklist</p>
                   <p className="text-xs">{checklist.eventsTracked ? "✔" : "✖"} события пишутся</p>
                   <p className="text-xs">{checklist.metricsReady ? "✔" : "✖"} метрики считаются</p>
@@ -882,12 +1041,17 @@ export default function AdminPage() {
                   <p className="text-xs">{checklist.alertsWorking ? "✔" : "✖"} alerts работают</p>
                 </div>
 
-                <div className="rounded-xl border border-border bg-black/10 p-3">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p className="mb-2 text-xs text-muted">Таблицы / rows 24h | 7d | 30d</p>
                   {(diagnostics.data?.tables ?? []).slice(0, 8).map((table) => (
                     <p key={table.name} className="text-xs">• {table.name}: {table.exists ? "ok" : "missing"} · {table.rows_24h}/{table.rows_7d}/{table.rows_30d}</p>
                   ))}
                   {!diagnostics.data?.tables?.length && diagnostics.isFetched ? <p className="text-xs text-muted">Нет результатов диагностики.</p> : null}
+                  <p className="mt-2 mb-1 text-xs text-muted">RLS / permissions</p>
+                  {diagnosticsRlsRows.slice(0, 6).map((item) => (
+                    <p key={item.table} className="text-xs">• {item.table}: {item.can_select ? "can_select" : "blocked"} · {item.note}</p>
+                  ))}
+                  {!diagnosticsRlsRows.length ? <p className="text-xs text-muted">RLS-данные недоступны.</p> : null}
                 </div>
 
                 {(diagnostics.data?.issues.length ?? 0) > 0 ? (
@@ -918,10 +1082,29 @@ export default function AdminPage() {
                   />
                   <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
                 </div>
+                {(diagnostics.data?.recommended_fixes?.length ?? 0) > 0 ? (
+                  <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                    <p className="mb-2 text-xs text-muted">Auto-fix</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(diagnostics.data?.recommended_fixes ?? []).slice(0, 8).map((fix) => (
+                        <ActionButton
+                          key={fix.key}
+                          state={actionUi[`autofix-${fix.key}`]}
+                          size="sm"
+                          variant="secondary"
+                          idleLabel={fix.title}
+                          loadingLabel="Fixing..."
+                          successLabel={actionUi[`autofix-${fix.key}`]?.label}
+                          onClick={() => fixCommonIssues(fix.key)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixCommon?.error ?? actionUi.checkTracking?.error ?? actionUi.seedMinimal?.error ?? actionUi.startLive?.error} />
 
                 {showDiagnosticsJson ? (
-                  <div className="rounded-xl border border-border bg-black/10 p-3">
+                  <div className="rounded-xl border border-border bg-surface2/70 p-3">
                     <pre className="max-h-64 overflow-auto text-[11px] leading-relaxed text-muted">{JSON.stringify(diagnostics.data ?? {}, null, 2)}</pre>
                   </div>
                 ) : null}
@@ -937,13 +1120,23 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Воронка продукта</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {funnels.isLoading ? <Skeleton className="h-64 w-full" /> : null}
-              {(funnels.data?.steps ?? []).map((step) => (
-                <div key={step.step} className="rounded-xl border border-border bg-black/10 p-3">
-                  <div className="flex items-center justify-between text-sm"><p>{step.step}</p><p>{step.count}</p></div>
-                  <p className="text-xs text-muted">Drop: {Math.round(step.drop * 100)}% · Conv from start: {Math.round(step.conversionFromStart * 100)}%</p>
+              <div className="overflow-x-auto rounded-xl border border-border bg-surface2/70 p-2">
+                <div className="grid min-w-[680px] grid-cols-[2fr_1fr_1fr_1fr] gap-2 border-b border-border/40 px-2 py-2 text-sm font-semibold">
+                  <span>Шаг</span>
+                  <span className="text-right">Пользователи</span>
+                  <span className="text-right">Конверсия</span>
+                  <span className="text-right">Drop-off</span>
                 </div>
-              ))}
-              {!funnels.isLoading && !(funnels.data?.steps?.length ?? 0) ? <EmptyState title="Воронка пуста" onSeed={seedDemo} onCheck={checkTracking} /> : null}
+                {funnelRows.map((row) => (
+                  <div key={row.step} className="grid min-w-[680px] grid-cols-[2fr_1fr_1fr_1fr] gap-2 border-b border-border/30 px-2 py-2 text-sm last:border-b-0">
+                    <span>{row.step}</span>
+                    <span className="text-right font-semibold">{row.users.toLocaleString("ru-RU")}</span>
+                    <span className="text-right">{row.conversion}</span>
+                    <span className="text-right">{row.drop}</span>
+                  </div>
+                ))}
+              </div>
+              {!funnels.isLoading && !funnelRows.length ? <EmptyState title="Воронка пуста" onSeed={seedDemo} onCheck={checkTracking} /> : null}
             </CardContent>
           </Card>
         </div>
@@ -957,7 +1150,7 @@ export default function AdminPage() {
               {retention.isLoading ? <Skeleton className="h-60 w-full" /> : null}
               <div className="min-w-[720px] space-y-1">
                 {(retention.data?.cohorts ?? []).map((row) => (
-                  <div key={row.cohortWeek} className="grid grid-cols-[160px_1fr_1fr_1fr_1fr] gap-2 rounded-xl border border-border bg-black/10 p-2 text-sm">
+                  <div key={row.cohortWeek} className="grid grid-cols-[160px_1fr_1fr_1fr_1fr] gap-2 rounded-xl border border-border bg-surface2/70 p-2 text-sm">
                     <p>{row.cohortWeek}</p>
                     <p>{row.cohortSize}</p>
                     <p>{Math.round(row.d1Rate * 100)}%</p>
@@ -996,7 +1189,7 @@ export default function AdminPage() {
             <CardContent className="space-y-2">
               {experiments.isLoading ? <Skeleton className="h-56 w-full" /> : null}
               {(experiments.data?.items ?? []).map((x) => (
-                <div key={x.id} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <div key={x.id} className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
                   <p className="font-medium">{x.key}</p>
                   <p className="text-xs text-muted">status: {x.status} · rollout: {x.rollout_percent}% · metric: {x.primary_metric || "-"}</p>
                   <p className="text-xs text-muted">A/B: insufficient data</p>
@@ -1014,7 +1207,7 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Feature Flags</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {(flags.data?.flags ?? []).map((f) => (
-                <div key={f.id} className="flex items-center justify-between rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <div key={f.id} className="flex items-center justify-between rounded-xl border border-border bg-surface2/70 p-3 text-sm">
                   <div>
                     <p className="font-medium">{f.key}</p>
                     <p className="text-xs text-muted">{f.description ?? "без описания"}</p>
@@ -1035,7 +1228,7 @@ export default function AdminPage() {
               <ActionButton className="w-full" state={actionUi.upsertConfig} idleLabel={<><SlidersHorizontal className="mr-1 h-4 w-4" />Сохранить config</>} loadingLabel="Сохранение..." successLabel={actionUi.upsertConfig?.label} onClick={upsertConfig} />
               <InlineError message={actionUi.upsertConfig?.error} />
               {(flags.data?.configs ?? []).map((c) => (
-                <div key={c.id} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
+                <div key={c.id} className="rounded-xl border border-border bg-surface2/70 p-2 text-xs">
                   <p className="font-medium">{c.key}</p>
                   <p className="text-muted">{JSON.stringify(c.value)}</p>
                 </div>
@@ -1066,7 +1259,7 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Последние срабатывания / список алертов</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {(alerts.data?.items ?? []).map((x) => (
-                <div key={x.id} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <div key={x.id} className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
                   <p className="font-medium">{x.metric}</p>
                   <p className="text-xs text-muted">{x.type} · threshold {x.threshold} · window {x.window_days}d · {x.status}</p>
                 </div>
@@ -1090,7 +1283,7 @@ export default function AdminPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(u.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}
+                    className={cn("rounded-xl border bg-surface2/70 p-3 text-sm transition", isRowUpdated(u.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -1125,12 +1318,12 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Risk Distribution</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="rounded-xl border border-border bg-black/10 p-3">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
                 <p>low: {risk.data?.distribution?.low ?? 0}</p>
                 <p>medium: {risk.data?.distribution?.medium ?? 0}</p>
                 <p>high: {risk.data?.distribution?.high ?? 0}</p>
               </div>
-              <div className="rounded-xl border border-border bg-black/10 p-3">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
                 <p className="mb-1 text-xs text-muted">Top signals</p>
                 {(risk.data?.topSignals ?? []).map((s: any) => <p key={s.key} className="text-xs">• {s.key}: {s.count}</p>)}
                 {!(risk.data?.topSignals?.length ?? 0) ? <p className="text-xs text-muted">Нет сигналов</p> : null}
@@ -1144,7 +1337,7 @@ export default function AdminPage() {
               <CardContent className="space-y-2">
                 <AnimatePresence initial={false}>
                   {(risk.data?.items ?? []).slice(0, 80).map((r: any) => (
-                    <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(r.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
+                    <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-surface2/70 p-3 text-sm transition", isRowUpdated(r.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium">{r.name}</p>
                         <span className={`rounded-full border px-2 py-0.5 text-xs ${r.risk_status === "high" ? "border-danger text-danger" : r.risk_status === "medium" ? "border-warning text-warning" : "border-action text-action"}`}>
@@ -1176,7 +1369,7 @@ export default function AdminPage() {
             <CardContent className="space-y-2">
               <AnimatePresence initial={false}>
                 {(reports.data?.items ?? []).slice(0, 120).map((r) => (
-                  <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(r.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
+                  <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-surface2/70 p-3 text-sm transition", isRowUpdated(r.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
                     <p className="font-medium">{r.content_type} · {r.reason}</p>
                     <p className="text-xs text-muted">{r.status}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -1201,7 +1394,7 @@ export default function AdminPage() {
               <Textarea value={moderationReason} onChange={(e) => setModerationReason(e.target.value)} />
               <AnimatePresence initial={false}>
                 {(moderation.data?.flags ?? []).slice(0, 50).map((f: any) => (
-                  <motion.div key={f.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-black/10 p-3 text-sm transition", isRowUpdated(f.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
+                  <motion.div key={f.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn("rounded-xl border bg-surface2/70 p-3 text-sm transition", isRowUpdated(f.id) ? "border-cyan/50 ring-1 ring-cyan/30" : "border-border")}>
                     <div className="flex items-center justify-between">
                       <p className="font-medium">{f.content_type} · risk {f.risk_score}</p>
                       <AlertTriangle className="h-4 w-4 text-[#ffb86b]" />
@@ -1229,10 +1422,10 @@ export default function AdminPage() {
             <CardContent className="space-y-3">
               {aiError ? <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-xs text-danger">Ошибка AI: {aiError}</div> : null}
 
-              <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-black/10 p-3">
+              <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-surface2/70 p-3">
                 {!aiLog.length ? <p className="text-xs text-muted">Спроси: почему упал TG verify, где провал в воронке, что влияет на WMC.</p> : null}
                 {aiLog.map((m, i) => (
-                  <motion.div key={`${m.role}-${i}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`rounded-xl border p-3 text-sm ${m.role === "assistant" ? "border-cyan/30 bg-[#143053]/50" : "border-border bg-black/20"}`}>
+                  <motion.div key={`${m.role}-${i}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`rounded-xl border p-3 text-sm ${m.role === "assistant" ? "border-cyan/30 bg-[#143053]/50" : "border-border bg-surface2/80"}`}>
                     <p className="mb-1 text-xs text-muted">{m.role === "assistant" ? "AI" : "Ты"}</p>
                     <p className="whitespace-pre-wrap">{m.text}</p>
                   </motion.div>
@@ -1240,7 +1433,7 @@ export default function AdminPage() {
               </div>
 
               {aiActions.length ? (
-                <div className="space-y-2 rounded-xl border border-border bg-black/10 p-3">
+                <div className="space-y-2 rounded-xl border border-border bg-surface2/70 p-3">
                   <p className="text-xs text-muted">Исполнимые рекомендации</p>
                   {aiActions.map((action) => (
                     <div key={action.id} className="flex flex-col gap-2 rounded-lg border border-border p-2 text-xs sm:flex-row sm:items-center sm:justify-between">
@@ -1252,7 +1445,7 @@ export default function AdminPage() {
               ) : null}
 
               {aiDebugMode && aiDebugPayload ? (
-                <div className="space-y-2 rounded-xl border border-border bg-black/10 p-3">
+                <div className="space-y-2 rounded-xl border border-border bg-surface2/70 p-3">
                   <p className="text-xs text-muted">AI debug context</p>
                   <pre className="max-h-48 overflow-auto text-[11px] leading-relaxed text-muted">{JSON.stringify(aiDebugPayload, null, 2)}</pre>
                 </div>
@@ -1274,10 +1467,10 @@ export default function AdminPage() {
         <div className="col-span-12 space-y-4">
           <Card>
             <CardHeader><CardTitle>Метрики (Metrics Lab)</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4 font-sans">
               <div className="flex flex-wrap gap-2">
                 {(["growth","activation","engagement","content","events","social","safety","ai","health"] as const).map((tab) => (
-                  <Button key={tab} size="sm" variant={metricsTab === tab ? "default" : "secondary"} onClick={() => setMetricsTab(tab)}>{tab}</Button>
+                  <Button key={tab} size="sm" variant={metricsTab === tab ? "default" : "secondary"} onClick={() => setMetricsTab(tab)}>{metricsTabLabels[tab]}</Button>
                 ))}
               </div>
 
@@ -1286,11 +1479,11 @@ export default function AdminPage() {
               {!metricsLab.isLoading && !(metricsLab.data?.kpis?.length ?? 0) ? (
                 <EmptyState title="Метрики Lab пусты" onSeed={seedDemo} onCheck={checkTracking} />
               ) : (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
                   {(metricsLab.data?.kpis ?? []).map((k) => (
-                    <div key={k.name} className="rounded-xl border border-border bg-black/10 p-3">
-                      <p className="text-xs text-muted">{k.name}</p>
-                      <p className="text-xl font-semibold">{typeof k.value === "number" ? k.value : String(k.value)}</p>
+                    <div key={k.name} className="rounded-xl border border-border bg-surface2/70 p-3">
+                      <p className="text-sm text-muted">{k.name}</p>
+                      <p className="mt-1 text-2xl font-semibold text-text">{formatMetricValue(k.name, Number(k.value ?? 0))}</p>
                       {k.subtitle ? <p className="text-xs text-muted">{k.subtitle}</p> : null}
                     </div>
                   ))}
@@ -1298,38 +1491,77 @@ export default function AdminPage() {
               )}
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {(metricsLab.data?.trends ?? []).slice(0,2).map((t) => (
-                  <TrendChart key={t.key} title={`trend: ${t.key}`} points={t.points} />
+                {(metricsLab.data?.trends ?? []).slice(0, 2).map((t) => (
+                  <TrendChart key={t.key} title={"Тренд: " + t.key} points={t.points} />
                 ))}
-                <TrendChart title="Unified series" points={(metricsSeries.data?.points ?? []).map((p) => ({ date: p.ts, value: p.value }))} />
+                <TrendChart title={"Серия: " + seriesMetric} points={normalizedSeriesPoints.map((p) => ({ date: p.ts, value: p.value }))} />
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <div className="rounded-xl border border-border bg-black/10 p-3">
-                  <p className="mb-2 text-sm font-medium">Top users ({topUsersMetrics.data?.metric ?? "-"})</p>
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="mb-2 text-base font-semibold">Дневной срез ({dateRange})</p>
+                  <div className="overflow-auto rounded-xl border border-border/40">
+                    <div className="grid min-w-[420px] grid-cols-[1fr_auto] gap-2 border-b border-border/40 bg-surface2/80 px-3 py-2 text-sm font-semibold">
+                      <span>Дата</span>
+                      <span>Значение</span>
+                    </div>
+                    {normalizedSeriesPoints.slice(-14).map((p) => (
+                      <div key={p.ts} className="grid min-w-[420px] grid-cols-[1fr_auto] gap-2 border-b border-border/30 px-3 py-2 text-sm last:border-b-0">
+                        <span>{p.ts}</span>
+                        <span className="font-semibold">{p.value.toLocaleString("ru-RU")}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="mb-2 text-base font-semibold">Конверсии воронки</p>
+                  <div className="overflow-auto rounded-xl border border-border/40">
+                    <div className="grid min-w-[520px] grid-cols-[2fr_1fr_1fr_1fr] gap-2 border-b border-border/40 bg-surface2/80 px-3 py-2 text-sm font-semibold">
+                      <span>Шаг</span>
+                      <span className="text-right">Пользователи</span>
+                      <span className="text-right">Конверсия</span>
+                      <span className="text-right">Drop</span>
+                    </div>
+                    {funnelRows.slice(0, 8).map((row) => (
+                      <div key={row.step} className="grid min-w-[520px] grid-cols-[2fr_1fr_1fr_1fr] gap-2 border-b border-border/30 px-3 py-2 text-sm last:border-b-0">
+                        <span>{row.step}</span>
+                        <span className="text-right font-semibold">{row.users.toLocaleString("ru-RU")}</span>
+                        <span className="text-right">{row.conversion}</span>
+                        <span className="text-right">{row.drop}</span>
+                      </div>
+                    ))}
+                    {!funnelRows.length ? <p className="p-3 text-sm text-muted">Нет данных воронки. Запусти симуляцию или seed.</p> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="mb-2 text-base font-semibold">Топ пользователей ({topUsersMetrics.data?.metric ?? "-"})</p>
                   {(topUsersMetrics.data?.items ?? []).length ? (
                     (topUsersMetrics.data?.items ?? []).map((x) => (
-                      <div key={x.user_id} className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-b-0">
-                        <p>{x.name} {x.city ? `· ${x.city}` : ""}</p>
-                        <p className="font-medium">{x.value}</p>
+                      <div key={x.user_id} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/40 py-2 text-sm last:border-b-0">
+                        <p>{x.name} {x.city ? "· " + x.city : ""}</p>
+                        <p className="font-semibold">{x.value.toLocaleString("ru-RU")}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-muted">Нет данных. Запусти Live 40 users.</p>
+                    <p className="text-sm text-muted">Нет данных. Запусти Live 40 users.</p>
                   )}
                 </div>
 
-                <div className="rounded-xl border border-border bg-black/10 p-3">
-                  <p className="mb-2 text-sm font-medium">Top events ({topEventsMetrics.data?.metric ?? "-"})</p>
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="mb-2 text-base font-semibold">Топ событий ({topEventsMetrics.data?.metric ?? "-"})</p>
                   {(topEventsMetrics.data?.items ?? []).length ? (
                     (topEventsMetrics.data?.items ?? []).map((x) => (
-                      <div key={x.event_id} className="flex items-center justify-between border-b border-border/40 py-1 text-xs last:border-b-0">
+                      <div key={x.event_id} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/40 py-2 text-sm last:border-b-0">
                         <p>{x.title}</p>
-                        <p className="font-medium">{x.value}</p>
+                        <p className="font-semibold">{x.value.toLocaleString("ru-RU")}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-muted">Нет данных. Запусти Live 40 users.</p>
+                    <p className="text-sm text-muted">Нет данных. Запусти Live 40 users.</p>
                   )}
                 </div>
               </div>
@@ -1369,7 +1601,7 @@ export default function AdminPage() {
             <Card>
               <CardHeader><CardTitle>Live Simulation</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                <div className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
                   <p>
                     LIVE: <strong className={cn(liveSim.data?.running ? "text-action" : "text-muted")}>{liveSim.data?.running ? "RUNNING" : "STOPPED"}</strong>
                     {liveSim.data?.running ? <span className="ml-2 inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-action" /> : null}
@@ -1434,7 +1666,7 @@ export default function AdminPage() {
                   <ActionButton className="w-full" state={actionUi.tickLive} variant="secondary" idleLabel="Tick" loadingLabel="Ticking..." successLabel={actionUi.tickLive?.label} onClick={tickLive} />
                 </div>
                 <InlineError message={actionUi.startLive?.error ?? actionUi.stopLive?.error ?? actionUi.tickLive?.error} />
-                <div className="rounded-xl border border-border bg-black/10 p-3 text-xs">
+                <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs">
                   <p className="mb-1 text-muted">Recent actions</p>
                   <AnimatePresence initial={false}>
                     {(liveSim.data?.run?.recent_actions ?? []).slice(0, 10).map((x: string, idx: number) => (
@@ -1454,7 +1686,7 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Интеграции</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {(integrations.data?.items ?? []).map((i) => (
-                <div key={i.key} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <div key={i.key} className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
                   <p className="font-medium">{i.key}</p>
                   <p className="text-xs text-muted">status: {i.status} · configured: {String(i.configured)} · errors7d: {i.errors7d ?? 0}</p>
                 </div>
@@ -1470,14 +1702,14 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Access & RBAC</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="rounded-xl border border-border bg-black/10 p-3">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
                 <p>Роли: {Object.entries(security.data?.roleCounts ?? {}).map(([k, v]) => `${k}:${v}`).join(" · ") || "-"}</p>
                 <p>Blocked users: {security.data?.blockedUsers ?? 0}</p>
                 <p>Active sessions: {security.data?.activeSessions ?? 0}</p>
                 <p>Devtools: {security.data?.devtools?.enabled ? "enabled" : "disabled"} · {security.data?.devtools?.reason ?? "-"}</p>
               </div>
 
-              <div className="rounded-xl border border-border bg-black/10 p-3">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
                 <p className="mb-1 text-xs text-muted">Админы и роли</p>
                 {(security.data?.admins ?? []).slice(0, 8).map((a: any) => <p key={a.id} className="text-xs">• {a.name ?? a.id.slice(0, 6)} · {a.role}</p>)}
                 {!(security.data?.admins?.length ?? 0) ? <p className="text-xs text-muted">Нет админ-пользователей</p> : null}
@@ -1493,7 +1725,7 @@ export default function AdminPage() {
               <p>{security.data?.apiProtection?.zodValidationCoverage ? "✅" : "⚠️"} Zod validation coverage</p>
               <p>{security.data?.apiProtection?.serverOnlySecrets ? "✅" : "⚠️"} server-only secrets</p>
 
-              <div className="mt-3 rounded-xl border border-border bg-black/10 p-3">
+              <div className="mt-3 rounded-xl border border-border bg-surface2/70 p-3">
                 <p className="mb-1 text-xs text-muted">Data Security</p>
                 <p>{security.data?.dataSecurity?.rlsEnabledAssumed ? "✅" : "⚠️"} RLS enabled</p>
                 <p>{security.data?.dataSecurity?.piiMaskedInUi ? "✅" : "⚠️"} PII masked in UI</p>
@@ -1505,7 +1737,7 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Threat Monitoring</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-xs">
-              <div className="rounded-xl border border-border bg-black/10 p-3">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
                 <p>events24h: {security.data?.threatMonitoring?.events24h ?? 0}</p>
                 <p>reports24h: {security.data?.threatMonitoring?.reports24h ?? 0}</p>
                 <p>connect24h: {security.data?.threatMonitoring?.connect24h ?? 0}</p>
@@ -1537,7 +1769,7 @@ export default function AdminPage() {
             <CardHeader><CardTitle>System Settings</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {(system.data?.items ?? []).map((item) => (
-                <div key={item.key} className="rounded-xl border border-border bg-black/10 p-3 text-sm">
+                <div key={item.key} className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
                   <p className="font-medium">{item.key}</p>
                   <p className="text-xs text-muted">{JSON.stringify(item.value)}</p>
                   <ActionButton className="mt-2" size="sm" state={actionUi[`saveSystem-${item.key}`]} variant="secondary" idleLabel="Сохранить" loadingLabel="Сохранение..." successLabel={actionUi[`saveSystem-${item.key}`]?.label} onClick={() => saveSystemSetting(item.key, item.value)} />

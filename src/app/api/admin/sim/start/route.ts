@@ -14,7 +14,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const adminId = await requireAdminUserId();
-    const status = getDevtoolsStatus();
+    const status = await getDevtoolsStatus();
     if (!status.enabled) return fail(`Devtools disabled: ${status.reason}`, 403);
 
     const body = await req.json().catch(() => ({}));

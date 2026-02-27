@@ -53,12 +53,71 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-export function getDevtoolsStatus() {
+export async function getDevtoolsStatus() {
   const isProd = process.env.NODE_ENV === "production";
   const enabledByEnv = process.env.ADMIN_DEVTOOLS_ENABLED === "true";
-  if (!isProd) return { enabled: true, reason: "development mode" };
-  if (enabledByEnv) return { enabled: true, reason: "ADMIN_DEVTOOLS_ENABLED=true" };
-  return { enabled: false, reason: "production mode: set ADMIN_DEVTOOLS_ENABLED=true" };
+  if (!isProd) {
+    return {
+      enabled: true,
+      reason: "development mode",
+      mode: "development",
+      fixSteps: [],
+    } as const;
+  }
+
+  if (enabledByEnv) {
+    return {
+      enabled: true,
+      reason: "ADMIN_DEVTOOLS_ENABLED=true",
+      mode: "env",
+      fixSteps: [],
+    } as const;
+  }
+
+  const safeMode = await supabaseAdmin
+    .from("system_settings")
+    .select("value")
+    .eq("key", "admin_devtools_safe_mode")
+    .maybeSingle();
+
+  const safeEnabled = Boolean((safeMode.data?.value as Record<string, unknown> | null)?.enabled === true);
+
+  if (safeEnabled) {
+    return {
+      enabled: true,
+      reason: "safe mode enabled in system_settings",
+      mode: "safe_mode",
+      fixSteps: [],
+    } as const;
+  }
+
+  return {
+    enabled: false,
+    reason: "production mode: set ADMIN_DEVTOOLS_ENABLED=true or enable safe mode",
+    mode: "disabled",
+    fixSteps: [
+      "Set ADMIN_DEVTOOLS_ENABLED=true in Vercel and redeploy",
+      "or run Auto-Fix: Enable DevTools in production (safe)",
+    ],
+  } as const;
+}
+
+export async function enableDevtoolsSafeMode(adminId: string) {
+  await supabaseAdmin.from("system_settings").upsert({
+    key: "admin_devtools_safe_mode",
+    value: { enabled: true, enabled_by: adminId, enabled_at: nowIso() },
+    updated_by: adminId,
+    updated_at: nowIso(),
+  });
+}
+
+export async function disableDevtoolsSafeMode(adminId: string) {
+  await supabaseAdmin.from("system_settings").upsert({
+    key: "admin_devtools_safe_mode",
+    value: { enabled: false, disabled_by: adminId, disabled_at: nowIso() },
+    updated_by: adminId,
+    updated_at: nowIso(),
+  });
 }
 
 function weightedPick(users: SimUser[]) {
@@ -98,8 +157,9 @@ function persona(): SimUser["persona"] {
 async function createUsersIfNeeded(target: number) {
   const { data: existing } = await supabaseAdmin
     .from("users")
-    .select("id,phone")
+    .select("id,name")
     .eq("role", "user")
+    .ilike("name", "Demo %")
     .order("created_at", { ascending: false })
     .limit(target);
 
@@ -111,9 +171,9 @@ async function createUsersIfNeeded(target: number) {
   const need = target - users.length;
   const rows: Array<Record<string, unknown>> = [];
   for (let i = 0; i < need; i += 1) {
-    const name = `${pick(NAMES)} ${String.fromCharCode(65 + (i % 26))}.`;
+    const base = `${pick(NAMES)} ${String.fromCharCode(65 + (i % 26))}.`;
     rows.push({
-      name,
+      name: `Demo ${base}`,
       phone: phone(),
       telegram_verified: chance(0.75),
       profile_completed: chance(0.65),
@@ -121,8 +181,8 @@ async function createUsersIfNeeded(target: number) {
       role: "user",
       interests: Array.from(new Set(Array.from({ length: rnd(3, 5) }, () => pick(INTERESTS)))),
       hobbies: Array.from(new Set(Array.from({ length: rnd(2, 4) }, () => pick(INTERESTS)))),
-      facts: ["Люблю офлайн встречи", "Открыт к новым контактам", "Уважаю личные границы"],
-      bio: "Ищу полезные знакомства и интересные офлайн-события.",
+      facts: ["Demo user", "Seeded by simulation", "Safe for testing"],
+      bio: "Demo persona for admin simulation and analytics.",
     });
   }
 
@@ -134,6 +194,7 @@ async function createUsersIfNeeded(target: number) {
     .from("users")
     .select("id")
     .eq("role", "user")
+    .ilike("name", "Demo %")
     .order("created_at", { ascending: false })
     .limit(target);
 
@@ -343,6 +404,8 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
     const createdAt = nowIso();
     const properties: Record<string, unknown> = {
       source: "live_sim",
+          is_demo: true,
+          demo_run_id: run.id,
       city: u.persona.city,
       platform: u.persona.platform,
       event_id: `sim_event_${rnd(1, 50)}`,
@@ -522,6 +585,7 @@ export async function seedMinimalData() {
       path: name.includes("event") ? "/events" : name.includes("connect") ? "/contacts" : "/feed",
       properties: {
         source: "seed_minimal",
+        is_demo: true,
         city: pick(CITIES),
         platform: pick(["ios", "android", "web"]),
         event_id: `seed_event_${rnd(1, 5)}`,

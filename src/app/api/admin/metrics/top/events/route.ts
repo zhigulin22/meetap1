@@ -69,7 +69,7 @@ export async function GET(req: Request) {
     const views = await supabaseAdmin
       .from("analytics_events")
       .select("properties")
-      .eq("event_name", "event_viewed")
+      .in("event_name", ["event_viewed","events_viewed","event_opened"])
       .gte("created_at", fromISO)
       .lte("created_at", toISO)
       .limit(100000);

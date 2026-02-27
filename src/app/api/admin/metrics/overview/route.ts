@@ -2,14 +2,16 @@ import { fail, ok } from "@/lib/http";
 import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow, getSegmentUserIds, filterCountByUsers } from "@/server/admin-metrics";
+import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
+import { computeSeries } from "@/server/metrics-series";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getServerEnv } from "@/lib/env";
 
-async function countEvents(eventName: string, fromISO: string, toISO: string, userIds: string[] | null) {
+async function countByAliases(aliases: string[], fromISO: string, toISO: string, userIds: string[] | null) {
   const query = supabaseAdmin
     .from("analytics_events")
     .select("id", { count: "exact", head: true })
-    .eq("event_name", eventName)
+    .in("event_name", aliases)
     .gte("created_at", fromISO)
     .lte("created_at", toISO);
 
@@ -18,61 +20,88 @@ async function countEvents(eventName: string, fromISO: string, toISO: string, us
   return count ?? 0;
 }
 
-async function countAny(eventNames: string[], fromISO: string, toISO: string, userIds: string[] | null) {
+async function countUniqueActiveUsers(fromISO: string, toISO: string, userIds: string[] | null) {
+  const aliases = aliasesForCanonicals([
+    "feed_viewed",
+    "event_viewed",
+    "event_joined",
+    "post_published_daily_duo",
+    "post_published_video",
+    "connect_sent",
+    "connect_replied",
+    "chat_message_sent",
+  ]);
+
   const query = supabaseAdmin
     .from("analytics_events")
-    .select("event_name,user_id", { count: "exact" })
-    .in("event_name", eventNames)
+    .select("user_id")
+    .in("event_name", aliases)
     .gte("created_at", fromISO)
-    .lte("created_at", toISO);
+    .lte("created_at", toISO)
+    .not("user_id", "is", null)
+    .limit(150000);
 
   if (userIds && userIds.length) query.in("user_id", userIds);
 
-  const { count, data } = await query;
-  return { count: count ?? 0, rows: data ?? [] };
+  const { data } = await query;
+  return new Set((data ?? []).map((x) => x.user_id).filter(Boolean) as string[]).size;
 }
 
-async function sumNumericProperty(eventName: string, property: string, fromISO: string, toISO: string) {
-  const { data } = await supabaseAdmin
+async function sumAiCost(fromISO: string, toISO: string, userIds: string[] | null) {
+  const aliases = aliasesForCanonicals(["ai_cost"]);
+  const query = supabaseAdmin
     .from("analytics_events")
-    .select("properties")
-    .eq("event_name", eventName)
+    .select("properties,user_id,event_name")
+    .in("event_name", aliases)
     .gte("created_at", fromISO)
     .lte("created_at", toISO)
-    .limit(5000);
+    .limit(150000);
 
+  if (userIds && userIds.length) query.in("user_id", userIds);
+
+  const { data } = await query;
   let sum = 0;
   for (const row of data ?? []) {
-    const value = Number((row.properties as Record<string, unknown> | null)?.[property] ?? 0);
+    if (canonicalizeEventName(row.event_name) !== "ai_cost") continue;
+    const value = Number((row.properties as Record<string, unknown> | null)?.usd ?? 0);
     if (Number.isFinite(value)) sum += value;
   }
-  return Number(sum.toFixed(3));
+  return Number(sum.toFixed(4));
 }
 
-function dateKey(iso: string) {
-  return iso.slice(0, 10);
-}
-
-function buildDailyTrend(rows: Array<{ created_at: string; event_name: string }>, names: string[], fromISO: string, toISO: string) {
-  const from = new Date(fromISO);
-  const to = new Date(toISO);
-  const map = new Map<string, number>();
+function buildMiniFunnel(rows: Array<{ event_name: string; user_id: string | null }>) {
+  const usersByStep = new Map<string, Set<string>>([
+    ["register_started", new Set()],
+    ["telegram_verified", new Set()],
+    ["registration_completed", new Set()],
+    ["profile_completed", new Set()],
+    ["first_post", new Set()],
+    ["connect_replied", new Set()],
+  ]);
 
   for (const row of rows) {
-    if (!names.includes(row.event_name)) continue;
-    const key = dateKey(row.created_at);
-    map.set(key, (map.get(key) ?? 0) + 1);
+    if (!row.user_id) continue;
+    const canonical = canonicalizeEventName(row.event_name);
+    const step =
+      canonical === "post_published_daily_duo" || canonical === "post_published_video"
+        ? "first_post"
+        : ["register_started", "telegram_verified", "registration_completed", "profile_completed", "connect_replied"].includes(canonical)
+          ? canonical
+          : null;
+    if (!step) continue;
+    usersByStep.get(step)?.add(row.user_id);
   }
 
-  const out: Array<{ date: string; value: number }> = [];
-  const cursor = new Date(from);
-  cursor.setUTCHours(0, 0, 0, 0);
-  while (cursor <= to) {
-    const key = cursor.toISOString().slice(0, 10);
-    out.push({ date: key, value: map.get(key) ?? 0 });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return out;
+  const order = ["register_started", "telegram_verified", "registration_completed", "profile_completed", "first_post", "connect_replied"];
+  return order.map((step, idx) => {
+    const count = usersByStep.get(step)?.size ?? 0;
+    const prev = idx > 0 ? usersByStep.get(order[idx - 1])?.size ?? 0 : count;
+    return {
+      step,
+      count,
+      conversion: prev > 0 ? Number((count / prev).toFixed(4)) : 0,
+    };
+  });
 }
 
 function percentDiff(current: number, previous: number) {
@@ -96,16 +125,32 @@ export async function GET(req: Request) {
     const { fromISO, toISO } = parseWindow(parsed.data.from, parsed.data.to, 30);
     const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
 
-    const now = new Date();
-    const d1 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString();
-    const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const now = Date.now();
+    const d1 = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const fromDate = new Date(fromISO);
     const toDate = new Date(toISO);
-    const rangeMs = toDate.getTime() - fromDate.getTime();
+    const rangeMs = Math.max(1, toDate.getTime() - fromDate.getTime());
     const prevFrom = new Date(fromDate.getTime() - rangeMs).toISOString();
-    const prevTo = new Date(fromDate.getTime()).toISOString();
+    const prevTo = fromDate.toISOString();
+
+    const aliases = {
+      registerStarted: aliasesForCanonicals(["register_started"]),
+      telegramVerified: aliasesForCanonicals(["telegram_verified"]),
+      registrationCompleted: aliasesForCanonicals(["registration_completed"]),
+      profileCompleted: aliasesForCanonicals(["profile_completed"]),
+      dailyDuo: aliasesForCanonicals(["post_published_daily_duo"]),
+      video: aliasesForCanonicals(["post_published_video"]),
+      eventJoin: aliasesForCanonicals(["event_joined"]),
+      connectSent: aliasesForCanonicals(["connect_sent"]),
+      connectReply: aliasesForCanonicals(["connect_replied", "chat_message_sent"]),
+      aiCalls: aliasesForCanonicals(["ai_face_validate", "ai_icebreaker", "ai_admin_insights"]),
+      apiErrors: aliasesForCanonicals(["api_error"]),
+      integrationErrors: aliasesForCanonicals(["api_error", "ai_error", "telegram_verify_error"]),
+      funnelRows: aliasesForCanonicals(["register_started", "telegram_verified", "registration_completed", "profile_completed", "post_published_daily_duo", "post_published_video", "connect_replied"]),
+    };
 
     const [
       usersTotal,
@@ -118,6 +163,7 @@ export async function GET(req: Request) {
       registerStarted,
       telegramVerified,
       registrationCompleted,
+      profileCompleted,
       dailyDuo1d,
       dailyDuo7d,
       videoPosts1d,
@@ -133,7 +179,6 @@ export async function GET(req: Request) {
       apiErrors1d,
       aiCalls7d,
       aiCostUsd7d,
-      analyticsRows,
       registerStartedPrev,
       registrationCompletedPrev,
       connectSentPrev,
@@ -142,6 +187,9 @@ export async function GET(req: Request) {
       integrationsErrors,
       latencyRows,
       miniFunnelRows,
+      trendsDau,
+      trendsPosts,
+      trendsConnect,
     ] = await Promise.all([
       filterCountByUsers("users", "id", fromISO, toISO, userIds, "created_at"),
       filterCountByUsers("users", "id", d1, toISO, userIds, "created_at"),
@@ -151,32 +199,21 @@ export async function GET(req: Request) {
         if (userIds && userIds.length) q.in("id", userIds);
         return q.then((x) => x.count ?? 0);
       })(),
-      (() => {
-        const q = supabaseAdmin.from("user_sessions").select("user_id").gte("last_active_at", d1);
-        if (userIds && userIds.length) q.in("user_id", userIds);
-        return q.then((x) => new Set((x.data ?? []).map((r) => r.user_id)).size);
-      })(),
-      (() => {
-        const q = supabaseAdmin.from("user_sessions").select("user_id").gte("last_active_at", d7);
-        if (userIds && userIds.length) q.in("user_id", userIds);
-        return q.then((x) => new Set((x.data ?? []).map((r) => r.user_id)).size);
-      })(),
-      (() => {
-        const q = supabaseAdmin.from("user_sessions").select("user_id").gte("last_active_at", d30);
-        if (userIds && userIds.length) q.in("user_id", userIds);
-        return q.then((x) => new Set((x.data ?? []).map((r) => r.user_id)).size);
-      })(),
-      countEvents("register_started", fromISO, toISO, userIds),
-      countEvents("telegram_verified", fromISO, toISO, userIds),
-      countEvents("registration_completed", fromISO, toISO, userIds),
-      countAny(["daily_duo_published", "post_published_daily_duo"], d1, toISO, userIds).then((x) => x.count),
-      countAny(["daily_duo_published", "post_published_daily_duo"], d7, toISO, userIds).then((x) => x.count),
-      countEvents("post_published_video", d1, toISO, userIds),
-      countEvents("post_published_video", d7, toISO, userIds),
-      countEvents("event_joined", d1, toISO, userIds),
-      countEvents("event_joined", d7, toISO, userIds),
-      countAny(["connect_clicked", "connect_sent"], fromISO, toISO, userIds).then((x) => x.count),
-      countAny(["first_message_sent", "chat_message_sent", "connect_replied"], fromISO, toISO, userIds).then((x) => x.count),
+      countUniqueActiveUsers(d1, toISO, userIds),
+      countUniqueActiveUsers(d7, toISO, userIds),
+      countUniqueActiveUsers(d30, toISO, userIds),
+      countByAliases(aliases.registerStarted, fromISO, toISO, userIds),
+      countByAliases(aliases.telegramVerified, fromISO, toISO, userIds),
+      countByAliases(aliases.registrationCompleted, fromISO, toISO, userIds),
+      countByAliases(aliases.profileCompleted, fromISO, toISO, userIds),
+      countByAliases(aliases.dailyDuo, d1, toISO, userIds),
+      countByAliases(aliases.dailyDuo, d7, toISO, userIds),
+      countByAliases(aliases.video, d1, toISO, userIds),
+      countByAliases(aliases.video, d7, toISO, userIds),
+      countByAliases(aliases.eventJoin, d1, toISO, userIds),
+      countByAliases(aliases.eventJoin, d7, toISO, userIds),
+      countByAliases(aliases.connectSent, fromISO, toISO, userIds),
+      countByAliases(aliases.connectReply, fromISO, toISO, userIds),
       supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open").then((x) => x.count ?? 0),
       supabaseAdmin.from("content_flags").select("id", { count: "exact", head: true }).eq("status", "open").then((x) => x.count ?? 0),
       (() => {
@@ -184,66 +221,29 @@ export async function GET(req: Request) {
         if (userIds && userIds.length) q.in("id", userIds);
         return q.then((x) => x.count ?? 0);
       })(),
-      countEvents("chat_message_sent", d7, toISO, userIds),
-      countEvents("api_error", d1, toISO, null),
-      countAny(["ai_face_validate", "ai_icebreaker", "ai_admin_insights"], d7, toISO, null).then((x) => x.count),
-      sumNumericProperty("ai_cost", "usd", d7, toISO),
-      supabaseAdmin
-        .from("analytics_events")
-        .select("event_name,created_at")
-        .gte("created_at", fromISO)
-        .lte("created_at", toISO)
-        .limit(50000)
-        .then((x) => x.data ?? []),
-      countEvents("register_started", prevFrom, prevTo, userIds),
-      countEvents("registration_completed", prevFrom, prevTo, userIds),
-      countAny(["connect_clicked", "connect_sent"], prevFrom, prevTo, userIds).then((x) => x.count),
-      countEvents("chat_message_sent", new Date(new Date(prevTo).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), prevTo, userIds),
+      countByAliases(aliases.connectReply, d7, toISO, userIds),
+      countByAliases(aliases.apiErrors, d1, toISO, null),
+      countByAliases(aliases.aiCalls, d7, toISO, null),
+      sumAiCost(d7, toISO, userIds),
+      countByAliases(aliases.registerStarted, prevFrom, prevTo, userIds),
+      countByAliases(aliases.registrationCompleted, prevFrom, prevTo, userIds),
+      countByAliases(aliases.connectSent, prevFrom, prevTo, userIds),
+      countByAliases(aliases.connectReply, new Date(new Date(prevTo).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), prevTo, userIds),
       supabaseAdmin.from("moderation_actions").select("id,action,reason,created_at,admin_user_id").order("created_at", { ascending: false }).limit(8).then((x) => x.data ?? []),
-      supabaseAdmin.from("analytics_events").select("event_name", { count: "exact", head: true }).in("event_name", ["api_error", "ai_error", "telegram_verify_error"]).gte("created_at", d7).then((x) => x.count ?? 0),
+      countByAliases(aliases.integrationErrors, d7, toISO, null),
       supabaseAdmin.from("analytics_events").select("properties").eq("event_name", "api_latency_ms").gte("created_at", d7).limit(6000).then((x) => x.data ?? []),
-      countAny([
-        "register_started",
-        "telegram_verified",
-        "registration_completed",
-        "profile_completed",
-        "first_post",
-        "connect_replied",
-      ], fromISO, toISO, userIds).then((x) => x.rows),
+      supabaseAdmin.from("analytics_events").select("event_name,user_id").in("event_name", aliases.funnelRows).gte("created_at", fromISO).lte("created_at", toISO).limit(120000).then((x) => x.data ?? []),
+      computeSeries({ metric: "dau", fromISO, toISO, userIds }),
+      computeSeries({ metric: "posts", fromISO, toISO, userIds }),
+      computeSeries({ metric: "connect_replied", fromISO, toISO, userIds }),
     ]);
 
-    const dauMau = mau > 0 ? Number((dau / mau).toFixed(3)) : 0;
+    const miniFunnel = buildMiniFunnel((miniFunnelRows ?? []).filter((x) => !userIds || (x.user_id && userIds.includes(x.user_id))));
 
-    const trendRows = analyticsRows as Array<{ event_name: string; created_at: string }>;
-    const trends = {
-      dau: buildDailyTrend(trendRows, ["chat_message_sent", "connect_sent", "event_joined", "post_published_daily_duo"], fromISO, toISO),
-      posts: buildDailyTrend(trendRows, ["post_published_daily_duo", "post_published_video", "daily_duo_published"], fromISO, toISO),
-      connectReplied: buildDailyTrend(trendRows, ["connect_replied", "first_message_sent"], fromISO, toISO),
-    };
-
-    const usersByStep = new Map<string, Set<string>>();
-    for (const step of ["register_started", "telegram_verified", "registration_completed", "profile_completed", "first_post", "connect_replied"]) {
-      usersByStep.set(step, new Set());
-    }
-    for (const row of miniFunnelRows as Array<{ event_name: string; user_id: string | null }>) {
-      if (!row.user_id) continue;
-      const set = usersByStep.get(row.event_name);
-      if (!set) continue;
-      set.add(row.user_id);
-    }
-
-    const funnelOrder = ["register_started", "telegram_verified", "registration_completed", "profile_completed", "first_post", "connect_replied"];
-    const miniFunnel = funnelOrder.map((step, idx) => {
-      const count = usersByStep.get(step)?.size ?? 0;
-      const prev = idx > 0 ? usersByStep.get(funnelOrder[idx - 1])?.size ?? 0 : count;
-      return {
-        step,
-        count,
-        conversion: prev > 0 ? Number((count / prev).toFixed(3)) : 0,
-      };
-    });
-
-    const latencyVals = (latencyRows as Array<{ properties: Record<string, unknown> }>).map((r) => Number(r.properties?.ms ?? 0)).filter((x) => Number.isFinite(x) && x > 0).sort((a, b) => a - b);
+    const latencyVals = (latencyRows as Array<{ properties: Record<string, unknown> }>)
+      .map((r) => Number(r.properties?.ms ?? 0))
+      .filter((x) => Number.isFinite(x) && x > 0)
+      .sort((a, b) => a - b);
     const p95Latency = latencyVals.length ? latencyVals[Math.floor(latencyVals.length * 0.95) - 1] ?? latencyVals[latencyVals.length - 1] : 0;
 
     const env = getServerEnv();
@@ -255,14 +255,12 @@ export async function GET(req: Request) {
         dau,
         wau,
         mau,
-        dauMau,
+        dauMau: mau > 0 ? Number((dau / mau).toFixed(4)) : 0,
         newUsers1d,
         newUsers7d,
-        telegramVerifiedRate: registerStarted > 0 ? Number((telegramVerified / registerStarted).toFixed(3)) : 0,
-        registrationCompletedRate: registerStarted > 0 ? Number((registrationCompleted / registerStarted).toFixed(3)) : 0,
-        profileCompletionRate: registrationCompleted > 0
-          ? Number(((usersByStep.get("profile_completed")?.size ?? 0) / registrationCompleted).toFixed(3))
-          : 0,
+        telegramVerifiedRate: registerStarted > 0 ? Number((telegramVerified / registerStarted).toFixed(4)) : 0,
+        registrationCompletedRate: registerStarted > 0 ? Number((registrationCompleted / registerStarted).toFixed(4)) : 0,
+        profileCompletionRate: registrationCompleted > 0 ? Number((profileCompleted / registrationCompleted).toFixed(4)) : 0,
         verifiedUsers,
         dailyDuo1d,
         dailyDuo7d,
@@ -289,7 +287,11 @@ export async function GET(req: Request) {
         connectDiff: percentDiff(connectClicked, connectSentPrev),
         wmcDiff: percentDiff(wmc, wmcPrev),
       },
-      trends,
+      trends: {
+        dau: trendsDau.points.map((p) => ({ date: p.ts, value: p.value })),
+        posts: trendsPosts.points.map((p) => ({ date: p.ts, value: p.value })),
+        connectReplied: trendsConnect.points.map((p) => ({ date: p.ts, value: p.value })),
+      },
       miniFunnel,
       health: {
         p95Latency,

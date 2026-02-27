@@ -34,7 +34,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const adminId = await requireAdminUserId();
-    const devtools = getDevtoolsStatus();
+    const devtools = await getDevtoolsStatus();
     if (!devtools.enabled) return fail(`Devtools disabled: ${devtools.reason}`, 403);
 
     const body = await req.json().catch(() => null);
