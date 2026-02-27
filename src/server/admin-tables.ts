@@ -10,6 +10,9 @@ export type ProbeTable = {
 export const DIAGNOSTICS_TABLES: ProbeTable[] = [
   { name: "users", probeColumn: "id", dateColumn: "created_at" },
   { name: "events", probeColumn: "id", dateColumn: "created_at" },
+  { name: "posts", probeColumn: "id", dateColumn: "created_at" },
+  { name: "connections", probeColumn: "id", dateColumn: "created_at" },
+  { name: "messages", probeColumn: "id", dateColumn: "created_at" },
   { name: "analytics_events", probeColumn: "id", dateColumn: "created_at" },
   { name: "reports", probeColumn: "id", dateColumn: "created_at" },
   { name: "content_flags", probeColumn: "id", dateColumn: "created_at" },
@@ -18,22 +21,10 @@ export const DIAGNOSTICS_TABLES: ProbeTable[] = [
   { name: "alerts", probeColumn: "id", dateColumn: "updated_at" },
   { name: "moderation_actions", probeColumn: "id", dateColumn: "created_at" },
   { name: "admin_audit_log", probeColumn: "id", dateColumn: "created_at" },
-  { name: "simulation_runs", probeColumn: "id", dateColumn: "created_at" },
-  { name: "simulation_users", probeColumn: "id", dateColumn: "created_at" },
   { name: "risk_signals", probeColumn: "id", dateColumn: "created_at" },
   { name: "event_dictionary", probeColumn: "event_name", dateColumn: "updated_at" },
   { name: "user_stats_daily", probeColumn: "id", dateColumn: "created_at" },
   { name: "system_settings", probeColumn: "key", dateColumn: "updated_at" },
-];
-
-export const SIM_REQUIRED_TABLES: ProbeTable[] = [
-  { name: "analytics_events", probeColumn: "id", dateColumn: "created_at" },
-  { name: "simulation_runs", probeColumn: "id", dateColumn: "updated_at" },
-  { name: "simulation_users", probeColumn: "id", dateColumn: "created_at" },
-  { name: "users", probeColumn: "id", dateColumn: "created_at" },
-  { name: "event_dictionary", probeColumn: "event_name", dateColumn: "updated_at" },
-  { name: "system_settings", probeColumn: "key", dateColumn: "updated_at" },
-  { name: "user_stats_daily", probeColumn: "id", dateColumn: "created_at" },
 ];
 
 export const FIXABLE_TABLES: ProbeTable[] = [
@@ -149,14 +140,6 @@ export async function getMissingTableNames(tables: ProbeTable[]) {
   return rows.filter((x) => !x.exists).map((x) => x.name);
 }
 
-export async function assertSimulationTablesReady() {
-  const missing = await getMissingTableNames(SIM_REQUIRED_TABLES);
-  if (!missing.length) return;
-  throw new Error(
-    `Cannot run simulation: missing tables ${missing.join(", ")}. Нажми Fix now в Data Health.`,
-  );
-}
-
 async function executeSqlWithRpc(sql: string) {
   const attempts: Array<{ fn: string; args: Record<string, unknown> }> = [
     { fn: "exec_sql", args: { sql } },
@@ -180,26 +163,24 @@ async function executeSqlWithRpc(sql: string) {
 }
 
 async function seedAdminTables() {
-  await supabaseAdmin
-    .from("system_settings")
-    .upsert(
-      [
-        {
-          key: "admin_devtools_safe_mode",
-          value: {
-            enabled: false,
-            note: "Enable only for admin when live simulation is required in production.",
-          },
-          updated_at: new Date().toISOString(),
+  await supabaseAdmin.from("system_settings").upsert(
+    [
+      {
+        key: "seed_minimal",
+        value: {
+          enabled: false,
+          note: "Set SEED_MINIMAL_ENABLED=true to enable one-shot demo seed in production.",
         },
-        {
-          key: "brand",
-          value: { title: "Meetap", support_email: "support@meetap.app" },
-          updated_at: new Date().toISOString(),
-        },
-      ],
-      { onConflict: "key" },
-    );
+        updated_at: new Date().toISOString(),
+      },
+      {
+        key: "brand",
+        value: { title: "Meetap", support_email: "support@meetap.app" },
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    { onConflict: "key" },
+  );
 
   await supabaseAdmin
     .from("event_dictionary")
@@ -236,7 +217,9 @@ export async function createMissingAdminTables() {
     const exec = await executeSqlWithRpc(sql);
     if (!exec.ok) {
       throw new Error(
-        `Auto-fix SQL failed. Create RPC function exec_sql/run_sql or apply migrations 009+012 manually. ${exec.errors[0] ?? ""}`.trim(),
+        `Auto-fix SQL failed. Create RPC function exec_sql/run_sql or apply migrations 009+012 manually. ${
+          exec.errors[0] ?? ""
+        }`.trim(),
       );
     }
   }

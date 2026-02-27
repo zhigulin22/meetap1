@@ -3,17 +3,12 @@ import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { logAdminAction } from "@/server/admin-audit";
 import { trackEvent } from "@/server/analytics";
-import {
-  enableDevtoolsSafeMode,
-  getDevtoolsStatus,
-  seedMinimalData,
-  startSimulation,
-} from "@/server/simulation";
 import { supabaseAdmin } from "@/supabase/admin";
 import { eventDictionarySeedRows } from "@/server/event-dictionary";
 import { recomputeUserStatsDaily } from "@/server/recompute-aggregates";
 import { computeSeries } from "@/server/metrics-series";
 import { createMissingAdminTables } from "@/server/admin-tables";
+import { getSeedMinimalStatus, seedMinimalData } from "@/server/seed-minimal";
 
 const schema = z.object({
   action: z
@@ -21,16 +16,14 @@ const schema = z.object({
       "run_all",
       "write_test_event",
       "seed_minimal",
-      "start_live_40",
       "install_event_dictionary",
-      "enable_devtools_safe_mode",
       "recompute_aggregates",
       "create_missing_tables",
     ])
     .default("run_all"),
 });
 
-async function runAction(action: z.infer<typeof schema>["action"], adminId: string) {
+async function runAction(action: z.infer<typeof schema>["action"]) {
   const actions: string[] = [];
 
   if (action === "create_missing_tables") {
@@ -45,23 +38,24 @@ async function runAction(action: z.infer<typeof schema>["action"], adminId: stri
     };
   }
 
-  if (action === "enable_devtools_safe_mode") {
-    await enableDevtoolsSafeMode(adminId);
-    actions.push("devtools_safe_mode_enabled");
-    return { actions };
-  }
-
   if (action === "install_event_dictionary") {
     const rows = eventDictionarySeedRows();
-    const { error } = await supabaseAdmin.from("event_dictionary").upsert(rows, { onConflict: "event_name" });
+    const { error } = await supabaseAdmin.from("event_dictionary").upsert(rows, {
+      onConflict: "event_name",
+    });
     if (error) throw new Error(error.message);
     actions.push(`event_dictionary_upserted:${rows.length}`);
     return { actions };
   }
 
   if (action === "write_test_event") {
-    await trackEvent({ eventName: "admin_test_event", userId: adminId, path: "/admin", properties: { source: "diagnostics_fix" } });
+    await trackEvent({
+      eventName: "admin_test_event",
+      path: "/admin",
+      properties: { source: "diagnostics_fix", is_demo: false },
+    });
     actions.push("written_admin_test_event");
+
     const now = new Date().toISOString();
     const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const series = await computeSeries({ metric: "dau", fromISO: from, toISO: now, userIds: null });
@@ -76,33 +70,28 @@ async function runAction(action: z.infer<typeof schema>["action"], adminId: stri
   }
 
   if (action === "seed_minimal") {
-    const devtools = await getDevtoolsStatus();
-    if (!devtools.enabled) throw new Error(`Devtools disabled: ${devtools.reason}`);
+    const status = getSeedMinimalStatus();
+    if (!status.enabled) throw new Error(`Seed disabled: ${status.reason}`);
     const seeded = await seedMinimalData();
-    actions.push(`seed_minimal_events:${seeded.events}`);
-    return { actions };
+    actions.push(`seed_minimal_events:${seeded.analyticsEvents}`);
+    return { actions, seeded };
   }
 
-  if (action === "start_live_40") {
-    const devtools = await getDevtoolsStatus();
-    if (!devtools.enabled) throw new Error(`Devtools disabled: ${devtools.reason}`);
-    const run = await startSimulation({
-      adminId,
-      usersCount: 40,
-      intervalSec: 8,
-      mode: "normal",
-      intensity: "normal",
-    });
-    actions.push(`live_started:${run.id}`);
-    return { actions, run_id: run.id };
-  }
-
-  await trackEvent({ eventName: "admin_test_event", userId: adminId, path: "/admin", properties: { source: "fix_common" } });
+  await trackEvent({
+    eventName: "admin_test_event",
+    path: "/admin",
+    properties: { source: "fix_common", is_demo: false },
+  });
   actions.push("written_admin_test_event");
 
-  const dictProbe = await supabaseAdmin.from("event_dictionary").select("event_name", { count: "exact", head: true }).limit(1);
+  const dictProbe = await supabaseAdmin
+    .from("event_dictionary")
+    .select("event_name", { count: "exact", head: true })
+    .limit(1);
   if (!dictProbe.error && (dictProbe.count ?? 0) === 0) {
-    await supabaseAdmin.from("event_dictionary").upsert(eventDictionarySeedRows(), { onConflict: "event_name" });
+    await supabaseAdmin
+      .from("event_dictionary")
+      .upsert(eventDictionarySeedRows(), { onConflict: "event_name" });
     actions.push("event_dictionary_installed");
   }
 
@@ -113,20 +102,12 @@ async function runAction(action: z.infer<typeof schema>["action"], adminId: stri
     .then((x) => x.count ?? 0);
 
   if (eventsCount === 0) {
-    const devtools = await getDevtoolsStatus();
-    if (devtools.enabled) {
+    const seedStatus = getSeedMinimalStatus();
+    if (seedStatus.enabled) {
       const seeded = await seedMinimalData();
-      actions.push(`seed_minimal:${seeded.events}`);
-      const run = await startSimulation({
-        adminId,
-        usersCount: 40,
-        intervalSec: 8,
-        mode: "normal",
-        intensity: "normal",
-      });
-      actions.push(`live_started:${run.id}`);
+      actions.push(`seed_minimal:${seeded.analyticsEvents}`);
     } else {
-      actions.push(`devtools_disabled:${devtools.reason}`);
+      actions.push(`seed_disabled:${seedStatus.reason}`);
     }
   }
 
@@ -140,7 +121,7 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
 
-    const result = await runAction(parsed.data.action, adminId);
+    const result = await runAction(parsed.data.action);
 
     await logAdminAction({
       adminId,

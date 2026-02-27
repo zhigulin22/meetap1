@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -98,10 +98,10 @@ function EmptyState({ title, onSeed, onCheck }: { title: string; onSeed: () => v
   return (
     <div className="admin-empty">
       <p className="font-medium text-text">{title}</p>
-      <p className="mt-1 text-xs text-muted">Нет данных за период. Проверьте трекинг событий или сгенерируйте демо-данные.</p>
+      <p className="mt-1 text-xs text-muted">Нет данных за период. Проверьте трекинг событий или создайте Seed Minimal.</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={onCheck}><RefreshCw className="mr-1 h-3.5 w-3.5" />Проверить трекинг</Button>
-        <Button size="sm" onClick={onSeed}><Plus className="mr-1 h-3.5 w-3.5" />Seed demo data</Button>
+        <Button size="sm" onClick={onSeed}><Plus className="mr-1 h-3.5 w-3.5" />Seed Minimal</Button>
       </div>
     </div>
   );
@@ -123,15 +123,11 @@ function TrendChart({
   title,
   points,
   emptyReason,
-  onStartLive,
-  onDbProof,
   onRunDiagnostics,
 }: {
   title: string;
   points: Array<{ date: string; value: number }>;
   emptyReason?: string;
-  onStartLive?: () => void;
-  onDbProof?: () => void;
   onRunDiagnostics?: () => void;
 }) {
   const max = Math.max(1, ...points.map((p) => p.value));
@@ -162,8 +158,6 @@ function TrendChart({
           <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm">
             <p>Нет данных. Причина: {emptyReason ?? "нет событий за период"}</p>
             <div className="flex flex-wrap gap-2">
-              {onStartLive ? <Button size="sm" onClick={onStartLive}>Start Live 40 Users</Button> : null}
-              {onDbProof ? <Button size="sm" variant="secondary" onClick={onDbProof}>DB Proof</Button> : null}
               {onRunDiagnostics ? <Button size="sm" variant="secondary" onClick={onRunDiagnostics}>Run Diagnostics</Button> : null}
             </div>
           </div>
@@ -284,15 +278,9 @@ export default function AdminPage() {
   const [expForm, setExpForm] = useState({ key: "", rollout_percent: 20, status: "draft", primary_metric: "WMC" });
   const [configForm, setConfigForm] = useState({ key: "feed_lock_days", value: '{"value":7}', description: "" });
   const [metricsTab, setMetricsTab] = useState<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health">("growth");
-  const [simConfig, setSimConfig] = useState({ users: 300, days: 30, scenario: "normal" as "normal" | "spike" | "drop", intervalSec: 8, eventsPerTick: 25 });
-  const [liveConfig, setLiveConfig] = useState({ users_count: 40, interval_sec: 8, mode: "normal" as "normal" | "chaos", intensity: "normal" as "low" | "normal" | "high", events_per_tick: 80 });
   const [showDiagnosticsJson, setShowDiagnosticsJson] = useState(false);
-  const [isLiveBusy, setLiveBusy] = useState(false);
   const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
   const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
-  const [liveBurst, setLiveBurst] = useState<number>(0);
-  const [lastTickResult, setLastTickResult] = useState<{ events_written: number; last_db_event_at: string | null; sample: Array<{ event_name: string; created_at: string }> } | null>(null);
-  const liveTotalRef = useRef(0);
 
   const toISO = new Date().toISOString();
   const fromISO = useMemo(() => {
@@ -371,21 +359,6 @@ export default function AdminPage() {
     refetchInterval: 15000,
     retry: false,
   });
-
-  const liveSim = useQuery({
-    queryKey: ["admin-live-sim-v2"],
-    queryFn: () => api<{ devtools: { enabled: boolean; reason: string }; running: boolean; run: any | null; events_per_minute: number; events_24h: number; cron_warning: string | null }>("/api/admin/sim/state"),
-    refetchInterval: 5000,
-  });
-
-  const dbProof = useQuery({
-    queryKey: ["admin-db-proof", liveSim.data?.running],
-    queryFn: () => api<{ ok: boolean; minutes: number; events_last_window: number; last_event_at: string | null; last_event_name: string | null; reasons: string[]; reason: string | null; has_db_writes: boolean; status: "ok" | "error" }>("/api/admin/metrics/db-proof?minutes=2"),
-    refetchInterval: liveSim.data?.running ? 5000 : 15000,
-  });
-
-  const refetchLiveSim = liveSim.refetch;
-  const refetchDbProof = dbProof.refetch;
   const refetchOverview = overview.refetch;
   const refetchFunnels = funnels.refetch;
   const refetchUsers = users.refetch;
@@ -422,19 +395,24 @@ export default function AdminPage() {
     try {
       setActionLoading("seedDemo");
       setSeedLoading(true);
-      const res = await api<{ insertedEvents: number }>("/api/admin/dev/seed-analytics", { method: "POST", body: JSON.stringify(simConfig) });
-      await Promise.all([
-        overview.refetch(),
-        refetchFunnels(),
-        retention.refetch(),
-        refetchUsers(),
-        diagnostics.refetch(),
-      ]);
-      setActionSuccess("seedDemo", "+" + res.insertedEvents + " events");
+      const res = await api<{ users: number; events: number; posts: number; connections: number; messages: number; analyticsEvents: number }>("/api/admin/dev/seed-minimal", { method: "POST" });
+      await Promise.all([overview.refetch(), refetchFunnels(), retention.refetch(), refetchUsers(), diagnostics.refetch(), metricsLab.refetch(), reports.refetch(), risk.refetch()]);
+      setActionSuccess("seedDemo", `+ events`);
     } catch (e) {
       setActionError("seedDemo", e instanceof Error ? e.message : "Ошибка seed");
     } finally {
       setSeedLoading(false);
+    }
+  }
+
+  async function clearSeedDemo() {
+    try {
+      setActionLoading("clearSeedDemo");
+      await api("/api/admin/dev/seed-minimal", { method: "DELETE" });
+      await Promise.all([overview.refetch(), refetchFunnels(), retention.refetch(), refetchUsers(), diagnostics.refetch(), metricsLab.refetch(), reports.refetch(), risk.refetch()]);
+      setActionSuccess("clearSeedDemo", "Demo cleared");
+    } catch (e) {
+      setActionError("clearSeedDemo", e instanceof Error ? e.message : "Ошибка очистки demo");
     }
   }
 
@@ -477,14 +455,7 @@ export default function AdminPage() {
         setActionError("fixTables", "Таблицы всё ещё отсутствуют после auto-fix");
         return;
       }
-      await Promise.all([
-        diagnostics.refetch(),
-        liveSim.refetch(),
-        refetchDbProof(),
-        overview.refetch(),
-        refetchFunnels(),
-        metricsLab.refetch(),
-      ]);
+      await Promise.all([diagnostics.refetch(), overview.refetch(), refetchFunnels(), metricsLab.refetch()]);
       setActionSuccess("fixTables", "Tables fixed");
     } catch (e) {
       setActionError("fixTables", e instanceof Error ? e.message : "Fix tables failed");
@@ -496,7 +467,7 @@ export default function AdminPage() {
       const actionKey = action === "run_all" ? "fixCommon" : "autofix-" + action;
       setActionLoading(actionKey);
       const res = await api<{ actions: string[]; note?: string }>("/api/admin/fix-common", { method: "POST", body: JSON.stringify({ action }) });
-      await Promise.all([overview.refetch(), refetchFunnels(), retention.refetch(), diagnostics.refetch(), liveSim.refetch(), metricsLab.refetch(), refetchUsers(), risk.refetch(), reports.refetch()]);
+      await Promise.all([overview.refetch(), refetchFunnels(), retention.refetch(), diagnostics.refetch(), metricsLab.refetch(), refetchUsers(), risk.refetch(), reports.refetch()]);
       const label = res.note ? res.note : "Applied: " + (res.actions?.length ?? 0);
       setActionSuccess(actionKey, label);
       if (action !== "run_all") setActionSuccess("fixCommon", "Updated");
@@ -510,70 +481,11 @@ export default function AdminPage() {
   async function seedMinimal() {
     try {
       setActionLoading("seedMinimal");
-      const res = await api<{ users: number; events: number }>("/api/admin/dev/seed-minimal", { method: "POST" });
-      await Promise.all([overview.refetch(), refetchFunnels(), retention.refetch(), diagnostics.refetch(), liveSim.refetch(), metricsLab.refetch(), refetchUsers()]);
-      setActionSuccess("seedMinimal", "users " + res.users + " · events " + res.events);
+      const res = await api<{ users: number; events: number; posts: number; connections: number; messages: number; analyticsEvents: number }>("/api/admin/dev/seed-minimal", { method: "POST" });
+      await Promise.all([overview.refetch(), refetchFunnels(), retention.refetch(), diagnostics.refetch(), metricsLab.refetch(), refetchUsers(), reports.refetch(), risk.refetch()]);
+      setActionSuccess("seedMinimal", `users  · events `);
     } catch (e) {
       setActionError("seedMinimal", e instanceof Error ? e.message : "Seed minimal failed");
-    }
-  }
-
-  async function startLive(config?: Partial<typeof liveConfig>) {
-    const confirmed = window.confirm("Запустить Live Simulation и записывать демо-события в базу?");
-    if (!confirmed) return;
-    try {
-      setActionLoading("startLive");
-      setLiveBusy(true);
-      const payload = { ...liveConfig, ...config };
-      const res = await api<{ ok: boolean; run_id: string; status: string }>("/api/admin/sim/start", { method: "POST", body: JSON.stringify(payload) });
-      if (!res.ok) {
-        setActionError("startLive", "Live start failed");
-        return;
-      }
-      setLastTickResult(null);
-      await Promise.all([liveSim.refetch(), refetchDbProof(), diagnostics.refetch(), overview.refetch(), refetchFunnels(), metricsLab.refetch()]);
-      setActionSuccess("startLive", "Running");
-    } catch (e) {
-      setActionError("startLive", e instanceof Error ? e.message : "Live start failed");
-    } finally {
-      setLiveBusy(false);
-    }
-  }
-
-  async function stopLive() {
-    try {
-      setActionLoading("stopLive");
-      setLiveBusy(true);
-      await api<{ ok: boolean; status: string }>("/api/admin/sim/stop", { method: "POST", body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? null }) });
-      await Promise.all([liveSim.refetch(), refetchDbProof(), diagnostics.refetch(), overview.refetch(), refetchFunnels(), metricsLab.refetch()]);
-      setActionSuccess("stopLive", "Stopped");
-    } catch (e) {
-      setActionError("stopLive", e instanceof Error ? e.message : "Live stop failed");
-    } finally {
-      setLiveBusy(false);
-    }
-  }
-
-  async function tickLive() {
-    try {
-      setActionLoading("tickLive");
-      const res = await api<{ ok: boolean; events_written: number; last_db_event_at: string | null; sample: Array<{ event_name: string; created_at: string }> }>("/api/admin/sim/tick", {
-        method: "POST",
-        body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? undefined, events_per_tick: liveConfig.events_per_tick }),
-      });
-
-      setLastTickResult({
-        events_written: res.events_written,
-        last_db_event_at: res.last_db_event_at,
-        sample: res.sample ?? [],
-      });
-
-      setLiveBurst(res.events_written);
-      window.setTimeout(() => setLiveBurst(0), 1000);
-      await Promise.all([liveSim.refetch(), refetchDbProof(), overview.refetch(), refetchFunnels(), metricsLab.refetch(), refetchUsers()]);
-      setActionSuccess("tickLive", "+" + res.events_written);
-    } catch (e) {
-      setActionError("tickLive", e instanceof Error ? e.message : "Tick failed");
     }
   }
 
@@ -815,53 +727,6 @@ export default function AdminPage() {
   function exportCSV(table: string) {
     window.open(`/api/admin/export?table=${encodeURIComponent(table)}`, "_blank");
   }
-
-  useEffect(() => {
-    if (!liveSim.data?.running || !liveSim.data?.run?.id) return;
-    const interval = Math.max(3000, Number(liveSim.data?.run?.interval_sec ?? 8) * 1000);
-    const id = window.setInterval(() => {
-      api<{ ok: boolean; events_written: number; last_db_event_at: string | null; sample: Array<{ event_name: string; created_at: string }> }>("/api/admin/sim/tick", {
-        method: "POST",
-      })
-        .then((res) => {
-          setLastTickResult({
-            events_written: res.events_written,
-            last_db_event_at: res.last_db_event_at,
-            sample: res.sample ?? [],
-          });
-          return Promise.all([refetchLiveSim(), refetchDbProof(), refetchOverview(), refetchFunnels(), refetchMetricsLab(), refetchUsers()]);
-        })
-        .catch((e) => {
-          setActionError("tickLive", e instanceof Error ? e.message : "Tick endpoint failed");
-        });
-    }, interval);
-
-    return () => window.clearInterval(id);
-  }, [
-    liveSim.data?.running,
-    liveSim.data?.run?.id,
-    liveSim.data?.run?.interval_sec,
-    liveConfig.events_per_tick,
-    refetchLiveSim,
-    refetchOverview,
-    refetchMetricsLab,
-    refetchDbProof,
-    refetchFunnels,
-    refetchUsers,
-  ]);
-
-  useEffect(() => {
-    const total = Number(liveSim.data?.run?.total_events_generated ?? 0);
-    if (total > liveTotalRef.current) {
-      const diff = total - liveTotalRef.current;
-      if (diff > 0) {
-        setLiveBurst(diff);
-        window.setTimeout(() => setLiveBurst(0), 1000);
-      }
-    }
-    liveTotalRef.current = total;
-  }, [liveSim.data?.run?.total_events_generated]);
-
   const isRowUpdated = (id: string) => (updatedRows[id] ?? 0) > Date.now();
 
   const isOverviewLoading = overview.isLoading;
@@ -879,7 +744,6 @@ export default function AdminPage() {
     reports.error,
     metricsLab.error,
     diagnostics.error,
-    dbProof.error,
   ]
     .filter(Boolean)
     .map((error) => (error instanceof Error ? error.message : "Request failed"));
@@ -889,7 +753,6 @@ export default function AdminPage() {
       Boolean(diagnostics.data?.last_event_at) &&
       Date.now() - new Date(diagnostics.data?.last_event_at ?? 0).getTime() < 24 * 60 * 60 * 1000,
     metricsReady: !noData,
-    simulationEnabled: diagnostics.data?.devtools.enabled ?? false,
     aiConnected: diagnostics.data?.openai.enabled ?? false,
     alertsWorking: (alerts.data?.items?.length ?? 0) > 0 || (overview.data?.health?.integrations.integrationErrors7d ?? 0) >= 0,
   };
@@ -921,29 +784,6 @@ export default function AdminPage() {
     if ((diagnostics.data?.event_counts_24h?.total ?? 0) === 0) reasons.push("За 24ч нет событий analytics");
     return reasons;
   }, [diagnostics.data?.event_counts_24h?.total, diagnostics.data?.metrics_endpoints?.sample_points_count, diagnostics.data?.metrics_endpoints?.errors, diagnostics.data?.top_event_names, diagnostics.data?.issues, diagnosticsRlsIssues.length]);
-
-  const simulationFailureReasons = useMemo(() => {
-    const reasons = new Set<string>();
-    if ((dbProof.data?.events_last_window ?? 0) > 0) return [] as string[];
-
-    if (!diagnostics.data?.devtools.enabled) reasons.add("devtools disabled");
-    if (!diagnostics.data?.env?.SUPABASE_SERVICE_ROLE) reasons.add("service role missing");
-    if (diagnosticsRlsIssues.some((x) => x.includes("analytics_events"))) reasons.add("rls blocked");
-    if (actionUi.tickLive?.error || actionUi.startLive?.error) reasons.add("endpoint failing");
-
-    for (const reason of dbProof.data?.reasons ?? []) reasons.add(reason);
-
-    return [...reasons];
-  }, [
-    dbProof.data?.events_last_window,
-    dbProof.data?.reasons,
-    diagnostics.data?.devtools.enabled,
-    diagnostics.data?.env?.SUPABASE_SERVICE_ROLE,
-    diagnosticsRlsIssues,
-    actionUi.tickLive?.error,
-    actionUi.startLive?.error,
-  ]);
-
   const normalizedSeriesPoints = useMemo(() => {
     const source = metricsSeries.data?.points ?? [];
     if (source.length) return source;
@@ -1007,35 +847,13 @@ export default function AdminPage() {
               <div className="flex flex-wrap gap-2">
                 <ActionButton state={actionUi.diagnostics} variant="secondary" idleLabel="Run Diagnostics" loadingLabel="Running..." successLabel={actionUi.diagnostics?.label} onClick={runDiagnostics} />
                 <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить трекинг" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
-                <ActionButton state={actionUi.seedDemo} idleLabel="Seed demo data" loadingLabel="Seeding..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
-                <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix common issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />
-                <ActionButton state={actionUi.startLive} idleLabel="Start Live 40 Users" loadingLabel="Starting..." successLabel={actionUi.startLive?.label} onClick={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} />
-              </div>
-              <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.checkTracking?.error ?? actionUi.seedDemo?.error ?? actionUi.fixCommon?.error ?? actionUi.startLive?.error} />
+                <ActionButton state={actionUi.seedDemo} idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
+                <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix common issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />              </div>
+              <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.checkTracking?.error ?? actionUi.seedDemo?.error ?? actionUi.fixCommon?.error} />
             </CardContent>
           </Card>
         </div>
       ) : null}
-
-      {liveSim.data?.running ? (
-        <div className="col-span-12">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-action/40 bg-action/10 px-4 py-3"
-          >
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-2 font-semibold text-action">
-                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-action" /> LIVE updating
-              </span>
-              <span>events/min: <strong>{liveSim.data?.events_per_minute ?? 0}</strong></span>
-              <span>DB events 2m: <strong>{dbProof.data?.events_last_window ?? 0}</strong></span>
-              <span>last db event: <strong>{dbProof.data?.last_event_at ? new Date(dbProof.data.last_event_at).toLocaleTimeString("ru-RU") : "-"}</strong></span>
-            </div>
-          </motion.div>
-        </div>
-      ) : null}
-
       {section === "overview" ? (
         <>
           {isOverviewLoading ? (
@@ -1061,9 +879,9 @@ export default function AdminPage() {
           )}
 
           <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <TrendChart title="DAU trend" points={overview.data?.trends?.dau ?? []} emptyReason={diagnosticsRootCause[0]} onStartLive={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} onDbProof={() => refetchDbProof()} onRunDiagnostics={runDiagnostics} />
-            <TrendChart title="Posts trend" points={overview.data?.trends?.posts ?? []} emptyReason={diagnosticsRootCause[0]} onStartLive={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} onDbProof={() => refetchDbProof()} onRunDiagnostics={runDiagnostics} />
-            <TrendChart title="Connect replied trend" points={overview.data?.trends?.connectReplied ?? []} emptyReason={diagnosticsRootCause[0]} onStartLive={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} onDbProof={() => refetchDbProof()} onRunDiagnostics={runDiagnostics} />
+            <TrendChart title="DAU trend" points={overview.data?.trends?.dau ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+            <TrendChart title="Posts trend" points={overview.data?.trends?.posts ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+            <TrendChart title="Connect replied trend" points={overview.data?.trends?.connectReplied ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
           </div>
 
           <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-4">
@@ -1122,7 +940,7 @@ export default function AdminPage() {
                 <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p>Статус: <strong>{(diagnostics.data?.issues.length ?? 0) === 0 ? "OK" : (diagnostics.data?.event_counts_24h?.total ?? 0) > 0 ? "WARNING" : "ERROR"}</strong></p>
                   <p>Supabase: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.supabase_ok ? "OK" : "ISSUES"}</strong></p>
-                  <p>Devtools: <strong>{diagnostics.data?.devtools.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.devtools.reason ?? "-"}</p>
+                  <p>Seed Minimal: <strong>{diagnostics.data?.seed_minimal.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.seed_minimal.reason ?? "-"}</p>
                   <p>OpenAI: <strong>{diagnostics.data?.openai.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.openai.reason ?? "-"}</p>
                   <p>Последнее событие: <strong>{diagnostics.data?.last_event_at ? new Date(diagnostics.data.last_event_at).toLocaleString("ru-RU") : diagnostics.isFetched ? "нет" : "запусти диагностику"}</strong></p>
                 </div>
@@ -1158,7 +976,6 @@ export default function AdminPage() {
                   <p className="mb-2 text-xs text-muted">Admin Checklist</p>
                   <p className="text-xs">{checklist.eventsTracked ? "✔" : "✖"} события пишутся</p>
                   <p className="text-xs">{checklist.metricsReady ? "✔" : "✖"} метрики считаются</p>
-                  <p className="text-xs">{checklist.simulationEnabled ? "✔" : "✖"} симуляция доступна</p>
                   <p className="text-xs">{checklist.aiConnected ? "✔" : "✖"} AI подключен</p>
                   <p className="text-xs">{checklist.alertsWorking ? "✔" : "✖"} alerts работают</p>
                 </div>
@@ -1194,16 +1011,7 @@ export default function AdminPage() {
                   <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix Common Issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />
                   <ActionButton state={actionUi.fixTables} variant="secondary" idleLabel="Fix now" loadingLabel="Fixing..." successLabel={actionUi.fixTables?.label} onClick={fixMissingTables} />
                   <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Check Tracking" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
-                  <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />
-                  <ActionButton
-                    state={actionUi.startLive}
-                    idleLabel="Start Live 40 Users"
-                    loadingLabel="Starting..."
-                    successLabel={actionUi.startLive?.label}
-                    disabledReason={!diagnostics.data?.devtools.enabled ? diagnostics.data?.devtools.reason : undefined}
-                    onClick={() => startLive({ users_count: 40, interval_sec: 8, mode: "normal", intensity: "normal" })}
-                  />
-                  <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
+                  <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />                  <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
                 </div>
                 {(diagnostics.data?.recommended_fixes?.length ?? 0) > 0 ? (
                   <div className="rounded-xl border border-border bg-surface2/70 p-3">
@@ -1224,7 +1032,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ) : null}
-                <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.fixCommon?.error ?? actionUi.checkTracking?.error ?? actionUi.seedMinimal?.error ?? actionUi.startLive?.error} />
+                <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.fixCommon?.error ?? actionUi.checkTracking?.error ?? actionUi.seedMinimal?.error} />
 
                 {showDiagnosticsJson ? (
                   <div className="rounded-xl border border-border bg-surface2/70 p-3">
@@ -1623,9 +1431,9 @@ export default function AdminPage() {
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {(metricsLab.data?.trends ?? []).slice(0, 2).map((t) => (
-                  <TrendChart key={t.key} title={"Тренд: " + t.key} points={t.points} emptyReason={diagnosticsRootCause[0]} onStartLive={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} onDbProof={() => refetchDbProof()} onRunDiagnostics={runDiagnostics} />
+                  <TrendChart key={t.key} title={"Тренд: " + t.key} points={t.points} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
                 ))}
-                <TrendChart title={"Серия: " + seriesMetric} points={normalizedSeriesPoints.map((p) => ({ date: p.ts, value: p.value }))} emptyReason={diagnosticsRootCause[0]} onStartLive={() => startLive({ users_count: 40, mode: "normal", intensity: "normal" })} onDbProof={() => refetchDbProof()} onRunDiagnostics={runDiagnostics} />
+                <TrendChart title={"Серия: " + seriesMetric} points={normalizedSeriesPoints.map((p) => ({ date: p.ts, value: p.value }))} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -1662,7 +1470,7 @@ export default function AdminPage() {
                         <span className="text-right">{row.drop}</span>
                       </div>
                     ))}
-                    {!funnelRows.length ? <p className="p-3 text-sm text-muted">Нет данных воронки. Запусти симуляцию или seed.</p> : null}
+                    {!funnelRows.length ? <p className="p-3 text-sm text-muted">Нет данных воронки. Включи трекинг событий или используй Seed Minimal.</p> : null}
                   </div>
                 </div>
               </div>
@@ -1678,7 +1486,7 @@ export default function AdminPage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted">Нет данных. Запусти Live 40 users.</p>
+                    <p className="text-sm text-muted">Нет данных. Включи трекинг или создай Seed Minimal.</p>
                   )}
                 </div>
 
@@ -1692,160 +1500,12 @@ export default function AdminPage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted">Нет данных. Запусти Live 40 users.</p>
+                    <p className="text-sm text-muted">Нет данных. Включи трекинг или создай Seed Minimal.</p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-      ) : null}
-
-      {section === "simulation" ? (
-        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card>
-            <CardHeader><CardTitle>Симуляция / Демо-данные</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <Input type="number" value={simConfig.users} onChange={(e) => setSimConfig((s) => ({ ...s, users: Number(e.target.value) }))} placeholder="users" />
-              <Input type="number" value={simConfig.days} onChange={(e) => setSimConfig((s) => ({ ...s, days: Number(e.target.value) }))} placeholder="days" />
-              <select className="admin-select w-full" value={simConfig.scenario} onChange={(e) => setSimConfig((s) => ({ ...s, scenario: e.target.value as any }))}>
-                <option value="normal">normal</option>
-                <option value="spike">spike</option>
-                <option value="drop">drop</option>
-              </select>
-              <div className="grid grid-cols-2 gap-2">
-                <Button onClick={() => setSimConfig((s) => ({ ...s, days: 30 }))}>Сгенерировать 30 дней</Button>
-                <Button onClick={() => setSimConfig((s) => ({ ...s, days: 90 }))}>Сгенерировать 90 дней</Button>
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />
-                <ActionButton state={actionUi.seedDemo} idleLabel="Run simulation" loadingLabel="Running..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
-              </div>
-              <InlineError message={actionUi.seedMinimal?.error ?? actionUi.seedDemo?.error} />
-            </CardContent>
-          </Card>
-
-          <motion.div
-            animate={{ boxShadow: liveSim.data?.running ? "0 0 0 1px rgba(82,204,131,0.35), 0 16px 36px rgba(82,204,131,0.2)" : "0 0 0 1px rgba(148,163,184,0.18)" }}
-            transition={{ duration: 0.28 }}
-          >
-            <Card>
-              <CardHeader><CardTitle>Live Simulation</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                <div className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
-                  <p>
-                    LIVE: <strong className={cn(liveSim.data?.running ? "text-action" : "text-muted")}>{liveSim.data?.running ? "RUNNING" : "STOPPED"}</strong>
-                    {liveSim.data?.running ? <span className="ml-2 inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-action" /> : null}
-                  </p>
-                  <p>run id: {liveSim.data?.run?.id?.slice(0, 8) ?? "-"}</p>
-                  <p>users: {liveSim.data?.run?.users_count ?? liveConfig.users_count}</p>
-                  <p className="flex items-center gap-2">
-                    total events: <strong>{liveSim.data?.run?.total_events_generated ?? 0}</strong>
-                    <AnimatePresence>
-                      {liveBurst > 0 ? (
-                        <motion.span
-                          key={liveBurst}
-                          initial={{ opacity: 0, y: 6, scale: 0.9 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -8, scale: 0.9 }}
-                          className="rounded-full border border-cyan/40 bg-cyan/10 px-2 py-0.5 text-[10px] font-semibold text-cyan"
-                        >
-                          +{liveBurst} events
-                        </motion.span>
-                      ) : null}
-                    </AnimatePresence>
-                  </p>
-                  <p>
-                    events/min: 
-                    <motion.span
-                      key={liveSim.data?.events_per_minute ?? 0}
-                      initial={{ scale: 0.96, opacity: 0.7 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="ml-1 inline-block font-semibold"
-                    >
-                      {liveSim.data?.events_per_minute ?? 0}
-                    </motion.span>
-                  </p>
-                  <p>events 24h: {liveSim.data?.events_24h ?? 0}</p>
-                  <p>DB events last 2 min: <strong>{dbProof.data?.events_last_window ?? 0}</strong></p>
-                  <p>last DB event: <strong>{dbProof.data?.last_event_at ? new Date(dbProof.data.last_event_at).toLocaleString("ru-RU") : "-"}</strong></p>
-
-                  <p>Last tick result: <strong>{lastTickResult ? ("+" + lastTickResult.events_written) : "-"}</strong></p>
-                  <p>Last tick DB time: <strong>{lastTickResult?.last_db_event_at ? new Date(lastTickResult.last_db_event_at).toLocaleString("ru-RU") : "-"}</strong></p>
-                  {lastTickResult?.sample?.length ? (
-                    <div className="mt-1 rounded-lg border border-border/60 bg-surface0/40 p-2 text-[11px]">
-                      {lastTickResult.sample.slice(0, 3).map((item, idx) => (
-                        <p key={item.event_name + item.created_at + idx}>• {item.event_name} · {new Date(item.created_at).toLocaleTimeString("ru-RU")}</p>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <p>interval: {liveSim.data?.run?.interval_sec ?? liveConfig.interval_sec}s</p>
-                  <p>mode/intensity: {liveSim.data?.run?.mode ?? liveConfig.mode} / {liveSim.data?.run?.intensity ?? liveConfig.intensity}</p>
-                  {liveSim.data?.cron_warning ? <p className="text-xs text-warning">{liveSim.data.cron_warning}</p> : null}
-                </div>
-                {dbProof.data?.events_last_window === 0 && liveSim.data?.running ? (
-                  <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-                    <p>Simulation not writing to DB.</p>
-                    <p className="mt-1">Причина: {dbProof.data?.reason ?? actionUi.tickLive?.error ?? actionUi.startLive?.error ?? "unknown"}</p>
-                    {simulationFailureReasons.length ? (
-                      <div className="mt-2 space-y-1">
-                        {simulationFailureReasons.slice(0, 5).map((reason) => (
-                          <p key={reason}>• {reason}</p>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <ActionButton
-                        size="sm"
-                        state={actionUi.fixTables}
-                        variant="secondary"
-                        idleLabel="Fix now"
-                        loadingLabel="Fixing..."
-                        successLabel={actionUi.fixTables?.label}
-                        onClick={fixMissingTables}
-                      />
-                      <Button size="sm" variant="secondary" onClick={runDiagnostics}>Open diagnostics</Button>
-                    </div>
-                  </div>
-                ) : null}
-                <Input type="number" value={liveConfig.users_count} onChange={(e) => setLiveConfig((s) => ({ ...s, users_count: Number(e.target.value) }))} placeholder="users count" />
-                <Input type="number" value={liveConfig.interval_sec} onChange={(e) => setLiveConfig((s) => ({ ...s, interval_sec: Number(e.target.value) }))} placeholder="interval sec" />
-                <Input type="number" value={liveConfig.events_per_tick} onChange={(e) => setLiveConfig((s) => ({ ...s, events_per_tick: Number(e.target.value) }))} placeholder="events per tick" />
-                <select className="admin-select w-full" value={liveConfig.mode} onChange={(e) => setLiveConfig((s) => ({ ...s, mode: e.target.value as "normal" | "chaos" }))}>
-                  <option value="normal">normal</option>
-                  <option value="chaos">chaos</option>
-                </select>
-                <select className="admin-select w-full" value={liveConfig.intensity} onChange={(e) => setLiveConfig((s) => ({ ...s, intensity: e.target.value as "low" | "normal" | "high" }))}>
-                  <option value="low">low</option>
-                  <option value="normal">normal</option>
-                  <option value="high">high</option>
-                </select>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <ActionButton
-                    className="w-full"
-                    state={actionUi.startLive}
-                    idleLabel="Start"
-                    loadingLabel="Starting..."
-                    successLabel={actionUi.startLive?.label}
-                    disabledReason={!liveSim.data?.devtools?.enabled ? liveSim.data?.devtools?.reason : undefined}
-                    onClick={() => startLive()}
-                  />
-                  <ActionButton className="w-full" state={actionUi.stopLive} variant="secondary" idleLabel="Stop" loadingLabel="Stopping..." successLabel={actionUi.stopLive?.label} onClick={stopLive} />
-                  <ActionButton className="w-full" state={actionUi.tickLive} variant="secondary" idleLabel="Tick" loadingLabel="Ticking..." successLabel={actionUi.tickLive?.label} onClick={tickLive} />
-                </div>
-                <InlineError message={actionUi.fixTables?.error ?? actionUi.startLive?.error ?? actionUi.stopLive?.error ?? actionUi.tickLive?.error} />
-                <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs">
-                  <p className="mb-1 text-muted">Recent actions</p>
-                  <AnimatePresence initial={false}>
-                    {(liveSim.data?.run?.recent_actions ?? []).slice(0, 10).map((x: string, idx: number) => (
-                      <motion.p key={x + idx} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>• {x}</motion.p>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
       ) : null}
 
@@ -1875,7 +1535,7 @@ export default function AdminPage() {
                 <p>Роли: {Object.entries(security.data?.roleCounts ?? {}).map(([k, v]) => `${k}:${v}`).join(" · ") || "-"}</p>
                 <p>Blocked users: {security.data?.blockedUsers ?? 0}</p>
                 <p>Active sessions: {security.data?.activeSessions ?? 0}</p>
-                <p>Devtools: {security.data?.devtools?.enabled ? "enabled" : "disabled"} · {security.data?.devtools?.reason ?? "-"}</p>
+                <p>Seed Minimal: {security.data?.seedMinimal?.enabled ? "enabled" : "disabled"} · {security.data?.seedMinimal?.reason ?? "-"}</p>
               </div>
 
               <div className="rounded-xl border border-border bg-surface2/70 p-3">
@@ -1951,7 +1611,7 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Справочные тексты</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              <Textarea defaultValue="Нет данных за период. Проверьте трекинг событий или сгенерируйте демо-данные." />
+              <Textarea defaultValue="Нет данных за период. Проверьте трекинг событий или создайте Seed Minimal." />
               <Button variant="secondary">Сохранить текст</Button>
             </CardContent>
           </Card>
@@ -1986,13 +1646,13 @@ export default function AdminPage() {
           <CardContent className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setSection("overview")}><SlidersHorizontal className="mr-1 h-4 w-4" />Обзор</Button>
             <Button variant="secondary" onClick={() => setSection("metrics_lab")}><SlidersHorizontal className="mr-1 h-4 w-4" />Metrics Lab</Button>
-            <Button variant="secondary" onClick={() => setSection("simulation")}><Plus className="mr-1 h-4 w-4" />Simulation</Button>
             <Button variant="secondary" onClick={() => setSection("users")}><Users className="mr-1 h-4 w-4" />Users 360</Button>
             <Button variant="secondary" onClick={() => setSection("moderation")}><Shield className="mr-1 h-4 w-4" />Модерация</Button>
             <Button variant="secondary" onClick={() => setSection("reports")}><Flag className="mr-1 h-4 w-4" />Reports</Button>
             <Button variant="secondary" onClick={checkTracking}><RefreshCw className="mr-1 h-4 w-4" />Проверить трекинг</Button>
             <Button variant="secondary" onClick={runDiagnostics}><RefreshCw className="mr-1 h-4 w-4" />Run Diagnostics</Button>
-            <Button onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}Seed demo data</Button>
+            <Button onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}Seed Minimal</Button>
+            <ActionButton state={actionUi.clearSeedDemo} variant="secondary" idleLabel="Очистить демо" loadingLabel="Cleaning..." successLabel={actionUi.clearSeedDemo?.label} onClick={clearSeedDemo} />
           </CardContent>
         </Card>
       </div>

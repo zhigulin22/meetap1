@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
-import { getDevtoolsStatus } from "@/server/simulation";
 import { supabaseAdmin } from "@/supabase/admin";
 import { computeSeries } from "@/server/metrics-series";
 import { canonicalizeEventName, knownEventNames } from "@/server/event-dictionary";
 import { parseWindow } from "@/server/admin-metrics";
 import { DIAGNOSTICS_TABLES, probeTables } from "@/server/admin-tables";
+import { getSeedMinimalStatus } from "@/server/seed-minimal";
 
 type RlsRow = {
   table: string;
@@ -26,16 +26,15 @@ function shortError(msg?: string) {
 async function checkRls(table: string, probeColumn = "id"): Promise<RlsRow> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) {
-    return { table, can_select: false, note: "No anon client env" };
-  }
+  if (!url || !anon) return { table, can_select: false, note: "No anon client env" };
 
   const anonClient = createClient(url, anon, { auth: { persistSession: false } });
-  const probe = await anonClient.from(table).select(probeColumn, { count: "exact", head: true }).limit(1);
-  if (probe.error) {
-    return { table, can_select: false, note: shortError(probe.error.message) };
-  }
+  const probe = await anonClient
+    .from(table)
+    .select(probeColumn, { count: "exact", head: true })
+    .limit(1);
 
+  if (probe.error) return { table, can_select: false, note: shortError(probe.error.message) };
   return { table, can_select: true, note: "ok" };
 }
 
@@ -53,11 +52,11 @@ export async function GET() {
       SUPABASE_ANON_KEY: boolEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
       SUPABASE_SERVICE_ROLE: boolEnv("SUPABASE_SERVICE_ROLE_KEY"),
       OPENAI_API_KEY: boolEnv("OPENAI_API_KEY"),
-      ADMIN_DEVTOOLS_ENABLED:
-        process.env.ADMIN_DEVTOOLS_ENABLED === "true" || process.env.NODE_ENV !== "production",
+      SEED_MINIMAL_ENABLED:
+        process.env.SEED_MINIMAL_ENABLED === "true" || process.env.NODE_ENV !== "production",
     };
 
-    const [supabaseProbe, lastEvent, tableRows, rlsRows, topEvents24h, devtools, seriesProbe] =
+    const [supabaseProbe, lastEvent, tableRows, rlsRows, topEvents24h, seriesProbe] =
       await Promise.all([
         supabaseAdmin.from("users").select("id", { count: "exact", head: true }).limit(1),
         supabaseAdmin
@@ -67,16 +66,19 @@ export async function GET() {
           .limit(1),
         probeTables(DIAGNOSTICS_TABLES, d24, d7, d30),
         Promise.all(
-          ([
+          [
             { table: "analytics_events", probe: "id" },
             { table: "reports", probe: "id" },
             { table: "feature_flags", probe: "id" },
             { table: "alerts", probe: "id" },
             { table: "event_dictionary", probe: "event_name" },
-          ]).map((t) => checkRls(t.table, t.probe)),
+          ].map((t) => checkRls(t.table, t.probe)),
         ),
-        supabaseAdmin.from("analytics_events").select("event_name").gte("created_at", d24).limit(120000),
-        getDevtoolsStatus(),
+        supabaseAdmin
+          .from("analytics_events")
+          .select("event_name")
+          .gte("created_at", d24)
+          .limit(120000),
         (() => {
           const window = parseWindow(d7, new Date().toISOString(), 7);
           return computeSeries({
@@ -95,6 +97,7 @@ export async function GET() {
       const canonical = canonicalizeEventName(row.event_name);
       eventMap.set(canonical, (eventMap.get(canonical) ?? 0) + 1);
     }
+
     const top_event_names = [...eventMap.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
@@ -126,8 +129,17 @@ export async function GET() {
           ],
     };
 
-    const canReadAnalytics = rlsRows.find((x) => x.table === "analytics_events")?.can_select ?? false;
-    const rlsIssues = rlsRows.filter((x) => !x.can_select).map((x) => `${x.table}: ${x.note}`);
+    const seedMinimal = {
+      enabled: getSeedMinimalStatus().enabled,
+      reason: getSeedMinimalStatus().reason,
+      fix_steps: getSeedMinimalStatus().fixSteps,
+    };
+
+    const canReadAnalytics =
+      rlsRows.find((x) => x.table === "analytics_events")?.can_select ?? false;
+    const rlsIssues = rlsRows
+      .filter((x) => !x.can_select)
+      .map((x) => `${x.table}: ${x.note}`);
 
     const issues: string[] = [];
     const fixes: string[] = [];
@@ -164,19 +176,21 @@ export async function GET() {
 
     if (events24h === 0) {
       issues.push("0 events in analytics_events for 24h");
-      fixes.push("Нажми Start Live 40 Users или Seed Minimal.");
+      fixes.push("Нажми Check Tracking или включи трекинг analytics_events в приложении.");
       recommended_fixes.push({
-        key: "seed_minimal",
-        title: "Seed minimal",
-        why: "Нет событий за 24ч",
+        key: "write_test_event",
+        title: "Write test event",
+        why: "Проверка pipeline и графика",
         action_endpoint: "/api/admin/fix-common",
       });
-      recommended_fixes.push({
-        key: "start_live_40",
-        title: "Start Live 40 Users",
-        why: "Нужен поток событий для графиков",
-        action_endpoint: "/api/admin/fix-common",
-      });
+      if (seedMinimal.enabled) {
+        recommended_fixes.push({
+          key: "seed_minimal",
+          title: "Seed Minimal",
+          why: "Быстрая проверка UI на пустом стенде",
+          action_endpoint: "/api/admin/fix-common",
+        });
+      }
     }
 
     const known = new Set(knownEventNames());
@@ -195,24 +209,6 @@ export async function GET() {
     if (!canReadAnalytics) {
       issues.push("RLS/permissions: cannot read analytics_events via anon");
       fixes.push("Проверь RLS policies или читай только через server routes.");
-    }
-
-    if (!devtools.enabled) {
-      fixes.push(...devtools.fixSteps);
-      recommended_fixes.push({
-        key: "enable_devtools_safe_mode",
-        title: "Enable DevTools in production (safe)",
-        why: devtools.reason,
-        action_endpoint: "/api/admin/fix-common",
-      });
-    }
-
-    if (!env.OPENAI_API_KEY) {
-      recommended_fixes.push({
-        key: "openai_missing",
-        title: "OpenAI key missing",
-        why: "AI ассистент не сможет отвечать",
-      });
     }
 
     const metricsEndpoints = {
@@ -253,18 +249,14 @@ export async function GET() {
       event_counts_24h,
       top_event_names,
       metrics_endpoints: metricsEndpoints,
-      devtools: {
-        enabled: devtools.enabled,
-        reason: devtools.reason,
-        fix_steps: devtools.fixSteps,
-      },
-      can_read_analytics: canReadAnalytics,
+      seed_minimal: seedMinimal,
       openai,
+      can_read_analytics: canReadAnalytics,
       issues,
       fixes,
       recommended_fixes,
     });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Forbidden", 403);
   }
 }

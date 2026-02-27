@@ -29,7 +29,6 @@ import { cn } from "@/lib/utils";
 export type AdminSection =
   | "overview"
   | "metrics_lab"
-  | "simulation"
   | "funnels"
   | "retention"
   | "experiments"
@@ -48,7 +47,6 @@ export type AdminSection =
 const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", title: "Обзор", icon: Gauge },
   { id: "metrics_lab", title: "Метрики (Lab)", icon: ChartColumnIncreasing },
-  { id: "simulation", title: "Симуляция", icon: Sparkles },
   { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
   { id: "retention", title: "Когорты", icon: Sparkles },
   { id: "experiments", title: "Эксперименты", icon: Beaker },

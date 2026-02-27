@@ -242,7 +242,7 @@ export const diagnosticsResponseSchema = z.object({
     SUPABASE_ANON_KEY: z.boolean(),
     SUPABASE_SERVICE_ROLE: z.boolean(),
     OPENAI_API_KEY: z.boolean(),
-    ADMIN_DEVTOOLS_ENABLED: z.boolean(),
+    SEED_MINIMAL_ENABLED: z.boolean(),
   }),
   env_present: z
     .object({
@@ -250,7 +250,7 @@ export const diagnosticsResponseSchema = z.object({
       SUPABASE_ANON_KEY: z.boolean(),
       SUPABASE_SERVICE_ROLE: z.boolean(),
       OPENAI_API_KEY: z.boolean(),
-      ADMIN_DEVTOOLS_ENABLED: z.boolean(),
+      SEED_MINIMAL_ENABLED: z.boolean(),
     })
     .optional(),
   supabase_ok: z.boolean(),
@@ -298,7 +298,7 @@ export const diagnosticsResponseSchema = z.object({
     })
     .optional(),
   event_counts_24h: z.record(z.number()).optional(),
-  devtools: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
+  seed_minimal: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
   openai: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
   can_read_analytics: z.boolean().optional(),
   devtools_reason: z.string().optional(),

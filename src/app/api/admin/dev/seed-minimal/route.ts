@@ -1,13 +1,17 @@
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { logAdminAction } from "@/server/admin-audit";
-import { getDevtoolsStatus, seedMinimalData } from "@/server/simulation";
+import {
+  clearSeedDemoData,
+  getSeedMinimalStatus,
+  seedMinimalData,
+} from "@/server/seed-minimal";
 
 export async function POST() {
   try {
     const adminId = await requireAdminUserId();
-    const status = await getDevtoolsStatus();
-    if (!status.enabled) return fail(`Devtools disabled: ${status.reason}`, 403);
+    const status = getSeedMinimalStatus();
+    if (!status.enabled) return fail(`Seed disabled: ${status.reason}`, 403);
 
     const res = await seedMinimalData();
 
@@ -18,8 +22,29 @@ export async function POST() {
       meta: res,
     });
 
-    return ok({ success: true, ...res });
-  } catch {
-    return fail("Forbidden", 403);
+    return ok({ success: true, ...res, status });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Forbidden", 403);
+  }
+}
+
+export async function DELETE() {
+  try {
+    const adminId = await requireAdminUserId();
+    const status = getSeedMinimalStatus();
+    if (!status.enabled) return fail(`Seed disabled: ${status.reason}`, 403);
+
+    const res = await clearSeedDemoData();
+
+    await logAdminAction({
+      adminId,
+      action: "seed_minimal_clear",
+      targetType: "system",
+      meta: res,
+    });
+
+    return ok({ success: true, ...res, status });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Forbidden", 403);
   }
 }

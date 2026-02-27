@@ -1,7 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { getServerEnv } from "@/lib/env";
 import { requireAdminUserId } from "@/server/admin";
-import { getDevtoolsStatus } from "@/server/simulation";
+import { getSeedMinimalStatus } from "@/server/seed-minimal";
 import { supabaseAdmin } from "@/supabase/admin";
 
 function ratio(cur: number, prev: number) {
@@ -17,30 +17,93 @@ export async function GET() {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    const [roles, blocked, sessions, actions, audit, admins, events24, eventsPrev24, reports24, reportsPrev24, connect24, connectPrev24, aiErr24, aiErrPrev24] = await Promise.all([
+    const [
+      roles,
+      blocked,
+      sessions,
+      actions,
+      audit,
+      admins,
+      events24,
+      eventsPrev24,
+      reports24,
+      reportsPrev24,
+      connect24,
+      connectPrev24,
+      aiErr24,
+      aiErrPrev24,
+    ] = await Promise.all([
       supabaseAdmin.from("users").select("role"),
-      supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("is_blocked", true),
-      supabaseAdmin.from("user_sessions").select("id", { count: "exact", head: true }).is("revoked_at", null),
-      supabaseAdmin.from("moderation_actions").select("id,action,reason,created_at,admin_user_id").order("created_at", { ascending: false }).limit(20),
-      supabaseAdmin.from("admin_audit_log").select("id,action,target_type,target_id,created_at,admin_id").order("created_at", { ascending: false }).limit(80),
+      supabaseAdmin
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("is_blocked", true),
+      supabaseAdmin
+        .from("user_sessions")
+        .select("id", { count: "exact", head: true })
+        .is("revoked_at", null),
+      supabaseAdmin
+        .from("moderation_actions")
+        .select("id,action,reason,created_at,admin_user_id")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabaseAdmin
+        .from("admin_audit_log")
+        .select("id,action,target_type,target_id,created_at,admin_id")
+        .order("created_at", { ascending: false })
+        .limit(80),
       supabaseAdmin
         .from("users")
         .select("id,name,role")
         .in("role", ["admin", "moderator", "analyst", "content_manager", "support"])
         .order("created_at", { ascending: false })
         .limit(120),
-      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }).gte("created_at", dayAgo),
-      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }).gte("created_at", twoDaysAgo).lt("created_at", dayAgo),
-      supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).gte("created_at", dayAgo),
-      supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).gte("created_at", twoDaysAgo).lt("created_at", dayAgo),
-      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }).eq("event_name", "connect_sent").gte("created_at", dayAgo),
-      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }).eq("event_name", "connect_sent").gte("created_at", twoDaysAgo).lt("created_at", dayAgo),
-      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }).eq("event_name", "ai_error").gte("created_at", dayAgo),
-      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }).eq("event_name", "ai_error").gte("created_at", twoDaysAgo).lt("created_at", dayAgo),
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", dayAgo),
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", twoDaysAgo)
+        .lt("created_at", dayAgo),
+      supabaseAdmin
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", dayAgo),
+      supabaseAdmin
+        .from("reports")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", twoDaysAgo)
+        .lt("created_at", dayAgo),
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "connect_sent")
+        .gte("created_at", dayAgo),
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "connect_sent")
+        .gte("created_at", twoDaysAgo)
+        .lt("created_at", dayAgo),
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "ai_error")
+        .gte("created_at", dayAgo),
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "ai_error")
+        .gte("created_at", twoDaysAgo)
+        .lt("created_at", dayAgo),
     ]);
 
     const roleCounts = new Map<string, number>();
-    for (const r of roles.data ?? []) roleCounts.set(r.role ?? "user", (roleCounts.get(r.role ?? "user") ?? 0) + 1);
+    for (const r of roles.data ?? []) {
+      roleCounts.set(r.role ?? "user", (roleCounts.get(r.role ?? "user") ?? 0) + 1);
+    }
 
     const events24Count = events24.count ?? 0;
     const eventsPrev24Count = eventsPrev24.count ?? 0;
@@ -54,19 +117,35 @@ export async function GET() {
     const triggers: Array<{ key: string; level: "warning" | "critical"; message: string }> = [];
 
     if (events24Count === 0) {
-      triggers.push({ key: "data_missing_24h", level: "critical", message: "0 событий за последние 24ч" });
+      triggers.push({
+        key: "data_missing_24h",
+        level: "critical",
+        message: "0 событий за последние 24ч",
+      });
     }
 
     if (reports24Count >= 5 && ratio(reports24Count, reportsPrev24Count) >= 1.8) {
-      triggers.push({ key: "reports_spike", level: "warning", message: `Всплеск жалоб: ${reports24Count} vs ${reportsPrev24Count}` });
+      triggers.push({
+        key: "reports_spike",
+        level: "warning",
+        message: `Всплеск жалоб: ${reports24Count} vs ${reportsPrev24Count}`,
+      });
     }
 
     if (connect24Count >= 50 && ratio(connect24Count, connectPrev24Count) >= 2.2) {
-      triggers.push({ key: "connect_spike", level: "warning", message: `Всплеск connect_sent: ${connect24Count} vs ${connectPrev24Count}` });
+      triggers.push({
+        key: "connect_spike",
+        level: "warning",
+        message: `Всплеск connect_sent: ${connect24Count} vs ${connectPrev24Count}`,
+      });
     }
 
     if (aiErr24Count >= 3 && ratio(aiErr24Count, aiErrPrev24Count) >= 2) {
-      triggers.push({ key: "ai_error_spike", level: "warning", message: `Рост AI errors: ${aiErr24Count} vs ${aiErrPrev24Count}` });
+      triggers.push({
+        key: "ai_error_spike",
+        level: "warning",
+        message: `Рост AI errors: ${aiErr24Count} vs ${aiErrPrev24Count}`,
+      });
     }
 
     return ok({
@@ -76,7 +155,7 @@ export async function GET() {
       recentAdminActions: actions.data ?? [],
       auditLog: audit.data ?? [],
       admins: admins.data ?? [],
-      devtools: await getDevtoolsStatus(),
+      seedMinimal: getSeedMinimalStatus(),
       apiProtection: {
         rateLimitingEnabled: true,
         csrfProtection: false,
