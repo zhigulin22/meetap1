@@ -13,6 +13,8 @@ const serverSchema = z.object({
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
   FACE_DETECT_MODEL: z.string().min(1).default("gpt-4o-mini"),
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
+  QA_BOTS_CONTROL_TOKEN: z.string().min(1).default("qa-bots-control-disabled"),
+  QA_BOTS_PASSWORD: z.string().min(8).default("QaBots!2026"),
 });
 
 let publicCache: z.infer<typeof publicSchema> | null = null;
@@ -47,6 +49,9 @@ export function getServerEnv() {
       process.env.TELEGRAM_WEBHOOK_SECRET ?? "placeholder-secret",
     FACE_DETECT_MODEL: process.env.FACE_DETECT_MODEL ?? "gpt-4o-mini",
     FACE_DETECT_MIN_CONFIDENCE: process.env.FACE_DETECT_MIN_CONFIDENCE ?? "0.35",
+    QA_BOTS_CONTROL_TOKEN:
+      process.env.QA_BOTS_CONTROL_TOKEN ?? "qa-bots-control-disabled",
+    QA_BOTS_PASSWORD: process.env.QA_BOTS_PASSWORD ?? "QaBots!2026",
   };
 
   const parsed = serverSchema.parse(source);

@@ -97,10 +97,7 @@ export async function POST(req: Request) {
       "Задай один открытый вопрос и подожди реакцию",
     ];
 
-    await Promise.all([
-      trackEvent({ eventName: "connect_clicked", userId, path: "/feed", properties: { targetUserId } }),
-      trackEvent({ eventName: "connect_sent", userId, path: "/feed", properties: { targetUserId } }),
-    ]);
+    await trackEvent({ eventName: "chat.connect_sent", userId, path: "/feed", properties: { targetUserId } });
 
     return ok({
       success: true,

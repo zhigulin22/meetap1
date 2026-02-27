@@ -29,6 +29,7 @@ import {
   diagnosticsResponseSchema,
   featureFlagsResponseSchema,
   funnelsResponseSchema,
+  liveEventsResponseSchema,
   moderationQueueResponseSchema,
   overviewResponseSchema,
   retentionResponseSchema,
@@ -67,12 +68,18 @@ const labels: Record<string, string> = {
 };
 
 const funnelTitleMap: Record<string, string> = {
-  register_started: "register_started",
-  telegram_verified: "telegram_verified",
-  registration_completed: "registration_completed",
-  profile_completed: "profile_completed",
-  first_post: "first_post",
-  connect_replied: "connect_replied",
+  "auth.register_started": "auth.register_started",
+  "auth.telegram_verified": "auth.telegram_verified",
+  "auth.registration_completed": "auth.registration_completed",
+  "profile.completed": "profile.completed",
+  first_action: "first_action (post/event)",
+  "chat.connect_replied": "chat.connect_replied",
+  register_started: "auth.register_started",
+  telegram_verified: "auth.telegram_verified",
+  registration_completed: "auth.registration_completed",
+  profile_completed: "profile.completed",
+  first_post: "first_action (post/event)",
+  connect_replied: "chat.connect_replied",
 };
 
 const metricsTabLabels: Record<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health", string> = {
@@ -265,6 +272,8 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [userDemoFilter, setUserDemoFilter] = useState<"all" | "demo" | "real">("all");
+  const [liveEventName, setLiveEventName] = useState("");
+  const [liveUserId, setLiveUserId] = useState("");
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiLog, setAiLog] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
   const [aiDebugMode, setAiDebugMode] = useState(false);
@@ -278,6 +287,7 @@ export default function AdminPage() {
   const [expForm, setExpForm] = useState({ key: "", rollout_percent: 20, status: "draft", primary_metric: "WMC" });
   const [configForm, setConfigForm] = useState({ key: "feed_lock_days", value: '{"value":7}', description: "" });
   const [metricsTab, setMetricsTab] = useState<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health">("growth");
+  const [qaBotsForm, setQaBotsForm] = useState({ users_count: 30, interval_sec: 8, mode: "normal" as "normal" | "chaos" });
   const [showDiagnosticsJson, setShowDiagnosticsJson] = useState(false);
   const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
   const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
@@ -359,6 +369,22 @@ export default function AdminPage() {
     refetchInterval: 15000,
     retry: false,
   });
+
+  const liveEvents = useQuery({
+    queryKey: ["admin-live-events", liveEventName, liveUserId],
+    queryFn: () =>
+      adminApi(
+        "/api/admin/events/live?event_name=" + encodeURIComponent(liveEventName) + "&user_id=" + encodeURIComponent(liveUserId) + "&limit=200",
+        liveEventsResponseSchema,
+      ),
+    refetchInterval: section === "events_live" ? 3000 : false,
+  });
+
+  const qaBots = useQuery({
+    queryKey: ["admin-qa-bots-status"],
+    queryFn: () => api<any>("/api/admin/qa-bots/status"),
+    refetchInterval: section === "qa_bots" ? 5000 : false,
+  });
   const refetchOverview = overview.refetch;
   const refetchFunnels = funnels.refetch;
   const refetchUsers = users.refetch;
@@ -421,7 +447,7 @@ export default function AdminPage() {
       setActionLoading("checkTracking");
       await api("/api/admin/health/test-event", { method: "POST" });
       const res = await api<{ triggered: any[]; dataMissingEvents24h: string[] }>("/api/admin/alerts/check", { method: "POST" });
-      await Promise.all([alerts.refetch(), diagnostics.refetch()]);
+      await Promise.all([alerts.refetch(), diagnostics.refetch(), liveEvents.refetch(), funnels.refetch()]);
       if (res.dataMissingEvents24h.length) {
         setActionError("checkTracking", "Нет данных 24ч: " + res.dataMissingEvents24h.join(", "));
       } else {
@@ -429,6 +455,32 @@ export default function AdminPage() {
       }
     } catch (e) {
       setActionError("checkTracking", e instanceof Error ? e.message : "Ошибка проверки");
+    }
+  }
+
+  async function startQaBotsAction() {
+    try {
+      setActionLoading("qaBotsStart");
+      await api("/api/admin/qa-bots/start", {
+        method: "POST",
+        body: JSON.stringify(qaBotsForm),
+      });
+      await Promise.all([qaBots.refetch(), liveEvents.refetch(), diagnostics.refetch()]);
+      setSection("qa_bots");
+      setActionSuccess("qaBotsStart", "RUNNING");
+    } catch (e) {
+      setActionError("qaBotsStart", e instanceof Error ? e.message : "Не удалось запустить QA Bots");
+    }
+  }
+
+  async function stopQaBotsAction() {
+    try {
+      setActionLoading("qaBotsStop");
+      await api("/api/admin/qa-bots/stop", { method: "POST" });
+      await Promise.all([qaBots.refetch(), diagnostics.refetch()]);
+      setActionSuccess("qaBotsStop", "STOPPED");
+    } catch (e) {
+      setActionError("qaBotsStop", e instanceof Error ? e.message : "Не удалось остановить QA Bots");
     }
   }
 
@@ -744,6 +796,8 @@ export default function AdminPage() {
     reports.error,
     metricsLab.error,
     diagnostics.error,
+    liveEvents.error,
+    qaBots.error,
   ]
     .filter(Boolean)
     .map((error) => (error instanceof Error ? error.message : "Request failed"));
@@ -1402,6 +1456,96 @@ export default function AdminPage() {
       ) : null}
 
 
+      {section === "events_live" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>События (Live)</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                <Input value={liveEventName} onChange={(e) => setLiveEventName(e.target.value)} placeholder="event_name (например auth.registration_completed)" />
+                <Input value={liveUserId} onChange={(e) => setLiveUserId(e.target.value)} placeholder="user_id" />
+                <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить трекинг" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
+                <Button variant="secondary" onClick={() => liveEvents.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Обновить</Button>
+              </div>
+
+              {liveEvents.isLoading ? <Skeleton className="h-64 w-full" /> : null}
+
+              {!liveEvents.isLoading && !(liveEvents.data?.items?.length ?? 0) ? (
+                <EmptyState title="Нет событий в live-стриме" onSeed={seedDemo} onCheck={checkTracking} />
+              ) : (
+                <div className="max-h-[62vh] overflow-auto rounded-xl border border-border bg-surface2/70">
+                  <div className="grid min-w-[900px] grid-cols-[220px_1fr_260px_180px] gap-2 border-b border-border/40 px-3 py-2 text-xs font-semibold text-muted">
+                    <span>created_at</span>
+                    <span>event_name</span>
+                    <span>user_id</span>
+                    <span>properties</span>
+                  </div>
+                  {(liveEvents.data?.items ?? []).map((item) => (
+                    <div key={item.id} className="grid min-w-[900px] grid-cols-[220px_1fr_260px_180px] gap-2 border-b border-border/30 px-3 py-2 text-xs last:border-b-0">
+                      <span>{new Date(item.created_at).toLocaleString("ru-RU")}</span>
+                      <span className="font-medium text-text">{item.event_name}</span>
+                      <span className="truncate text-muted">{item.user_id ?? "-"}</span>
+                      <span className="truncate text-muted">{JSON.stringify(item.properties ?? {})}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <InlineError message={actionUi.checkTracking?.error} />
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+
+      {section === "qa_bots" ? (
+        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle>QA Bots Control</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Input type="number" value={qaBotsForm.users_count} onChange={(e) => setQaBotsForm((s) => ({ ...s, users_count: Number(e.target.value || 30) }))} placeholder="Users" />
+                <Input type="number" value={qaBotsForm.interval_sec} onChange={(e) => setQaBotsForm((s) => ({ ...s, interval_sec: Number(e.target.value || 8) }))} placeholder="Interval" />
+                <select className="admin-select" value={qaBotsForm.mode} onChange={(e) => setQaBotsForm((s) => ({ ...s, mode: e.target.value as "normal" | "chaos" }))}>
+                  <option value="normal">normal</option>
+                  <option value="chaos">chaos</option>
+                </select>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <ActionButton state={actionUi.qaBotsStart} idleLabel="Start QA Bots" loadingLabel="Starting..." successLabel={actionUi.qaBotsStart?.label} onClick={startQaBotsAction} />
+                <ActionButton state={actionUi.qaBotsStop} variant="secondary" idleLabel="Stop QA Bots" loadingLabel="Stopping..." successLabel={actionUi.qaBotsStop?.label} onClick={stopQaBotsAction} />
+                <Button variant="secondary" onClick={() => qaBots.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
+              </div>
+              <InlineError message={actionUi.qaBotsStart?.error ?? actionUi.qaBotsStop?.error} />
+
+              <div className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
+                <p>status: <strong>{String(qaBots.data?.control?.desired_status ?? "stopped")}</strong></p>
+                <p>run_id: <span className="text-xs text-muted">{String(qaBots.data?.control?.run_id ?? "-")}</span></p>
+                <p>active bots: <strong>{Number(qaBots.data?.active_bots ?? 0)}</strong></p>
+                <p>heartbeat: <strong>{qaBots.data?.heartbeat?.last_event_at ? new Date(qaBots.data.heartbeat.last_event_at).toLocaleString("ru-RU") : "нет"}</strong></p>
+                <p>events written: <strong>{Number(qaBots.data?.heartbeat?.events_written ?? 0)}</strong></p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>QA Bots Last Actions</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {(qaBots.data?.heartbeat?.actions ?? []).map((item: any, idx: number) => (
+                <div key={`${item.bot}-${item.at}-${idx}`} className="rounded-xl border border-border bg-surface2/70 p-2 text-xs">
+                  <p className="font-medium">{item.bot}</p>
+                  <p>{item.action}</p>
+                  <p className="text-muted">{item.at}</p>
+                </div>
+              ))}
+              {!(qaBots.data?.heartbeat?.actions?.length ?? 0) ? <p className="text-sm text-muted">Нет heartbeat от runner. Запусти runner на отдельной машине.</p> : null}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+
       {section === "metrics_lab" ? (
         <div className="col-span-12 space-y-4">
           <Card>
@@ -1646,11 +1790,14 @@ export default function AdminPage() {
           <CardContent className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setSection("overview")}><SlidersHorizontal className="mr-1 h-4 w-4" />Обзор</Button>
             <Button variant="secondary" onClick={() => setSection("metrics_lab")}><SlidersHorizontal className="mr-1 h-4 w-4" />Metrics Lab</Button>
+            <Button variant="secondary" onClick={() => setSection("events_live")}><RefreshCw className="mr-1 h-4 w-4" />События Live</Button>
+            <Button variant="secondary" onClick={() => setSection("qa_bots")}><Bot className="mr-1 h-4 w-4" />QA Bots</Button>
             <Button variant="secondary" onClick={() => setSection("users")}><Users className="mr-1 h-4 w-4" />Users 360</Button>
             <Button variant="secondary" onClick={() => setSection("moderation")}><Shield className="mr-1 h-4 w-4" />Модерация</Button>
             <Button variant="secondary" onClick={() => setSection("reports")}><Flag className="mr-1 h-4 w-4" />Reports</Button>
             <Button variant="secondary" onClick={checkTracking}><RefreshCw className="mr-1 h-4 w-4" />Проверить трекинг</Button>
             <Button variant="secondary" onClick={runDiagnostics}><RefreshCw className="mr-1 h-4 w-4" />Run Diagnostics</Button>
+            <Link href="/admin/how-to-test"><Button variant="secondary">Как тестировать</Button></Link>
             <Button onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}Seed Minimal</Button>
             <ActionButton state={actionUi.clearSeedDemo} variant="secondary" idleLabel="Очистить демо" loadingLabel="Cleaning..." successLabel={actionUi.clearSeedDemo?.label} onClick={clearSeedDemo} />
           </CardContent>

@@ -7,6 +7,7 @@ import {
   Beaker,
   Bot,
   ChartColumnIncreasing,
+  Activity,
   Database,
   Flag,
   Gauge,
@@ -29,6 +30,8 @@ import { cn } from "@/lib/utils";
 export type AdminSection =
   | "overview"
   | "metrics_lab"
+  | "events_live"
+  | "qa_bots"
   | "funnels"
   | "retention"
   | "experiments"
@@ -47,6 +50,8 @@ export type AdminSection =
 const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", title: "Обзор", icon: Gauge },
   { id: "metrics_lab", title: "Метрики (Lab)", icon: ChartColumnIncreasing },
+  { id: "events_live", title: "События (Live)", icon: Activity },
+  { id: "qa_bots", title: "QA Bots", icon: Bot },
   { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
   { id: "retention", title: "Когорты", icon: Sparkles },
   { id: "experiments", title: "Эксперименты", icon: Beaker },

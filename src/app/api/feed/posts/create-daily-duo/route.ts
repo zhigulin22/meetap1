@@ -1,71 +1,52 @@
+import { z } from "zod";
 import { fail, ok } from "@/lib/http";
-import { createDailyDuoSchema } from "@/lib/schemas";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { uploadBase64Image } from "@/supabase/storage";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { validateFaces } from "@/server/ai";
 import { trackEvent } from "@/server/analytics";
 
+const schema = z.object({
+  frontBase64: z.string().min(40),
+  backBase64: z.string().min(40),
+  caption: z.string().max(220).optional(),
+});
+
 export async function POST(req: Request) {
   try {
     const userId = requireUserId();
-    const rate = checkRateLimit(`duo:${userId}`, 10, 24 * 60 * 60 * 1000);
-    if (!rate.ok) {
-      return fail("Daily Duo limit reached", 429);
+    const json = await req.json().catch(() => null);
+    const parsed = schema.safeParse(json);
+    if (!parsed.success) {
+      return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
     }
 
-    const formData = await req.formData();
-    const front = formData.get("front") as File | null;
-    const back = formData.get("back") as File | null;
-    const captionRaw = (formData.get("caption") as string | null) ?? undefined;
+    const faceFront = await validateFaces({ base64: parsed.data.frontBase64 });
+    const faceBack = await validateFaces({ base64: parsed.data.backBase64 });
 
-    if (!front || !back) {
-      return fail("front and back images are required", 422);
+    const facesCount = (faceFront.faces_count ?? 0) + (faceBack.faces_count ?? 0);
+    if (!faceFront.ok || !faceBack.ok || facesCount < 2) {      return fail("Нужно минимум 2 лица на Daily Duo (проверь front/back фото)", 422);
     }
 
-    const captionCheck = createDailyDuoSchema.safeParse({ caption: captionRaw });
+    const frontUrl = await uploadBase64Image({
+      bucket: "daily-duo",
+      path: `${userId}/${Date.now()}-front.jpg`,
+      base64: parsed.data.frontBase64,
+    });
+
+    const backUrl = await uploadBase64Image({
+      bucket: "daily-duo",
+      path: `${userId}/${Date.now()}-back.jpg`,
+      base64: parsed.data.backBase64,
+    });
+
+    const captionCheck = z.object({ caption: z.string().max(220).optional() }).safeParse({
+      caption: parsed.data.caption,
+    });
+
     if (!captionCheck.success) {
-      return fail(captionCheck.error.message, 422);
-    }
-
-    const frontPath = `${userId}/${crypto.randomUUID()}-front.jpg`;
-    const backPath = `${userId}/${crypto.randomUUID()}-back.jpg`;
-
-    const frontBuffer = Buffer.from(await front.arrayBuffer());
-    const backBuffer = Buffer.from(await back.arrayBuffer());
-
-    const [frontUpload, backUpload] = await Promise.all([
-      supabaseAdmin.storage.from("daily-duo").upload(frontPath, frontBuffer, {
-        contentType: front.type || "image/jpeg",
-      }),
-      supabaseAdmin.storage.from("daily-duo").upload(backPath, backBuffer, {
-        contentType: back.type || "image/jpeg",
-      }),
-    ]);
-
-    if (frontUpload.error || backUpload.error) {
-      return fail(frontUpload.error?.message || backUpload.error?.message || "Upload failed", 500);
-    }
-
-    const frontUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(frontPath).data.publicUrl;
-    const backUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(backPath).data.publicUrl;
-
-    let checkFront = await validateFaces({ imageUrl: frontUrl });
-    let checkBack = await validateFaces({ imageUrl: backUrl });
-
-    // Fallback to base64 if URL-based inspection is uncertain.
-    if (!checkFront.ok || checkFront.faces_count < 1) {
-      checkFront = await validateFaces({ base64: frontBuffer.toString("base64") });
-    }
-    if (!checkBack.ok || checkBack.faces_count < 1) {
-      checkBack = await validateFaces({ base64: backBuffer.toString("base64") });
-    }
-
-    const totalFaces = (checkFront.faces_count ?? 0) + (checkBack.faces_count ?? 0);
-
-    if (totalFaces < 2) {
       return fail(
-        `Нужно минимум 2 человека на Daily Duo. front=${checkFront.faces_count}, back=${checkBack.faces_count}`,
+        captionCheck.error.issues[0]?.message ?? "Caption is invalid",
         422,
       );
     }
@@ -94,11 +75,12 @@ export async function POST(req: Request) {
       .update({ last_post_at: new Date().toISOString(), xp: 10 })
       .eq("id", userId);
 
-    await Promise.all([
-      trackEvent({ eventName: "daily_duo_published", userId, path: "/feed", properties: { postId: post.id, type: "daily_duo" } }),
-      trackEvent({ eventName: "post_published_daily_duo", userId, path: "/feed", properties: { postId: post.id, type: "daily_duo" } }),
-      trackEvent({ eventName: "first_post", userId, path: "/feed", properties: { postId: post.id, type: "daily_duo" } }),
-    ]);
+    await trackEvent({
+      eventName: "feed.post_published_daily_duo",
+      userId,
+      path: "/feed",
+      properties: { postId: post.id, type: "daily_duo" },
+    });
 
     return ok({ success: true, postId: post.id });
   } catch {

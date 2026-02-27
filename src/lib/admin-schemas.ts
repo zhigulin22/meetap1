@@ -316,3 +316,16 @@ export const diagnosticsResponseSchema = z.object({
   issues: z.array(z.string()),
   fixes: z.array(z.string()),
 });
+
+export const liveEventsResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      event_name: z.string(),
+      user_id: z.string().nullable(),
+      created_at: z.string(),
+      path: z.string().nullable().optional(),
+      properties: z.record(z.unknown()).optional(),
+    }),
+  ),
+});

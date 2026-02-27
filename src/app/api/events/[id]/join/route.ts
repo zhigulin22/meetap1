@@ -38,7 +38,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       );
     }
 
-    await trackEvent({ eventName: "event_joined", userId, path: "/events", properties: { eventId: params.id } });
+    await trackEvent({ eventName: "events.joined", userId, path: "/events", properties: { eventId: params.id } });
 
     return ok({ success: true });
   } catch {

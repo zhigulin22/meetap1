@@ -84,7 +84,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return fail(error.message, 500);
     }
 
-    await trackEvent({ eventName: "comment_sent", userId, path: "/feed", properties: { postId: params.id } });
+    await Promise.all([
+      trackEvent({ eventName: "comment.created", userId, path: "/feed", properties: { postId: params.id } }),
+      trackEvent({ eventName: "chat.message_sent", userId, path: "/feed", properties: { postId: params.id, source: "comment" } }),
+    ]);
 
     const { count } = await supabaseAdmin
       .from("comments")
@@ -92,7 +95,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       .eq("user_id", userId);
 
     if ((count ?? 0) === 1) {
-      await trackEvent({ eventName: "first_message_sent", userId, path: "/feed", properties: { postId: params.id } });
+      await trackEvent({ eventName: "chat.connect_replied", userId, path: "/feed", properties: { postId: params.id } });
     }
 
     if (risk.risky && inserted?.id) {

@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { NextRequest } from "next/server";
 import { startVerificationSchema } from "@/lib/schemas";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -6,6 +7,10 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 import { buildTelegramCode } from "@/lib/telegram-code";
 import { trackEvent } from "@/server/analytics";
+
+function phoneActorKey(phone: string) {
+  return createHash("sha256").update(phone).digest("hex").slice(0, 20);
+}
 
 async function sendTelegramMessage(chatId: string, text: string) {
   const env = getServerEnv();
@@ -30,6 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   const phone = parsed.data.phone;
+  const actorKey = phoneActorKey(phone);
   const token = crypto.randomUUID();
   const code = buildTelegramCode(token);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
@@ -51,7 +57,11 @@ export async function POST(req: NextRequest) {
     return fail(error.message, 500);
   }
 
-  await trackEvent({ eventName: "register_started", path: "/register", properties: { phonePrefix: phone.slice(0, 4) } });
+  await trackEvent({
+    eventName: "auth.register_started",
+    path: "/register",
+    properties: { phonePrefix: phone.slice(0, 4), actor_key: actorKey },
+  });
 
   const { data: existing } = await supabaseAdmin
     .from("users")
@@ -71,7 +81,12 @@ export async function POST(req: NextRequest) {
       .eq("status", "pending");
 
     await sendTelegramMessage(chatId, `Код входа в Meetap: ${code}\nСрок действия 10 минут.`);
-    await trackEvent({ eventName: "telegram_verified", userId: existing?.id, path: "/register", properties: { immediate: true } });
+    await trackEvent({
+      eventName: "auth.telegram_verified",
+      userId: existing?.id,
+      path: "/register",
+      properties: { immediate: true, actor_key: actorKey },
+    });
   }
 
   const env = getPublicEnv();

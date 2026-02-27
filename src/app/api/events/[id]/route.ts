@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   ]);
 
   if (userId) {
-    await trackEvent({ eventName: "event_viewed", userId, path: `/events/${params.id}`, properties: { eventId: params.id } });
+    await trackEvent({ eventName: "events.viewed", userId, path: `/events/${params.id}`, properties: { eventId: params.id } });
   }
 
   return ok({ event, participants: participants ?? [], joined: Boolean(myMembership?.id) });

@@ -5,18 +5,19 @@ const CITIES = ["Moscow", "Dubai", "Tbilisi", "Berlin", "Warsaw", "Belgrade", "L
 const NAMES = ["Alex", "Mila", "Ivan", "Nina", "Artem", "Sofia", "Tim", "Daria", "Leo", "Mark", "Sam", "Eva"];
 const INTERESTS = ["design", "startup", "music", "sport", "ai", "marketing", "product", "travel", "coffee", "books"];
 const ANALYTICS_EVENTS = [
-  "register_started",
-  "telegram_verified",
-  "registration_completed",
-  "profile_completed",
-  "post_published_daily_duo",
-  "post_published_video",
-  "event_viewed",
-  "event_joined",
-  "connect_sent",
-  "connect_replied",
-  "message_sent",
-  "report_created",
+  "auth.register_started",
+  "auth.telegram_verified",
+  "auth.registration_completed",
+  "profile.completed",
+  "feed.post_published_daily_duo",
+  "feed.post_published_video",
+  "events.viewed",
+  "events.joined",
+  "chat.connect_sent",
+  "chat.connect_replied",
+  "chat.message_sent",
+  "comment.created",
+  "safety.report_created",
 ] as const;
 
 function rnd(min: number, max: number) {

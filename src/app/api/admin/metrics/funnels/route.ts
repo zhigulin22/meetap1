@@ -5,33 +5,58 @@ import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
 import { canonicalizeEventName, aliasesForCanonicals } from "@/server/event-dictionary";
 import { supabaseAdmin } from "@/supabase/admin";
 
+type AnalyticsRow = {
+  event_name: string;
+  user_id: string | null;
+  properties?: Record<string, unknown> | null;
+};
+
 const funnelSteps = [
-  "register_started",
-  "telegram_verified",
-  "registration_completed",
-  "profile_completed",
-  "first_post",
-  "event_joined",
-  "connect_replied",
+  "auth.register_started",
+  "auth.telegram_verified",
+  "auth.registration_completed",
+  "profile.completed",
+  "first_action",
+  "chat.connect_replied",
 ] as const;
 
-function aliasesForStep(step: (typeof funnelSteps)[number]) {
-  if (step === "first_post") return aliasesForCanonicals(["post_published_daily_duo", "post_published_video"]);
-  if (step === "event_joined") return aliasesForCanonicals(["event_joined"]);
-  if (step === "connect_replied") return aliasesForCanonicals(["connect_replied"]);
+type FunnelStep = (typeof funnelSteps)[number];
+
+function aliasesForStep(step: FunnelStep) {
+  if (step === "first_action") {
+    return aliasesForCanonicals([
+      "feed.post_published_daily_duo",
+      "feed.post_published_video",
+      "events.joined",
+      "post_published_daily_duo",
+      "post_published_video",
+      "event_joined",
+    ]);
+  }
   return aliasesForCanonicals([step]);
 }
 
-function canonicalStepFromEventName(eventName: string) {
+function canonicalStepFromEventName(eventName: string): FunnelStep | null {
   const canonical = canonicalizeEventName(eventName);
-  if (canonical === "post_published_daily_duo" || canonical === "post_published_video") return "first_post";
-  if (canonical === "event_joined") return "event_joined";
-  if (canonical === "connect_replied") return "connect_replied";
-  if (canonical === "register_started") return "register_started";
-  if (canonical === "telegram_verified") return "telegram_verified";
-  if (canonical === "registration_completed") return "registration_completed";
-  if (canonical === "profile_completed") return "profile_completed";
+
+  if (canonical === "register_started") return "auth.register_started";
+  if (canonical === "telegram_verified") return "auth.telegram_verified";
+  if (canonical === "registration_completed") return "auth.registration_completed";
+  if (canonical === "profile_completed") return "profile.completed";
+
+  if (canonical === "post_published_daily_duo" || canonical === "post_published_video" || canonical === "event_joined") {
+    return "first_action";
+  }
+
+  if (canonical === "connect_replied") return "chat.connect_replied";
   return null;
+}
+
+function rowActorId(row: AnalyticsRow) {
+  if (row.user_id) return row.user_id;
+  const actorKey = String((row.properties?.actor_key as string | undefined) ?? "").trim();
+  if (!actorKey) return null;
+  return `anon:${actorKey}`;
 }
 
 export async function GET(req: Request) {
@@ -52,40 +77,34 @@ export async function GET(req: Request) {
     const { fromISO, toISO } = parseWindow(parsed.data.from, parsed.data.to, 30);
     const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
 
-    const allNames = aliasesForCanonicals([
-      "register_started",
-      "telegram_verified",
-      "registration_completed",
-      "profile_completed",
-      "post_published_daily_duo",
-      "post_published_video",
-      "event_joined",
-      "connect_replied",
-    ]);
+    const allNames = Array.from(new Set(funnelSteps.flatMap((step) => aliasesForStep(step))));
 
     const { data } = await supabaseAdmin
       .from("analytics_events")
-      .select("event_name,user_id")
+      .select("event_name,user_id,properties")
       .in("event_name", allNames)
       .gte("created_at", fromISO)
       .lte("created_at", toISO)
       .limit(120000);
 
-    const rows = (data ?? []).filter((x) => !userIds || (x.user_id && userIds.includes(x.user_id)));
+    const rows = (data ?? []).filter((x) => {
+      if (!userIds) return true;
+      if (x.user_id) return userIds.includes(x.user_id);
+      return true;
+    });
 
     const stepUsers = new Map<string, Set<string>>();
     for (const step of funnelSteps) stepUsers.set(step, new Set());
 
-    for (const row of rows) {
-      if (!row.user_id) continue;
+    for (const row of rows as AnalyticsRow[]) {
+      const actorId = rowActorId(row);
+      if (!actorId) continue;
       const step = canonicalStepFromEventName(row.event_name);
       if (!step) continue;
-      const set = stepUsers.get(step);
-      if (!set) continue;
-      set.add(row.user_id);
+      stepUsers.get(step)?.add(actorId);
     }
 
-    const base = stepUsers.get("register_started")?.size ?? 0;
+    const base = stepUsers.get("auth.register_started")?.size ?? 0;
     const steps = funnelSteps.map((step, idx) => {
       const count = stepUsers.get(step)?.size ?? 0;
       const prevStep = idx > 0 ? funnelSteps[idx - 1] : step;

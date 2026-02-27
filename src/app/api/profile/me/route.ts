@@ -106,7 +106,7 @@ export async function PATCH(req: Request) {
     }
 
     if (profileCompleted) {
-      await trackEvent({ eventName: "profile_completed", userId, path: "/profile/me" });
+      await trackEvent({ eventName: "profile.completed", userId, path: "/profile/me" });
     }
 
     return ok({ profile: mapProfile(data) });

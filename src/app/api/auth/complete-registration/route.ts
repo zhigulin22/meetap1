@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { cookies } from "next/headers";
 import { completeRegistrationSchema } from "@/lib/schemas";
 import { fail, ok } from "@/lib/http";
@@ -6,6 +7,10 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { buildTelegramCode } from "@/lib/telegram-code";
 import { detectDeviceLabel } from "@/lib/session";
 import { trackEvent } from "@/server/analytics";
+
+function phoneActorKey(phone: string) {
+  return createHash("sha256").update(phone).digest("hex").slice(0, 20);
+}
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? "local";
@@ -47,6 +52,7 @@ export async function POST(req: Request) {
   }
 
   const resolvedPhone = verification.verified_phone ?? verification.phone;
+  const actorKey = phoneActorKey(resolvedPhone);
 
   const { data: existingRaw } = await supabaseAdmin
     .from("users")
@@ -130,7 +136,12 @@ export async function POST(req: Request) {
     cookieStore.set("meetap_session_id", session.id, base);
   }
 
-  await trackEvent({ eventName: "registration_completed", userId, path: "/register", properties: { mode: existing ? "login" : "register" } });
+  await trackEvent({
+    eventName: "auth.registration_completed",
+    userId,
+    path: "/register",
+    properties: { mode: existing ? "login" : "register", actor_key: actorKey },
+  });
 
   return ok({ userId, mode: existing ? "login" : "register" });
 }
