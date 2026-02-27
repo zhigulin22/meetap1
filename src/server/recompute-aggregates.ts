@@ -45,7 +45,7 @@ export async function recomputeUserStatsDaily(days = 30) {
     if (canonical === "event_joined") stat.event_joins += 1;
     if (canonical === "connect_sent") stat.connects_sent += 1;
     if (canonical === "connect_replied") stat.connects_replied += 1;
-    if (canonical === "chat_message_sent") stat.msgs_sent += 1;
+    if (canonical === "message_sent") stat.msgs_sent += 1;
     if (canonical === "endorsement_sent") stat.endorsements_received += 1;
     if (canonical === "report_created") stat.reports_received += 1;
 

@@ -119,7 +119,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         attended: eventsByName.get("event_attended") ?? 0,
         connectSent: eventsByName.get("connect_sent") ?? 0,
         connectReplied: eventsByName.get("connect_replied") ?? 0,
-        continuedD1: eventsByName.get("chat_message_sent") ?? 0,
+        continuedD1: eventsByName.get("message_sent") ?? 0,
         messagesCount: msgRows.length,
         medianReplyMin: Number(medianReplyMin.toFixed(1)),
         endorsementsReceived: endorsementsReceived.count ?? 0,

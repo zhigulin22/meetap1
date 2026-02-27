@@ -41,7 +41,7 @@ export async function buildRiskProfiles(userIds: string[], fromISO?: string, toI
       .from("analytics_events")
       .select("user_id,event_name,properties,created_at")
       .in("user_id", userIds)
-      .in("event_name", ["connect_sent", "connect_replied", "chat_message_sent", "report_created"]) 
+      .in("event_name", ["connect_sent", "connect_replied", "message_sent", "chat_message_sent", "report_created"]) 
       .gte("created_at", from)
       .lte("created_at", to)
       .limit(120000),

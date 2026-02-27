@@ -153,6 +153,7 @@ export const userSearchResponseSchema = z.object({
       phone: z.string().nullable().optional(),
       city: z.string().nullable().optional(),
       role: z.string(),
+      is_demo: z.boolean().optional(),
       is_blocked: z.boolean(),
       shadow_banned: z.boolean().optional(),
       message_limited: z.boolean().optional(),

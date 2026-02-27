@@ -22,14 +22,13 @@ async function countByAliases(aliases: string[], fromISO: string, toISO: string,
 
 async function countUniqueActiveUsers(fromISO: string, toISO: string, userIds: string[] | null) {
   const aliases = aliasesForCanonicals([
-    "feed_viewed",
-    "event_viewed",
+        "event_viewed",
     "event_joined",
     "post_published_daily_duo",
     "post_published_video",
     "connect_sent",
     "connect_replied",
-    "chat_message_sent",
+    "message_sent",
   ]);
 
   const query = supabaseAdmin
@@ -145,7 +144,7 @@ export async function GET(req: Request) {
       video: aliasesForCanonicals(["post_published_video"]),
       eventJoin: aliasesForCanonicals(["event_joined"]),
       connectSent: aliasesForCanonicals(["connect_sent"]),
-      connectReply: aliasesForCanonicals(["connect_replied", "chat_message_sent"]),
+      connectReply: aliasesForCanonicals(["connect_replied"]),
       aiCalls: aliasesForCanonicals(["ai_face_validate", "ai_icebreaker", "ai_admin_insights"]),
       apiErrors: aliasesForCanonicals(["api_error"]),
       integrationErrors: aliasesForCanonicals(["api_error", "ai_error", "telegram_verify_error"]),

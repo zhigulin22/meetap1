@@ -20,7 +20,9 @@ export type Database = {
           facts: string[] | null;
           avatar_url: string | null;
           bio: string | null;
+          city: string | null;
           country: string | null;
+          is_demo: boolean;
           preferences: Json;
           privacy_settings: Json;
           notification_settings: Json;

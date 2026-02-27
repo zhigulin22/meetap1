@@ -19,7 +19,7 @@ export async function POST() {
       const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
       let value = 0;
 
-      if (alert.metric === "dau") value = await countEvent("chat_message_sent", since);
+      if (alert.metric === "dau") value = await countEvent("message_sent", since);
       if (alert.metric === "tg_verify_rate") {
         const s = await countEvent("register_started", since);
         const v = await countEvent("telegram_verified", since);

@@ -89,12 +89,12 @@ export const EVENT_DICTIONARY: EventDictionaryItem[] = [
     aliases: ["connect_replied", "first_message_sent", "connect_reply"],
   },
   {
-    event_name: "chat_message_sent",
+    event_name: "message_sent",
     family: "social",
     display_ru: "Сообщение в чате",
     metric_tags: ["social", "engagement", "wmc"],
     is_key: true,
-    aliases: ["chat_message_sent", "message_sent", "chat_sent"],
+    aliases: ["message_sent", "chat_message_sent", "chat_sent"],
   },
   {
     event_name: "report_created",
@@ -103,14 +103,6 @@ export const EVENT_DICTIONARY: EventDictionaryItem[] = [
     metric_tags: ["safety"],
     is_key: true,
     aliases: ["report_created", "report_submitted"],
-  },
-  {
-    event_name: "flag_created",
-    family: "safety",
-    display_ru: "Флаг безопасности",
-    metric_tags: ["safety"],
-    is_key: true,
-    aliases: ["flag_created", "content_flagged"],
   },
   {
     event_name: "ai_cost",
@@ -135,14 +127,6 @@ export const EVENT_DICTIONARY: EventDictionaryItem[] = [
     metric_tags: ["health", "diagnostics"],
     is_key: false,
     aliases: ["admin_test_event"],
-  },
-  {
-    event_name: "feed_viewed",
-    family: "feed",
-    display_ru: "Просмотр ленты",
-    metric_tags: ["engagement", "dau"],
-    is_key: false,
-    aliases: ["feed_viewed", "feed_scrolled"],
   },
 ];
 
@@ -185,7 +169,7 @@ export function eventDictionarySeedRows() {
 }
 
 const METRIC_CANONICAL: Record<string, string[]> = {
-  dau: ["feed_viewed", "event_viewed", "event_joined", "post_published_daily_duo", "post_published_video", "connect_sent", "connect_replied", "chat_message_sent"],
+  dau: ["event_viewed", "event_joined", "post_published_daily_duo", "post_published_video", "connect_sent", "connect_replied", "message_sent"],
   new_users: ["registration_completed"],
   tg_verify_rate_num: ["telegram_verified"],
   tg_verify_rate_den: ["register_started"],

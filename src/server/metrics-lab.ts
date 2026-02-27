@@ -104,7 +104,7 @@ export async function getMetricsBlock(kind: string, fromISO: string, toISO: stri
         kpi("Events/day", Number((totalEvents / Math.max(1, rangeDays(fromISO, toISO).length)).toFixed(2))),
         kpi("Events per user", uniqueUsers > 0 ? Number((totalEvents / uniqueUsers).toFixed(2)) : 0),
       ],
-      trends: [{ key: "engagement", points: makeTrend(rows as any, ["feed_viewed", "chat_message_sent", "event_joined", "connect_sent"], fromISO, toISO) }],
+      trends: [{ key: "engagement", points: makeTrend(rows as any, ["event_viewed", "message_sent", "event_joined", "connect_sent"], fromISO, toISO) }],
       top: [],
     };
   }
@@ -141,7 +141,7 @@ export async function getMetricsBlock(kind: string, fromISO: string, toISO: stri
   if (kind === "social") {
     const sent = c.get("connect_sent") ?? 0;
     const rep = c.get("connect_replied") ?? 0;
-    const msgs = c.get("chat_message_sent") ?? 0;
+    const msgs = c.get("message_sent") ?? 0;
     return {
       kpis: [
         kpi("Connect Sent", sent),
@@ -149,17 +149,17 @@ export async function getMetricsBlock(kind: string, fromISO: string, toISO: stri
         kpi("Reply Rate", sent > 0 ? Number((rep / sent).toFixed(4)) : 0),
         kpi("WMC", msgs),
       ],
-      trends: [{ key: "social", points: makeTrend(rows as any, ["connect_sent", "connect_replied", "chat_message_sent"], fromISO, toISO) }],
+      trends: [{ key: "social", points: makeTrend(rows as any, ["connect_sent", "connect_replied", "message_sent"], fromISO, toISO) }],
       top: [],
     };
   }
 
   if (kind === "safety") {
     const reports = c.get("report_created") ?? 0;
-    const flags = c.get("flag_created") ?? 0;
+    const flags = 0;
     return {
       kpis: [kpi("Reports", reports), kpi("Flags", flags), kpi("Report/Flag Ratio", flags > 0 ? Number((reports / flags).toFixed(4)) : reports > 0 ? 1 : 0)],
-      trends: [{ key: "safety", points: makeTrend(rows as any, ["report_created", "flag_created"], fromISO, toISO) }],
+      trends: [{ key: "safety", points: makeTrend(rows as any, ["report_created"], fromISO, toISO) }],
       top: [],
     };
   }

@@ -118,7 +118,7 @@ export async function POST(req: Request) {
             "event_joined",
             "connect_sent",
             "connect_replied",
-            "chat_message_sent",
+            "message_sent",
             "endorsement_sent",
           ] as const;
           let name: string = pick([...catalog]);
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
           if (name === "event_joined") stat.event_joins = Number(stat.event_joins) + 1;
           if (name === "connect_sent") stat.connects_sent = Number(stat.connects_sent) + 1;
           if (name === "connect_replied") stat.connects_replied = Number(stat.connects_replied) + 1;
-          if (name === "chat_message_sent") stat.msgs_sent = Number(stat.msgs_sent) + 1;
+          if (name === "message_sent") stat.msgs_sent = Number(stat.msgs_sent) + 1;
           if (name === "endorsement_sent") stat.endorsements_received = Number(stat.endorsements_received) + 1;
           if (name === "report_created") stat.reports_received = Number(stat.reports_received) + 1;
         }
