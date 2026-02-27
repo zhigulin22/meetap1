@@ -12,8 +12,10 @@ export async function GET(req: Request) {
   try {
     await requireAdminUserId(["admin", "analyst", "moderator"]);
     const { searchParams } = new URL(req.url);
+    const botIdRaw = searchParams.get("bot_id")?.trim() ?? "";
+
     const parsed = querySchema.safeParse({
-      bot_id: searchParams.get("bot_id") ?? undefined,
+      bot_id: botIdRaw.length ? botIdRaw : undefined,
       limit: searchParams.get("limit") ?? undefined,
     });
 

@@ -385,18 +385,27 @@ export default function AdminPage() {
     queryKey: ["admin-qa-bots-status"],
     queryFn: () => api<any>("/api/admin/qa-bots/status"),
     refetchInterval: section === "qa_bots" ? 5000 : false,
+    enabled: section === "qa_bots",
   });
 
   const qaBotsProof = useQuery({
     queryKey: ["admin-qa-bots-proof"],
     queryFn: () => api<{ minutes: number; events_last_window: number; last_event_at: string | null }>("/api/admin/qa-bots/proof?minutes=2"),
     refetchInterval: section === "qa_bots" ? 5000 : false,
+    enabled: section === "qa_bots",
   });
 
   const qaBotsLogs = useQuery({
     queryKey: ["admin-qa-bots-logs", qaBotLogFilter],
-    queryFn: () => api<{ items: Array<{ id: string; bot_id: string; level: string; message: string; created_at: string }> }>("/api/admin/qa-bots/logs?limit=200&bot_id=" + encodeURIComponent(qaBotLogFilter)),
+    queryFn: () => {
+      const botId = qaBotLogFilter.trim();
+      const path = botId.length
+        ? "/api/admin/qa-bots/logs?limit=200&bot_id=" + encodeURIComponent(botId)
+        : "/api/admin/qa-bots/logs?limit=200";
+      return api<{ items: Array<{ id: string; bot_id: string; level: string; message: string; created_at: string }> }>(path);
+    },
     refetchInterval: section === "qa_bots" ? 5000 : false,
+    enabled: section === "qa_bots",
   });
   const refetchOverview = overview.refetch;
   const refetchFunnels = funnels.refetch;
@@ -927,7 +936,7 @@ export default function AdminPage() {
                 <ActionButton state={actionUi.diagnostics} variant="secondary" idleLabel="Run Diagnostics" loadingLabel="Running..." successLabel={actionUi.diagnostics?.label} onClick={runDiagnostics} />
                 <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить трекинг" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
                 <ActionButton state={actionUi.seedDemo} idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
-                <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix common issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />              </div>
+                <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix common issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={() => fixCommonIssues()} />              </div>
               <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.checkTracking?.error ?? actionUi.seedDemo?.error ?? actionUi.fixCommon?.error} />
             </CardContent>
           </Card>
@@ -1087,7 +1096,7 @@ export default function AdminPage() {
 
                 <div className="flex flex-wrap gap-2">
                   <ActionButton state={actionUi.diagnostics} variant="secondary" idleLabel="Run Diagnostics" loadingLabel="Running..." successLabel={actionUi.diagnostics?.label} onClick={runDiagnostics} />
-                  <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix Common Issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={fixCommonIssues} />
+                  <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix Common Issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={() => fixCommonIssues()} />
                   <ActionButton state={actionUi.fixTables} variant="secondary" idleLabel="Fix now" loadingLabel="Fixing..." successLabel={actionUi.fixTables?.label} onClick={fixMissingTables} />
                   <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Check Tracking" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
                   <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />                  <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
