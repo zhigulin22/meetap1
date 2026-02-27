@@ -384,7 +384,7 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
   if (!users.length) throw new Error("No simulation users");
 
   const total = forceEventsPerTick ?? eventCountPerTick(run.users_count, run.intensity, run.mode);
-  const rows: Array<{ event_name: string; user_id: string; path: string; properties: Record<string, unknown>; created_at: string }> = [];
+  const rows: Array<{ event_name: string; user_id: string; properties: Record<string, unknown>; created_at: string }> = [];
   const stats = new Map<string, Record<string, number | boolean>>();
   const actions: string[] = [];
 
@@ -432,7 +432,6 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
     rows.push({
       event_name: eventName,
       user_id: u.user_id,
-      path: eventName.includes("event") ? "/events" : eventName.includes("connect") || eventName === "message_sent" ? "/contacts" : "/feed",
       properties,
       created_at: createdAt,
     });
@@ -447,7 +446,6 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
       rows.push({
         event_name: "connect_sent",
         user_id: spammer,
-        path: "/contacts",
         properties: {
           source: "live_sim",
           mode: "chaos",
@@ -469,7 +467,6 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
         rows.push({
           event_name: "report_created",
           user_id: target,
-          path: "/reports",
           properties: { source: "live_sim", mode: "chaos", is_demo: true, demo_run_id: run.id, reason: "spam_wave" },
           created_at: createdAt,
         });
@@ -529,9 +526,14 @@ export async function runSimulationTick(runId: string, forceEventsPerTick?: numb
     })
     .eq("id", run.id);
 
+  const sampleEvents = rows.slice(0, 8).map((row) => ({
+    event_name: row.event_name,
+    created_at: row.created_at,
+  }));
+
   return {
     eventsWritten,
-    sampleEvents: actions.slice(0, 10),
+    sampleEvents,
     runId: run.id,
     dbWritten: eventsWritten > 0,
     lastDbEventAt,
@@ -577,7 +579,7 @@ export async function seedMinimalData() {
     ]);
   }
 
-  const rows: Array<{ event_name: string; user_id: string; path: string; properties: Record<string, unknown>; created_at: string }> = [];
+  const rows: Array<{ event_name: string; user_id: string; properties: Record<string, unknown>; created_at: string }> = [];
   const names = [
     "register_started",
     "telegram_verified",
@@ -599,7 +601,6 @@ export async function seedMinimalData() {
     rows.push({
       event_name: name,
       user_id: userId,
-      path: name.includes("event") ? "/events" : name.includes("connect") || name === "message_sent" ? "/contacts" : "/feed",
       properties: {
         source: "seed_minimal",
         is_demo: true,

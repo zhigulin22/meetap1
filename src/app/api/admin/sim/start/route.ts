@@ -1,9 +1,13 @@
 import { z } from "zod";
-import { fail, ok } from "@/lib/http";
+import { NextResponse } from "next/server";
 import { requireAdminUserId } from "@/server/admin";
 import { getDevtoolsStatus, startSimulation } from "@/server/simulation";
 import { logAdminAction } from "@/server/admin-audit";
 import { assertSimulationTablesReady } from "@/server/admin-tables";
+import { adminError, hasServiceRoleKey, mapSimError } from "@/server/admin-route";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const schema = z.object({
   users_count: z.number().int().min(10).max(2000).default(40),
@@ -14,15 +18,34 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const adminId = await requireAdminUserId();
+    const adminId = await requireAdminUserId(["admin"]);
+
+    if (!hasServiceRoleKey()) {
+      return adminError(
+        500,
+        "SERVICE_ROLE_MISSING",
+        "SUPABASE_SERVICE_ROLE_KEY is missing",
+        "Добавь корректный SUPABASE_SERVICE_ROLE_KEY в env и redeploy.",
+      );
+    }
+
     const status = await getDevtoolsStatus();
-    if (!status.enabled) return fail(`Devtools disabled: ${status.reason}`, 403);
+    if (!status.enabled) {
+      return adminError(
+        403,
+        "DEVTOOLS_DISABLED",
+        `Devtools disabled: ${status.reason}`,
+        "Включи ADMIN_DEVTOOLS_ENABLED=true или safe mode в system_settings.",
+      );
+    }
 
     await assertSimulationTablesReady();
 
     const body = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
-    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
+    if (!parsed.success) {
+      return adminError(422, "INVALID_PAYLOAD", parsed.error.issues[0]?.message ?? "Invalid payload", "Проверь параметры запуска симуляции.");
+    }
 
     const run = await startSimulation({
       adminId,
@@ -40,11 +63,9 @@ export async function POST(req: Request) {
       meta: parsed.data,
     });
 
-    return ok({ run_id: run.id, status: run.status, run });
+    return NextResponse.json({ ok: true, run_id: run.id, status: run.status, run });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Forbidden";
-    if (message.toLowerCase().includes("missing tables")) return fail(message, 409);
-    if (message === "Forbidden") return fail(message, 403);
-    return fail(message, 400);
+    const mapped = mapSimError(error);
+    return adminError(mapped.status, mapped.code, mapped.message, mapped.hint, error);
   }
 }

@@ -153,7 +153,7 @@ export async function assertSimulationTablesReady() {
   const missing = await getMissingTableNames(SIM_REQUIRED_TABLES);
   if (!missing.length) return;
   throw new Error(
-    `Cannot start simulation: missing tables ${missing.join(", ")}. Нажми Fix now в Data Health.`,
+    `Cannot run simulation: missing tables ${missing.join(", ")}. Нажми Fix now в Data Health.`,
   );
 }
 

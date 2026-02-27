@@ -291,6 +291,7 @@ export default function AdminPage() {
   const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
   const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
   const [liveBurst, setLiveBurst] = useState<number>(0);
+  const [lastTickResult, setLastTickResult] = useState<{ events_written: number; last_db_event_at: string | null; sample: Array<{ event_name: string; created_at: string }> } | null>(null);
   const liveTotalRef = useRef(0);
 
   const toISO = new Date().toISOString();
@@ -379,7 +380,7 @@ export default function AdminPage() {
 
   const dbProof = useQuery({
     queryKey: ["admin-db-proof", liveSim.data?.running],
-    queryFn: () => api<{ events_last_2m: number; has_db_writes: boolean; status: "ok" | "error"; last_db_event_at: string | null; last_event_name: string | null; reason: string | null }>("/api/admin/metrics/db-proof"),
+    queryFn: () => api<{ ok: boolean; minutes: number; events_last_window: number; last_event_at: string | null; last_event_name: string | null; reasons: string[]; reason: string | null; has_db_writes: boolean; status: "ok" | "error" }>("/api/admin/metrics/db-proof?minutes=2"),
     refetchInterval: liveSim.data?.running ? 5000 : 15000,
   });
 
@@ -524,7 +525,12 @@ export default function AdminPage() {
       setActionLoading("startLive");
       setLiveBusy(true);
       const payload = { ...liveConfig, ...config };
-      await api("/api/admin/sim/start", { method: "POST", body: JSON.stringify(payload) });
+      const res = await api<{ ok: boolean; run_id: string; status: string }>("/api/admin/sim/start", { method: "POST", body: JSON.stringify(payload) });
+      if (!res.ok) {
+        setActionError("startLive", "Live start failed");
+        return;
+      }
+      setLastTickResult(null);
       await Promise.all([liveSim.refetch(), refetchDbProof(), diagnostics.refetch(), overview.refetch(), refetchFunnels(), metricsLab.refetch()]);
       setActionSuccess("startLive", "Running");
     } catch (e) {
@@ -538,7 +544,7 @@ export default function AdminPage() {
     try {
       setActionLoading("stopLive");
       setLiveBusy(true);
-      await api("/api/admin/sim/stop", { method: "POST", body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? null }) });
+      await api<{ ok: boolean; status: string }>("/api/admin/sim/stop", { method: "POST", body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? null }) });
       await Promise.all([liveSim.refetch(), refetchDbProof(), diagnostics.refetch(), overview.refetch(), refetchFunnels(), metricsLab.refetch()]);
       setActionSuccess("stopLive", "Stopped");
     } catch (e) {
@@ -551,14 +557,17 @@ export default function AdminPage() {
   async function tickLive() {
     try {
       setActionLoading("tickLive");
-      const res = await api<{ events_written: number; db_written: boolean; last_db_event_at: string | null }>("/api/admin/sim/tick", {
+      const res = await api<{ ok: boolean; events_written: number; last_db_event_at: string | null; sample: Array<{ event_name: string; created_at: string }> }>("/api/admin/sim/tick", {
         method: "POST",
         body: JSON.stringify({ run_id: liveSim.data?.run?.id ?? undefined, events_per_tick: liveConfig.events_per_tick }),
       });
-      if (!res.db_written) {
-        setActionError("tickLive", "Simulation not writing to DB");
-        return;
-      }
+
+      setLastTickResult({
+        events_written: res.events_written,
+        last_db_event_at: res.last_db_event_at,
+        sample: res.sample ?? [],
+      });
+
       setLiveBurst(res.events_written);
       window.setTimeout(() => setLiveBurst(0), 1000);
       await Promise.all([liveSim.refetch(), refetchDbProof(), overview.refetch(), refetchFunnels(), metricsLab.refetch(), refetchUsers()]);
@@ -811,18 +820,20 @@ export default function AdminPage() {
     if (!liveSim.data?.running || !liveSim.data?.run?.id) return;
     const interval = Math.max(3000, Number(liveSim.data?.run?.interval_sec ?? 8) * 1000);
     const id = window.setInterval(() => {
-      api<{ db_written?: boolean }>("/api/admin/sim/tick", {
+      api<{ ok: boolean; events_written: number; last_db_event_at: string | null; sample: Array<{ event_name: string; created_at: string }> }>("/api/admin/sim/tick", {
         method: "POST",
-        body: JSON.stringify({ run_id: liveSim.data?.run?.id, events_per_tick: liveConfig.events_per_tick }),
       })
         .then((res) => {
-          if (res && res.db_written === false) {
-            setActionError("tickLive", "Simulation not writing to DB");
-            return;
-          }
+          setLastTickResult({
+            events_written: res.events_written,
+            last_db_event_at: res.last_db_event_at,
+            sample: res.sample ?? [],
+          });
           return Promise.all([refetchLiveSim(), refetchDbProof(), refetchOverview(), refetchFunnels(), refetchMetricsLab(), refetchUsers()]);
         })
-        .catch(() => undefined);
+        .catch((e) => {
+          setActionError("tickLive", e instanceof Error ? e.message : "Tick endpoint failed");
+        });
     }, interval);
 
     return () => window.clearInterval(id);
@@ -911,6 +922,28 @@ export default function AdminPage() {
     return reasons;
   }, [diagnostics.data?.event_counts_24h?.total, diagnostics.data?.metrics_endpoints?.sample_points_count, diagnostics.data?.metrics_endpoints?.errors, diagnostics.data?.top_event_names, diagnostics.data?.issues, diagnosticsRlsIssues.length]);
 
+  const simulationFailureReasons = useMemo(() => {
+    const reasons = new Set<string>();
+    if ((dbProof.data?.events_last_window ?? 0) > 0) return [] as string[];
+
+    if (!diagnostics.data?.devtools.enabled) reasons.add("devtools disabled");
+    if (!diagnostics.data?.env?.SUPABASE_SERVICE_ROLE) reasons.add("service role missing");
+    if (diagnosticsRlsIssues.some((x) => x.includes("analytics_events"))) reasons.add("rls blocked");
+    if (actionUi.tickLive?.error || actionUi.startLive?.error) reasons.add("endpoint failing");
+
+    for (const reason of dbProof.data?.reasons ?? []) reasons.add(reason);
+
+    return [...reasons];
+  }, [
+    dbProof.data?.events_last_window,
+    dbProof.data?.reasons,
+    diagnostics.data?.devtools.enabled,
+    diagnostics.data?.env?.SUPABASE_SERVICE_ROLE,
+    diagnosticsRlsIssues,
+    actionUi.tickLive?.error,
+    actionUi.startLive?.error,
+  ]);
+
   const normalizedSeriesPoints = useMemo(() => {
     const source = metricsSeries.data?.points ?? [];
     if (source.length) return source;
@@ -996,8 +1029,8 @@ export default function AdminPage() {
                 <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-action" /> LIVE updating
               </span>
               <span>events/min: <strong>{liveSim.data?.events_per_minute ?? 0}</strong></span>
-              <span>DB events 2m: <strong>{dbProof.data?.events_last_2m ?? 0}</strong></span>
-              <span>last db event: <strong>{dbProof.data?.last_db_event_at ? new Date(dbProof.data.last_db_event_at).toLocaleTimeString("ru-RU") : "-"}</strong></span>
+              <span>DB events 2m: <strong>{dbProof.data?.events_last_window ?? 0}</strong></span>
+              <span>last db event: <strong>{dbProof.data?.last_event_at ? new Date(dbProof.data.last_event_at).toLocaleTimeString("ru-RU") : "-"}</strong></span>
             </div>
           </motion.div>
         </div>
@@ -1734,18 +1767,35 @@ export default function AdminPage() {
                     </motion.span>
                   </p>
                   <p>events 24h: {liveSim.data?.events_24h ?? 0}</p>
-                  <p>DB events last 2 min: <strong>{dbProof.data?.events_last_2m ?? 0}</strong></p>
-                  <p>last DB event: <strong>{dbProof.data?.last_db_event_at ? new Date(dbProof.data.last_db_event_at).toLocaleString("ru-RU") : "-"}</strong></p>
+                  <p>DB events last 2 min: <strong>{dbProof.data?.events_last_window ?? 0}</strong></p>
+                  <p>last DB event: <strong>{dbProof.data?.last_event_at ? new Date(dbProof.data.last_event_at).toLocaleString("ru-RU") : "-"}</strong></p>
+
+                  <p>Last tick result: <strong>{lastTickResult ? ("+" + lastTickResult.events_written) : "-"}</strong></p>
+                  <p>Last tick DB time: <strong>{lastTickResult?.last_db_event_at ? new Date(lastTickResult.last_db_event_at).toLocaleString("ru-RU") : "-"}</strong></p>
+                  {lastTickResult?.sample?.length ? (
+                    <div className="mt-1 rounded-lg border border-border/60 bg-surface0/40 p-2 text-[11px]">
+                      {lastTickResult.sample.slice(0, 3).map((item, idx) => (
+                        <p key={item.event_name + item.created_at + idx}>• {item.event_name} · {new Date(item.created_at).toLocaleTimeString("ru-RU")}</p>
+                      ))}
+                    </div>
+                  ) : null}
 
                   <p>interval: {liveSim.data?.run?.interval_sec ?? liveConfig.interval_sec}s</p>
                   <p>mode/intensity: {liveSim.data?.run?.mode ?? liveConfig.mode} / {liveSim.data?.run?.intensity ?? liveConfig.intensity}</p>
                   {liveSim.data?.cron_warning ? <p className="text-xs text-warning">{liveSim.data.cron_warning}</p> : null}
                 </div>
-                {dbProof.data?.events_last_2m === 0 ? (
+                {dbProof.data?.events_last_window === 0 && liveSim.data?.running ? (
                   <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-                    <p>Simulation not writing to DB. Проверь devtools, RLS и endpoint /api/admin/sim/tick.</p>
+                    <p>Simulation not writing to DB.</p>
                     <p className="mt-1">Причина: {dbProof.data?.reason ?? actionUi.tickLive?.error ?? actionUi.startLive?.error ?? "unknown"}</p>
-                    <div className="mt-2">
+                    {simulationFailureReasons.length ? (
+                      <div className="mt-2 space-y-1">
+                        {simulationFailureReasons.slice(0, 5).map((reason) => (
+                          <p key={reason}>• {reason}</p>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-2">
                       <ActionButton
                         size="sm"
                         state={actionUi.fixTables}
@@ -1755,6 +1805,7 @@ export default function AdminPage() {
                         successLabel={actionUi.fixTables?.label}
                         onClick={fixMissingTables}
                       />
+                      <Button size="sm" variant="secondary" onClick={runDiagnostics}>Open diagnostics</Button>
                     </div>
                   </div>
                 ) : null}
