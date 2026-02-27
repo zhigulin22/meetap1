@@ -33,8 +33,8 @@ const aiOutputSchema = z.object({
 });
 
 function buildFallbackActions(openReports: number, topEvents: Array<[string, number]>): SuggestionAction[] {
-  const registerStarted = topEvents.find((x) => x[0] === "register_started")?.[1] ?? 0;
-  const verified = topEvents.find((x) => x[0] === "telegram_verified")?.[1] ?? 0;
+  const registerStarted = topEvents.find((x: any) => x[0] === "register_started")?.[1] ?? 0;
+  const verified = topEvents.find((x: any) => x[0] === "telegram_verified")?.[1] ?? 0;
   const tgDrop = registerStarted > 0 ? Number((1 - verified / registerStarted).toFixed(2)) : 0.25;
 
   return [
@@ -98,13 +98,13 @@ export async function POST(req: Request) {
     const eventCounter = new Map<string, number>();
     for (const row of eventRows) eventCounter.set(row.event_name, (eventCounter.get(row.event_name) ?? 0) + 1);
 
-    const topEvents = [...eventCounter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 16);
+    const topEvents = [...eventCounter.entries()].sort((a: any, b: any) => b[1] - a[1]).slice(0, 16);
 
     const summaryContext = {
       topEvents,
-      openReports: (reports.data ?? []).filter((x) => x.status === "open").length,
-      openFlags: (flags.data ?? []).filter((x) => x.status === "open").length,
-      highRiskFlags: (flags.data ?? []).filter((x) => (x.risk_score ?? 0) >= 80).length,
+      openReports: (reports.data ?? []).filter((x: any) => x.status === "open").length,
+      openFlags: (flags.data ?? []).filter((x: any) => x.status === "open").length,
+      highRiskFlags: (flags.data ?? []).filter((x: any) => (x.risk_score ?? 0) >= 80).length,
       alerts: (alerts.data ?? []).slice(0, 25),
       experiments: (experiments.data ?? []).slice(0, 25),
       customContext: parsed.data.context ?? {},
@@ -178,7 +178,7 @@ export async function POST(req: Request) {
             },
           },
         } as any),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 14000)),
+        new Promise<null>((resolve: any) => setTimeout(() => resolve(null), 14000)),
       ]);
 
       if (!response) {
@@ -212,8 +212,8 @@ export async function POST(req: Request) {
         `Открытые флаги: ${summaryContext.openFlags}`,
         `High risk флаги: ${summaryContext.highRiskFlags}`,
       ],
-      evidence: topEvents.slice(0, 5).map((x) => `${x[0]}: ${x[1]}`),
-      recommended_actions: fallbackActions.map((x) => x.label),
+      evidence: topEvents.slice(0, 5).map((x: any) => `${x[0]}: ${x[1]}`),
+      recommended_actions: fallbackActions.map((x: any) => x.label),
       actions: fallbackActions,
       debug: parsed.data.debug
         ? {

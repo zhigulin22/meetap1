@@ -45,7 +45,7 @@ export async function computeSeries(input: {
       den.set(d, (den.get(d) ?? 0) + 1);
     }
 
-    const points = dayRange(fromISO, toISO).map((d) => {
+    const points = dayRange(fromISO, toISO).map((d: any) => {
       const n = num.get(d) ?? 0;
       const p = den.get(d) ?? 0;
       return { ts: d, value: p > 0 ? Number((n / p).toFixed(4)) : 0 };
@@ -70,7 +70,7 @@ export async function computeSeries(input: {
       dayUsers.set(d, set);
     }
 
-    const points = dayRange(fromISO, toISO).map((d) => ({ ts: d, value: dayUsers.get(d)?.size ?? 0 }));
+    const points = dayRange(fromISO, toISO).map((d: any) => ({ ts: d, value: dayUsers.get(d)?.size ?? 0 }));
     return { metric, from: fromISO, to: toISO, points };
   }
 
@@ -85,7 +85,7 @@ export async function computeSeries(input: {
       dayCost.set(d, Number(((dayCost.get(d) ?? 0) + (Number.isFinite(usd) ? usd : 0)).toFixed(4)));
     }
 
-    const points = dayRange(fromISO, toISO).map((d) => ({ ts: d, value: dayCost.get(d) ?? 0 }));
+    const points = dayRange(fromISO, toISO).map((d: any) => ({ ts: d, value: dayCost.get(d) ?? 0 }));
     return { metric, from: fromISO, to: toISO, points };
   }
 
@@ -99,6 +99,6 @@ export async function computeSeries(input: {
     dayCount.set(d, (dayCount.get(d) ?? 0) + 1);
   }
 
-  const points = dayRange(fromISO, toISO).map((d) => ({ ts: d, value: dayCount.get(d) ?? 0 }));
+  const points = dayRange(fromISO, toISO).map((d: any) => ({ ts: d, value: dayCount.get(d) ?? 0 }));
   return { metric, from: fromISO, to: toISO, points };
 }

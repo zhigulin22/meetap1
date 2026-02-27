@@ -12,11 +12,11 @@ const schema = z.object({
   phone: z
     .string()
     .trim()
-    .transform((v) => {
+    .transform((v: any) => {
       const cleaned = v.replace(/[\s()-]/g, "");
       return cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
     })
-    .refine((v) => phoneRegex.test(v), "Неверный номер"),
+    .refine((v: any) => phoneRegex.test(v), "Неверный номер"),
   password: z.string().min(8).max(72),
 });
 

@@ -109,7 +109,7 @@ export async function probeTables(
   d30ISO: string,
 ): Promise<ProbedTable[]> {
   return Promise.all(
-    tables.map(async (table) => {
+    tables.map(async (table: any) => {
       const [a, b, c] = await Promise.all([
         tableScopedCount(table, d24ISO),
         tableScopedCount(table, d7ISO),
@@ -137,7 +137,7 @@ export async function getMissingTableNames(tables: ProbeTable[]) {
     new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
   );
 
-  return rows.filter((x) => !x.exists).map((x) => x.name);
+  return rows.filter((x: any) => !x.exists).map((x: any) => x.name);
 }
 
 async function executeSqlWithRpc(sql: string) {

@@ -77,7 +77,7 @@ export async function GET(req: Request) {
     const { fromISO, toISO } = parseWindow(parsed.data.from, parsed.data.to, 30);
     const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
 
-    const allNames = Array.from(new Set(funnelSteps.flatMap((step) => aliasesForStep(step))));
+    const allNames = Array.from(new Set(funnelSteps.flatMap((step: any) => aliasesForStep(step))));
 
     const { data } = await supabaseAdmin
       .from("analytics_events")
@@ -87,7 +87,7 @@ export async function GET(req: Request) {
       .lte("created_at", toISO)
       .limit(120000);
 
-    const rows = (data ?? []).filter((x) => {
+    const rows = (data ?? []).filter((x: any) => {
       if (!userIds) return true;
       if (x.user_id) return userIds.includes(x.user_id);
       return true;

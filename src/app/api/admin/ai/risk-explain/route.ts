@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     const fallback = {
       summary: "Риск-профиль сформирован на основе rule-based сигналов.",
-      why: parsed.data.signals.slice(0, 5).map((s) => `${s.label ?? s.key}: ${s.value ?? "n/a"}`),
+      why: parsed.data.signals.slice(0, 5).map((s: any) => `${s.label ?? s.key}: ${s.value ?? "n/a"}`),
       recommended_actions: [
         "Ограничить лимит connect/day и наблюдать 24ч",
         "Проверить последние жалобы и повторяющиеся сообщения",
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
           },
         },
       } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
+      new Promise<null>((resolve: any) => setTimeout(() => resolve(null), 12000)),
     ]);
 
     if (!response) return ok(fallback);

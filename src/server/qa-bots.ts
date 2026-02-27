@@ -75,7 +75,7 @@ export async function ensureQaBotUsers(count = 30) {
 
   const existing = await selectQaBots();
   if (existing.length >= count) {
-    return existing.slice(0, count).map((u) => ({ id: u.id, name: u.name, phone: u.phone }));
+    return existing.slice(0, count).map((u: any) => ({ id: u.id, name: u.name, phone: u.phone }));
   }
 
   const toCreate = count - existing.length;
@@ -118,7 +118,7 @@ export async function ensureQaBotUsers(count = 30) {
     }
   }
 
-  return [...existing.map((u) => ({ id: u.id, name: u.name, phone: u.phone })), ...created].slice(0, count);
+  return [...existing.map((u: any) => ({ id: u.id, name: u.name, phone: u.phone })), ...created].slice(0, count);
 }
 
 export async function startQaBots(input: {

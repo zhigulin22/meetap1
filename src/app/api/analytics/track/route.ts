@@ -10,7 +10,7 @@ const schema = z
     path: z.string().max(300).optional(),
     properties: z.record(z.unknown()).optional(),
   })
-  .refine((v) => Boolean(v.event_name || v.eventName), {
+  .refine((v: any) => Boolean(v.event_name || v.eventName), {
     message: "event_name is required",
     path: ["event_name"],
   });

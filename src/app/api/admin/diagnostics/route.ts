@@ -72,7 +72,7 @@ export async function GET() {
             { table: "feature_flags", probe: "id" },
             { table: "alerts", probe: "id" },
             { table: "event_dictionary", probe: "event_name" },
-          ].map((t) => checkRls(t.table, t.probe)),
+          ].map((t: any) => checkRls(t.table, t.probe)),
         ),
         supabaseAdmin
           .from("analytics_events")
@@ -99,12 +99,12 @@ export async function GET() {
     }
 
     const top_event_names = [...eventMap.entries()]
-      .sort((a, b) => b[1] - a[1])
+      .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 10)
       .map(([event_name, count_24h]) => ({ event_name, count_24h }));
 
     const event_counts_24h = {
-      total: [...eventMap.values()].reduce((a, b) => a + b, 0),
+      total: [...eventMap.values()].reduce((a: any, b: any) => a + b, 0),
       register_started: eventMap.get("register_started") ?? 0,
       telegram_verified: eventMap.get("telegram_verified") ?? 0,
       registration_completed: eventMap.get("registration_completed") ?? 0,
@@ -136,10 +136,10 @@ export async function GET() {
     };
 
     const canReadAnalytics =
-      rlsRows.find((x) => x.table === "analytics_events")?.can_select ?? false;
+      rlsRows.find((x: any) => x.table === "analytics_events")?.can_select ?? false;
     const rlsIssues = rlsRows
-      .filter((x) => !x.can_select)
-      .map((x) => `${x.table}: ${x.note}`);
+      .filter((x: any) => !x.can_select)
+      .map((x: any) => `${x.table}: ${x.note}`);
 
     const issues: string[] = [];
     const fixes: string[] = [];
@@ -159,7 +159,7 @@ export async function GET() {
       if (!value) issues.push(`ENV missing/disabled: ${key}`);
     }
 
-    const missingTables = tableRows.filter((x) => !x.exists).map((x) => x.name);
+    const missingTables = tableRows.filter((x: any) => !x.exists).map((x: any) => x.name);
     if (missingTables.length) {
       issues.push(`Missing tables: ${missingTables.join(", ")}`);
       fixes.push("Нажми Fix now или примени SQL миграции до последней версии.");
@@ -171,7 +171,7 @@ export async function GET() {
       });
     }
 
-    const analyticsTable = tableRows.find((x) => x.name === "analytics_events");
+    const analyticsTable = tableRows.find((x: any) => x.name === "analytics_events");
     const events24h = analyticsTable?.rows_24h ?? 0;
 
     if (events24h === 0) {
@@ -194,7 +194,7 @@ export async function GET() {
     }
 
     const known = new Set(knownEventNames());
-    const unknownTop = top_event_names.filter((x) => !known.has(x.event_name));
+    const unknownTop = top_event_names.filter((x: any) => !known.has(x.event_name));
     if (top_event_names.length > 0 && unknownTop.length === top_event_names.length) {
       issues.push("Event names mismatch: top events do not match metric dictionary");
       fixes.push("Установи event_dictionary mapping (auto-fix available).");

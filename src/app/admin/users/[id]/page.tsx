@@ -38,7 +38,7 @@ export default function AdminUserPage() {
         body: JSON.stringify({ action }),
       });
 
-      queryClient.setQueryData<any>(["admin-user-360", params.id], (prev) =>
+      queryClient.setQueryData<any>(["admin-user-360", params.id], (prev: any) =>
         prev
           ? {
               ...prev,

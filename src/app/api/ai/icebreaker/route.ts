@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const result = await Promise.race([
     buildIcebreaker(parsed.data),
-    new Promise<IcebreakerResponse>((resolve) =>
+    new Promise<IcebreakerResponse>((resolve: any) =>
       setTimeout(
         () =>
           resolve({

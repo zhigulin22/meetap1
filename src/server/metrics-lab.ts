@@ -41,7 +41,7 @@ function makeTrend(rows: Array<{ event_name: string; created_at: string }>, cano
     const d = dayKey(row.created_at);
     map.set(d, (map.get(d) ?? 0) + 1);
   }
-  return days.map((d) => ({ date: d, value: map.get(d) ?? 0 }));
+  return days.map((d: any) => ({ date: d, value: map.get(d) ?? 0 }));
 }
 
 function countByCanonical(rows: Array<{ event_name: string }>) {
@@ -96,7 +96,7 @@ export async function getMetricsBlock(kind: string, fromISO: string, toISO: stri
   }
 
   if (kind === "engagement") {
-    const uniqueUsers = new Set((rows as any[]).map((r) => r.user_id).filter(Boolean)).size;
+    const uniqueUsers = new Set((rows as any[]).map((r: any) => r.user_id).filter(Boolean)).size;
     const totalEvents = rows.length;
     return {
       kpis: [
@@ -112,7 +112,7 @@ export async function getMetricsBlock(kind: string, fromISO: string, toISO: stri
   if (kind === "content") {
     const duo = c.get("post_published_daily_duo") ?? 0;
     const video = c.get("post_published_video") ?? 0;
-    const activeUsers = new Set((rows as any[]).map((r) => r.user_id).filter(Boolean)).size;
+    const activeUsers = new Set((rows as any[]).map((r: any) => r.user_id).filter(Boolean)).size;
     return {
       kpis: [
         kpi("Daily Duo", duo),

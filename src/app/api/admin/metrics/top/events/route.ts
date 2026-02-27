@@ -52,7 +52,7 @@ export async function GET(req: Request) {
         ? await supabaseAdmin.from("events").select("id,title,location").in("id", ids.slice(0, 5000))
         : { data: [] as EventRow[] };
 
-      const eventMap = new Map<string, EventRow>(((events.data ?? []) as EventRow[]).map((x) => [x.id, x]));
+      const eventMap = new Map<string, EventRow>(((events.data ?? []) as EventRow[]).map((x: any) => [x.id, x]));
       const items = [...counts.entries()]
         .map(([event_id, value]) => ({
           event_id,
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
           title: eventMap.get(event_id)?.title ?? `Event ${event_id.slice(0, 6)}`,
           location: eventMap.get(event_id)?.location ?? null,
         }))
-        .sort((a, b) => b.value - a.value)
+        .sort((a: any, b: any) => b.value - a.value)
         .slice(0, parsed.data.limit);
 
       return ok({ metric: parsed.data.metric, items });
@@ -82,12 +82,12 @@ export async function GET(req: Request) {
       counts.set(eventId, (counts.get(eventId) ?? 0) + 1);
     }
 
-    const ids = [...counts.keys()].filter((x) => /^[0-9a-f-]{6,}$/i.test(x));
+    const ids = [...counts.keys()].filter((x: any) => /^[0-9a-f-]{6,}$/i.test(x));
     const events = ids.length
       ? await supabaseAdmin.from("events").select("id,title,location").in("id", ids.slice(0, 5000))
       : { data: [] as EventRow[] };
 
-    const eventMap = new Map<string, EventRow>(((events.data ?? []) as EventRow[]).map((x) => [x.id, x]));
+    const eventMap = new Map<string, EventRow>(((events.data ?? []) as EventRow[]).map((x: any) => [x.id, x]));
     const items = [...counts.entries()]
       .map(([event_id, value]) => ({
         event_id,
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
         title: eventMap.get(event_id)?.title ?? `Event ${event_id.slice(0, 6)}`,
         location: eventMap.get(event_id)?.location ?? null,
       }))
-      .sort((a, b) => b.value - a.value)
+      .sort((a: any, b: any) => b.value - a.value)
       .slice(0, parsed.data.limit);
 
     return ok({ metric: parsed.data.metric, items });

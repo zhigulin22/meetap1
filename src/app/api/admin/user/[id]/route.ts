@@ -74,8 +74,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       eventsByName.set(row.event_name, (eventsByName.get(row.event_name) ?? 0) + 1);
     }
 
-    const videoCount = (posts.data ?? []).filter((p) => p.type === "reel").length;
-    const duoCount = (posts.data ?? []).filter((p) => p.type !== "reel").length;
+    const videoCount = (posts.data ?? []).filter((p: any) => p.type === "reel").length;
+    const duoCount = (posts.data ?? []).filter((p: any) => p.type !== "reel").length;
 
     const msgRows = messages.data ?? [];
     const byPair = new Map<string, string[]>();
@@ -97,12 +97,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         if (deltaMin > 0 && deltaMin < 24 * 60) replyMins.push(deltaMin);
       }
     }
-    replyMins.sort((a, b) => a - b);
+    replyMins.sort((a: any, b: any) => a - b);
     const medianReplyMin = replyMins.length ? replyMins[Math.floor(replyMins.length / 2)] : 0;
 
     const timeline = [...analyticsRows]
       .slice(0, 200)
-      .map((e) => ({ type: "event", label: e.event_name, created_at: e.created_at, payload: e.properties }));
+      .map((e: any) => ({ type: "event", label: e.event_name, created_at: e.created_at, payload: e.properties }));
 
     return ok({
       user: {
@@ -124,8 +124,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         medianReplyMin: Number(medianReplyMin.toFixed(1)),
         endorsementsReceived: endorsementsReceived.count ?? 0,
         endorsementsSent: endorsementsSent.count ?? 0,
-        reportsReceived: (reports.data ?? []).filter((r) => r.reporter_user_id !== userId).length,
-        reportsMade: (reports.data ?? []).filter((r) => r.reporter_user_id === userId).length,
+        reportsReceived: (reports.data ?? []).filter((r: any) => r.reporter_user_id !== userId).length,
+        reportsMade: (reports.data ?? []).filter((r: any) => r.reporter_user_id === userId).length,
       },
       heatmap: [...heat.entries()].map(([day, value]) => ({ day, value })),
       timeline,

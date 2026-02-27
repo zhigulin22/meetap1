@@ -45,7 +45,7 @@ export async function GET() {
     }
 
     const userRows = (users ?? []) as Array<{ id: string; name: string; avatar_url: string | null; shadow_banned?: boolean | null }>;
-    const userMap = new Map(userRows.map((u) => [u.id, u]));
+    const userMap = new Map(userRows.map((u: any) => [u.id, u]));
 
     const reactionMap = new Map<string, { like: number; connect: number; star: number }>();
     const myMap = new Map<string, { liked: boolean; connected: boolean; starred: boolean }>();
@@ -72,13 +72,13 @@ export async function GET() {
     }
 
     const items = (posts ?? [])
-      .filter((post) => {
+      .filter((post: any) => {
         const author = userMap.get(post.user_id);
         if (!author) return false;
         if (author.shadow_banned && post.user_id !== userId) return false;
         return true;
       })
-      .map((post) => ({
+      .map((post: any) => ({
         id: post.id,
         user_id: post.user_id,
         type: post.type,

@@ -58,15 +58,15 @@ export async function POST(req: Request) {
 
     const myInterests = [...(meUser.interests ?? []), ...(meUser.hobbies ?? [])];
     const targetInterests = [...(targetUser.interests ?? []), ...(targetUser.hobbies ?? [])];
-    const common = myInterests.filter((i) => targetInterests.includes(i));
+    const common = myInterests.filter((i: any) => targetInterests.includes(i));
 
-    const myEventSet = new Set((myEvents ?? []).map((x) => x.event_id));
-    const sharedEvents = (targetEvents ?? []).filter((x) => myEventSet.has(x.event_id)).length;
+    const myEventSet = new Set((myEvents ?? []).map((x: any) => x.event_id));
+    const sharedEvents = (targetEvents ?? []).filter((x: any) => myEventSet.has(x.event_id)).length;
 
     const behaviorSignals = [
       common.length ? `общие интересы: ${common.slice(0, 4).join(", ")}` : "интересы пока не пересекаются",
       sharedEvents > 0 ? `совпадение по событиям: ${sharedEvents}` : "пока без общих событий",
-      `мои реакции: ${(myReactions ?? []).map((x) => x.reaction_type).slice(0, 5).join(", ") || "нет"}`,
+      `мои реакции: ${(myReactions ?? []).map((x: any) => x.reaction_type).slice(0, 5).join(", ") || "нет"}`,
     ];
 
     const ai = await buildIcebreaker({

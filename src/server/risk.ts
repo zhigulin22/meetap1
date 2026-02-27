@@ -223,10 +223,10 @@ export async function buildRiskProfiles(userIds: string[], fromISO?: string, toI
       });
     }
 
-    const daily = [...s.dailyEvents.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const daily = [...s.dailyEvents.entries()].sort((a: any, b: any) => a[0].localeCompare(b[0]));
     if (daily.length >= 3) {
       const last = daily[daily.length - 1]?.[1] ?? 0;
-      const prevVals = daily.slice(0, -1).map((x) => x[1]);
+      const prevVals = daily.slice(0, -1).map((x: any) => x[1]);
       const avg = prevVals.reduce((acc, v) => acc + v, 0) / Math.max(1, prevVals.length);
       if (last >= 40 && last > avg * 3) {
         signals.push({
@@ -245,7 +245,7 @@ export async function buildRiskProfiles(userIds: string[], fromISO?: string, toI
       if (!cur || sig.severity >= cur.severity) dedup.set(sig.key, sig);
     }
 
-    const finalSignals = [...dedup.values()].sort((a, b) => b.severity - a.severity || b.value - a.value).slice(0, 8);
+    const finalSignals = [...dedup.values()].sort((a: any, b: any) => b.severity - a.severity || b.value - a.value).slice(0, 8);
     const riskScore = sumSeverity(finalSignals);
 
     out.set(userId, {

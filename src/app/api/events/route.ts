@@ -16,7 +16,7 @@ export async function GET() {
       : Promise.resolve({ data: [] as Array<{ event_id: string }> }),
   ]);
 
-  const joinedSet = new Set((myMemberships ?? []).map((x) => x.event_id));
+  const joinedSet = new Set((myMemberships ?? []).map((x: any) => x.event_id));
 
   const grouped = new Map<string, Array<{ id: string; name: string; avatar_url: string | null }>>();
 
@@ -30,7 +30,7 @@ export async function GET() {
   }
 
   return ok({
-    items: (events ?? []).map((e) => ({
+    items: (events ?? []).map((e: any) => ({
       ...e,
       participants: (grouped.get(e.id) ?? []).slice(0, 5),
       joined: joinedSet.has(e.id),

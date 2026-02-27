@@ -42,8 +42,8 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: true })
       .limit(20000);
 
-    const filteredUsers = (users ?? []).filter((u) => !segmentUserIds || segmentUserIds.includes(u.id));
-    const userIds = filteredUsers.map((u) => u.id);
+    const filteredUsers = (users ?? []).filter((u: any) => !segmentUserIds || segmentUserIds.includes(u.id));
+    const userIds = filteredUsers.map((u: any) => u.id);
 
     const { data: events } = userIds.length
       ? await supabaseAdmin
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
     }
 
     const rows = [...cohorts.entries()]
-      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .sort((a: any, b: any) => (a[0] < b[0] ? -1 : 1))
       .map(([week, value]) => {
         const cohortSize = value.users.length;
 

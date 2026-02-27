@@ -43,7 +43,7 @@ async function countUniqueActiveUsers(fromISO: string, toISO: string, userIds: s
   if (userIds && userIds.length) query.in("user_id", userIds);
 
   const { data } = await query;
-  return new Set((data ?? []).map((x) => x.user_id).filter(Boolean) as string[]).size;
+  return new Set((data ?? []).map((x: any) => x.user_id).filter(Boolean) as string[]).size;
 }
 
 async function sumAiCost(fromISO: string, toISO: string, userIds: string[] | null) {
@@ -196,7 +196,7 @@ export async function GET(req: Request) {
       (() => {
         const q = supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("telegram_verified", true);
         if (userIds && userIds.length) q.in("id", userIds);
-        return q.then((x) => x.count ?? 0);
+        return q.then((x: any) => x.count ?? 0);
       })(),
       countUniqueActiveUsers(d1, toISO, userIds),
       countUniqueActiveUsers(d7, toISO, userIds),
@@ -213,12 +213,12 @@ export async function GET(req: Request) {
       countByAliases(aliases.eventJoin, d7, toISO, userIds),
       countByAliases(aliases.connectSent, fromISO, toISO, userIds),
       countByAliases(aliases.connectReply, fromISO, toISO, userIds),
-      supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open").then((x) => x.count ?? 0),
-      supabaseAdmin.from("content_flags").select("id", { count: "exact", head: true }).eq("status", "open").then((x) => x.count ?? 0),
+      supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open").then((x: any) => x.count ?? 0),
+      supabaseAdmin.from("content_flags").select("id", { count: "exact", head: true }).eq("status", "open").then((x: any) => x.count ?? 0),
       (() => {
         const q = supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("is_blocked", true);
         if (userIds && userIds.length) q.in("id", userIds);
-        return q.then((x) => x.count ?? 0);
+        return q.then((x: any) => x.count ?? 0);
       })(),
       countByAliases(aliases.connectReply, d7, toISO, userIds),
       countByAliases(aliases.apiErrors, d1, toISO, null),
@@ -228,21 +228,21 @@ export async function GET(req: Request) {
       countByAliases(aliases.registrationCompleted, prevFrom, prevTo, userIds),
       countByAliases(aliases.connectSent, prevFrom, prevTo, userIds),
       countByAliases(aliases.connectReply, new Date(new Date(prevTo).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), prevTo, userIds),
-      supabaseAdmin.from("moderation_actions").select("id,action,reason,created_at,admin_user_id").order("created_at", { ascending: false }).limit(8).then((x) => x.data ?? []),
+      supabaseAdmin.from("moderation_actions").select("id,action,reason,created_at,admin_user_id").order("created_at", { ascending: false }).limit(8).then((x: any) => x.data ?? []),
       countByAliases(aliases.integrationErrors, d7, toISO, null),
-      supabaseAdmin.from("analytics_events").select("properties").eq("event_name", "api_latency_ms").gte("created_at", d7).limit(6000).then((x) => x.data ?? []),
-      supabaseAdmin.from("analytics_events").select("event_name,user_id").in("event_name", aliases.funnelRows).gte("created_at", fromISO).lte("created_at", toISO).limit(120000).then((x) => x.data ?? []),
+      supabaseAdmin.from("analytics_events").select("properties").eq("event_name", "api_latency_ms").gte("created_at", d7).limit(6000).then((x: any) => x.data ?? []),
+      supabaseAdmin.from("analytics_events").select("event_name,user_id").in("event_name", aliases.funnelRows).gte("created_at", fromISO).lte("created_at", toISO).limit(120000).then((x: any) => x.data ?? []),
       computeSeries({ metric: "dau", fromISO, toISO, userIds }),
       computeSeries({ metric: "posts", fromISO, toISO, userIds }),
       computeSeries({ metric: "connect_replied", fromISO, toISO, userIds }),
     ]);
 
-    const miniFunnel = buildMiniFunnel((miniFunnelRows ?? []).filter((x) => !userIds || (x.user_id && userIds.includes(x.user_id))));
+    const miniFunnel = buildMiniFunnel((miniFunnelRows ?? []).filter((x: any) => !userIds || (x.user_id && userIds.includes(x.user_id))));
 
     const latencyVals = (latencyRows as Array<{ properties: Record<string, unknown> }>)
-      .map((r) => Number(r.properties?.ms ?? 0))
-      .filter((x) => Number.isFinite(x) && x > 0)
-      .sort((a, b) => a - b);
+      .map((r: any) => Number(r.properties?.ms ?? 0))
+      .filter((x: any) => Number.isFinite(x) && x > 0)
+      .sort((a: any, b: any) => a - b);
     const p95Latency = latencyVals.length ? latencyVals[Math.floor(latencyVals.length * 0.95) - 1] ?? latencyVals[latencyVals.length - 1] : 0;
 
     const env = getServerEnv();
@@ -287,9 +287,9 @@ export async function GET(req: Request) {
         wmcDiff: percentDiff(wmc, wmcPrev),
       },
       trends: {
-        dau: trendsDau.points.map((p) => ({ date: p.ts, value: p.value })),
-        posts: trendsPosts.points.map((p) => ({ date: p.ts, value: p.value })),
-        connectReplied: trendsConnect.points.map((p) => ({ date: p.ts, value: p.value })),
+        dau: trendsDau.points.map((p: any) => ({ date: p.ts, value: p.value })),
+        posts: trendsPosts.points.map((p: any) => ({ date: p.ts, value: p.value })),
+        connectReplied: trendsConnect.points.map((p: any) => ({ date: p.ts, value: p.value })),
       },
       miniFunnel,
       health: {

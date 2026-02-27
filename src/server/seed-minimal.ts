@@ -88,7 +88,7 @@ async function ensureDemoUsers(target = 10) {
   if (existingRes.error) throw new Error(existingRes.error.message);
 
   const existing = existingRes.data ?? [];
-  if (existing.length >= target) return existing.map((x) => x.id);
+  if (existing.length >= target) return existing.map((x: any) => x.id);
 
   const need = target - existing.length;
   const rows = Array.from({ length: need }).map((_, idx) => {
@@ -114,7 +114,7 @@ async function ensureDemoUsers(target = 10) {
   const insert = await supabaseAdmin.from("users").insert(rows).select("id");
   if (insert.error) throw new Error(insert.error.message);
 
-  return [...existing.map((x) => x.id), ...(insert.data ?? []).map((x) => x.id)].slice(0, target);
+  return [...existing.map((x: any) => x.id), ...(insert.data ?? []).map((x: any) => x.id)].slice(0, target);
 }
 
 async function ensureDemoEvents(target = 5) {
@@ -133,7 +133,7 @@ async function ensureDemoEvents(target = 5) {
   }
 
   const existing = existingRes.data ?? [];
-  if (existing.length >= target) return existing.map((x) => x.id);
+  if (existing.length >= target) return existing.map((x: any) => x.id);
 
   const need = target - existing.length;
   const rows = Array.from({ length: need }).map((_, idx) => {
@@ -153,7 +153,7 @@ async function ensureDemoEvents(target = 5) {
   const insert = await supabaseAdmin.from("events").insert(rows).select("id");
   if (insert.error) throw new Error(insert.error.message);
 
-  return [...existing.map((x) => x.id), ...(insert.data ?? []).map((x) => x.id)].slice(0, target);
+  return [...existing.map((x: any) => x.id), ...(insert.data ?? []).map((x: any) => x.id)].slice(0, target);
 }
 
 export async function seedMinimalData() {
@@ -247,8 +247,8 @@ async function findDemoIds() {
   if (eventsRes.error) throw new Error(eventsRes.error.message);
 
   return {
-    userIds: (usersRes.data ?? []).map((x) => x.id),
-    eventIds: (eventsRes.data ?? []).map((x) => x.id),
+    userIds: (usersRes.data ?? []).map((x: any) => x.id),
+    eventIds: (eventsRes.data ?? []).map((x: any) => x.id),
   };
 }
 

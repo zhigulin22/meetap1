@@ -59,7 +59,7 @@ export async function GET(req: Request) {
       const users = ids.length
         ? await supabaseAdmin.from("users").select("id,name,country").in("id", ids.slice(0, 5000))
         : { data: [] as UserRow[] };
-      const userMap = new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u) => [u.id, u]));
+      const userMap = new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u: any) => [u.id, u]));
 
       const items = [...counts.entries()]
         .map(([user_id, value]) => ({
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
           name: userMap.get(user_id)?.name ?? "Unknown",
           city: userMap.get(user_id)?.country ?? null,
         }))
-        .sort((a, b) => b.value - a.value)
+        .sort((a: any, b: any) => b.value - a.value)
         .slice(0, parsed.data.limit);
 
       return ok({ metric: parsed.data.metric, items });
@@ -99,7 +99,7 @@ export async function GET(req: Request) {
     const users = ids.length
       ? await supabaseAdmin.from("users").select("id,name,country").in("id", ids.slice(0, 5000))
       : { data: [] as UserRow[] };
-    const userMap = new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u) => [u.id, u]));
+    const userMap = new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u: any) => [u.id, u]));
 
     const items = [...counts.entries()]
       .map(([user_id, value]) => ({
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
         name: userMap.get(user_id)?.name ?? "Unknown",
         city: userMap.get(user_id)?.country ?? null,
       }))
-      .sort((a, b) => b.value - a.value)
+      .sort((a: any, b: any) => b.value - a.value)
       .slice(0, parsed.data.limit);
 
     return ok({ metric: parsed.data.metric, items });

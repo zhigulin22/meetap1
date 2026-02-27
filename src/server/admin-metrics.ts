@@ -27,7 +27,7 @@ export async function getSegmentUserIds(segment: Segment, fromISO: string, toISO
 
   if (segment === "verified") {
     const { data } = await supabaseAdmin.from("users").select("id").eq("telegram_verified", true).limit(10000);
-    return (data ?? []).map((x) => x.id);
+    return (data ?? []).map((x: any) => x.id);
   }
 
   if (segment === "new") {
@@ -37,7 +37,7 @@ export async function getSegmentUserIds(segment: Segment, fromISO: string, toISO
       .gte("created_at", fromISO)
       .lte("created_at", toISO)
       .limit(10000);
-    return (data ?? []).map((x) => x.id);
+    return (data ?? []).map((x: any) => x.id);
   }
 
   const { data } = await supabaseAdmin
@@ -48,7 +48,7 @@ export async function getSegmentUserIds(segment: Segment, fromISO: string, toISO
     .not("user_id", "is", null)
     .limit(10000);
 
-  return [...new Set((data ?? []).map((x) => x.user_id).filter(Boolean) as string[])];
+  return [...new Set((data ?? []).map((x: any) => x.user_id).filter(Boolean) as string[])];
 }
 
 export async function filterCountByUsers(

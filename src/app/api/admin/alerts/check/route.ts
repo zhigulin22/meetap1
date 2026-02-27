@@ -33,7 +33,7 @@ export async function POST() {
       if (alert.metric === "api_errors") value = await countEvent("api_error", since);
       if (alert.metric === "ai_cost") {
         const { data } = await supabaseAdmin.from("analytics_events").select("properties").eq("event_name", "ai_cost").gte("created_at", since).limit(5000);
-        value = (data ?? []).reduce((sum, row: any) => sum + Number(row.properties?.usd ?? 0), 0);
+        value = (data ?? []).reduce((sum: number, row: any) => sum + Number(row.properties?.usd ?? 0), 0);
       }
 
       if (value >= Number(alert.threshold)) {

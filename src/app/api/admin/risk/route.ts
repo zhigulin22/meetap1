@@ -14,7 +14,7 @@ export async function GET() {
       .limit(500);
 
     const users = usersRes.data ?? [];
-    const userIds = users.map((u) => u.id);
+    const userIds = users.map((u: any) => u.id);
 
     const [riskMap, lastSeenRes] = await Promise.all([
       buildRiskProfiles(userIds),
@@ -35,25 +35,25 @@ export async function GET() {
     }
 
     const items = users
-      .map((u) => {
+      .map((u: any) => {
         const risk = riskMap.get(u.id) ?? { riskScore: 0, riskStatus: "low", signals: [] };
         return {
           ...u,
           risk_score: risk.riskScore,
           risk_status: risk.riskStatus,
-          signals: risk.signals.map((s) => `${s.label}: ${s.value}`),
+          signals: risk.signals.map((s: any) => `${s.label}: ${s.value}`),
           top_signals: risk.signals,
           last_seen_at: lastSeenMap.get(u.id) ?? null,
         };
       })
-      .filter((x) => x.risk_score > 0 || x.is_blocked || x.shadow_banned || x.message_limited)
-      .sort((a, b) => b.risk_score - a.risk_score)
+      .filter((x: any) => x.risk_score > 0 || x.is_blocked || x.shadow_banned || x.message_limited)
+      .sort((a: any, b: any) => b.risk_score - a.risk_score)
       .slice(0, 300);
 
     const distribution = {
-      low: items.filter((x) => x.risk_status === "low").length,
-      medium: items.filter((x) => x.risk_status === "medium").length,
-      high: items.filter((x) => x.risk_status === "high").length,
+      low: items.filter((x: any) => x.risk_status === "low").length,
+      medium: items.filter((x: any) => x.risk_status === "medium").length,
+      high: items.filter((x: any) => x.risk_status === "high").length,
     };
 
     const topSignalsMap = new Map<string, number>();
@@ -65,7 +65,7 @@ export async function GET() {
 
     const topSignals = [...topSignalsMap.entries()]
       .map(([key, count]) => ({ key, count }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a: any, b: any) => b.count - a.count)
       .slice(0, 8);
 
     return ok({ items, distribution, topSignals });

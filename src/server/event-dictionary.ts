@@ -175,7 +175,7 @@ export function canonicalizeEventName(eventName: string | null | undefined) {
 
 export function aliasesForCanonical(canonical: string) {
   const resolvedCanonical = aliasToCanonical.get(canonical) ?? canonical;
-  const item = EVENT_DICTIONARY.find((x) => x.event_name === resolvedCanonical || LEGACY_CANONICAL_BY_NEW[x.event_name] === canonical);
+  const item = EVENT_DICTIONARY.find((x: any) => x.event_name === resolvedCanonical || LEGACY_CANONICAL_BY_NEW[x.event_name] === canonical);
   return item?.aliases ?? [canonical];
 }
 
@@ -192,7 +192,7 @@ export function knownEventNames() {
 }
 
 export function eventDictionarySeedRows() {
-  return EVENT_DICTIONARY.map((x) => ({
+  return EVENT_DICTIONARY.map((x: any) => ({
     event_name: x.event_name,
     family: x.family,
     display_ru: x.display_ru,

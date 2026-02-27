@@ -99,7 +99,7 @@ async function runAction(action: z.infer<typeof schema>["action"]) {
     .from("analytics_events")
     .select("id", { count: "exact", head: true })
     .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .then((x) => x.count ?? 0);
+    .then((x: any) => x.count ?? 0);
 
   if (eventsCount === 0) {
     const seedStatus = getSeedMinimalStatus();

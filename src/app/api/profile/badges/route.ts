@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   }));
 
   const earnedIds = new Set(earned.map((x: any) => x.badge?.id).filter(Boolean));
-  const available = (allBadges.data ?? []).filter((b) => !earnedIds.has(b.id));
+  const available = (allBadges.data ?? []).filter((b: any) => !earnedIds.has(b.id));
   const featured = earned.find((x: any) => x.is_featured) ?? null;
 
   return ok({ featured, earned, available });

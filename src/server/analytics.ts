@@ -35,7 +35,7 @@ const bannedPatterns = [
 ];
 
 export function detectRiskText(content: string) {
-  const matched = bannedPatterns.filter((p) => p.test(content));
+  const matched = bannedPatterns.filter((p: any) => p.test(content));
 
   const scoreBase = matched.length * 24;
   const longAggressive = content.length > 260 ? 10 : 0;
@@ -49,7 +49,7 @@ export function detectRiskText(content: string) {
     risky: score >= 50,
     score,
     status,
-    patterns: matched.map((x) => x.source),
+    patterns: matched.map((x: any) => x.source),
   };
 }
 

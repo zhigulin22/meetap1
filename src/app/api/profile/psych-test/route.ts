@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     }
 
     const valid = answers.every(
-      (x) =>
+      (x: any) =>
         x &&
         typeof x.id === "string" &&
         ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"].includes(x.trait) &&

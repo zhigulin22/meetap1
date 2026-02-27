@@ -29,12 +29,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       return fail(error.message, 500);
     }
 
-    const userIds = [...new Set((comments ?? []).map((x) => x.user_id))];
+    const userIds = [...new Set((comments ?? []).map((x: any) => x.user_id))];
     const { data: users } = await supabaseAdmin.from("users").select("id,name,avatar_url").in("id", userIds);
-    const userMap = new Map((users ?? []).map((u) => [u.id, u]));
+    const userMap = new Map((users ?? []).map((u: any) => [u.id, u]));
 
     return ok({
-      items: (comments ?? []).map((c) => ({
+      items: (comments ?? []).map((c: any) => ({
         ...c,
         user: userMap.get(c.user_id) ?? null,
       })),

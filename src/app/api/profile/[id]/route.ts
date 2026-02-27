@@ -74,9 +74,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     photoMap.set(p.post_id, list);
   }
 
-  const feed = ((postsRes.data ?? []) as PostRow[]).map((post) => ({ ...post, photos: photoMap.get(post.id) ?? [] }));
-  const videos = feed.filter((x) => x.type === "reel");
-  const photos = feed.filter((x) => x.type !== "reel");
+  const feed = ((postsRes.data ?? []) as PostRow[]).map((post: any) => ({ ...post, photos: photoMap.get(post.id) ?? [] }));
+  const videos = feed.filter((x: any) => x.type === "reel");
+  const photos = feed.filter((x: any) => x.type !== "reel");
 
   const endorsementsCount = endorsementsRes.count ?? 0;
   const eventsCount = (eventsRes.data ?? []).length;
