@@ -165,7 +165,8 @@ function TrendChart({
           <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm">
             <p>Нет данных. Причина: {emptyReason ?? "нет событий за период"}</p>
             <div className="flex flex-wrap gap-2">
-              {onRunDiagnostics ? <Button size="sm" variant="secondary" onClick={onRunDiagnostics}>Run Diagnostics</Button> : null}
+               {onRunDiagnostics ? <Button size="sm" variant="secondary" onClick={onRunDiagnostics}>Run Diagnostics</Button> : null}
+              <Link href="/admin/events-stream"><Button size="sm" variant="secondary">Open Events Stream</Button></Link>
             </div>
           </div>
         ) : (
@@ -291,6 +292,7 @@ export default function AdminPage() {
   const [trafficTickResult, setTrafficTickResult] = useState<{ events_written: number; last_db_event_at: string | null } | null>(null);
   const [liveDemoGroup, setLiveDemoGroup] = useState("");
   const [showDiagnosticsJson, setShowDiagnosticsJson] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
   const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
 
@@ -303,13 +305,13 @@ export default function AdminPage() {
   const overview = useQuery({
     queryKey: ["admin-overview-v5", fromISO, toISO, segment],
     queryFn: () => adminApi(`/api/admin/metrics/overview?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}`, overviewResponseSchema),
-  refetchInterval: 8000,
+  refetchInterval: autoRefreshEnabled ? 10000 : false,
   });
 
   const funnels = useQuery({
     queryKey: ["admin-funnels-v5", fromISO, toISO, segment],
     queryFn: () => adminApi(`/api/admin/metrics/funnels?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}`, funnelsResponseSchema),
-  refetchInterval: 10000,
+  refetchInterval: autoRefreshEnabled ? 12000 : false,
   });
 
   const retention = useQuery({
@@ -343,7 +345,7 @@ export default function AdminPage() {
   const metricsLab = useQuery({
     queryKey: ["admin-metrics-lab", metricsTab, fromISO, toISO, segment],
     queryFn: () => api<{ kind: string; kpis: Array<{ name: string; value: number; subtitle?: string | null }>; trends: Array<{ key: string; points: Array<{ date: string; value: number }> }>; top: any[] }>(`/api/admin/metrics/${metricsTab}?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&segment=${segment}`),
-  refetchInterval: 8000,
+  refetchInterval: autoRefreshEnabled ? 10000 : false,
   });
 
   const seriesMetric = metricsTab === "growth" ? "new_users" : metricsTab === "social" ? "connect_replied" : metricsTab === "health" ? "events" : metricsTab === "ai" ? "ai_cost" : metricsTab === "engagement" ? "dau" : "posts";
@@ -368,7 +370,7 @@ export default function AdminPage() {
   const diagnostics = useQuery({
     queryKey: ["admin-diagnostics-v2"],
     queryFn: () => adminApi("/api/admin/diagnostics", diagnosticsResponseSchema),
-    refetchInterval: 15000,
+    refetchInterval: autoRefreshEnabled ? 15000 : false,
     retry: false,
   });
 
@@ -876,7 +878,6 @@ export default function AdminPage() {
       reasons.push("Есть события, но series вернула 0 точек");
     }
     if (diagnostics.data?.metrics_endpoints?.errors) reasons.push("Series endpoint error: " + diagnostics.data.metrics_endpoints.errors);
-    if (diagnosticsRlsIssues.length) reasons.push("RLS блокирует чтение части таблиц");
     if ((diagnostics.data?.top_event_names?.length ?? 0) > 0 && (diagnostics.data?.issues ?? []).some((x) => x.toLowerCase().includes("event names mismatch"))) {
       reasons.push("Имена событий не совпадают со словарем метрик");
     }
@@ -1062,6 +1063,7 @@ export default function AdminPage() {
                 <div className="rounded-xl border border-border bg-surface2/70 p-3">
                   <p>Статус: <strong>{(diagnostics.data?.issues.length ?? 0) === 0 ? "OK" : (diagnostics.data?.event_counts_24h?.total ?? 0) > 0 ? "WARNING" : "ERROR"}</strong></p>
                   <p>Supabase: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.supabase_ok ? "OK" : "ISSUES"}</strong></p>
+                  <p>Метрики считаются сервером: <strong>{diagnostics.data?.metrics_server_mode ? "✅ service role" : "—"}</strong></p>
                   <p>Seed Minimal: <strong>{diagnostics.data?.seed_minimal.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.seed_minimal.reason ?? "-"}</p>
                   <p>OpenAI: <strong>{diagnostics.data?.openai.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.openai.reason ?? "-"}</p>
                   <p>users.city: <strong>{cityColumnAvailable ? "available" : "missing"}</strong></p>
@@ -1136,6 +1138,7 @@ export default function AdminPage() {
                   <ActionButton state={actionUi.addOptionalColumns} variant="secondary" idleLabel="Add optional columns" loadingLabel="Adding..." successLabel={actionUi.addOptionalColumns?.label} onClick={addOptionalColumnsAction} />
                   <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Check Tracking" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
                   <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />                  <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setAutoRefreshEnabled((v) => !v)}>{autoRefreshEnabled ? "LIVE updating: ON" : "LIVE updating: OFF"}</Button>
                 </div>
                 {(diagnostics.data?.recommended_fixes?.length ?? 0) > 0 ? (
                   <div className="rounded-xl border border-border bg-surface2/70 p-3">

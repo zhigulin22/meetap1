@@ -301,6 +301,8 @@ export const diagnosticsResponseSchema = z.object({
   seed_minimal: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
   openai: z.object({ enabled: z.boolean(), reason: z.string(), fix_steps: z.array(z.string()).optional() }),
   can_read_analytics: z.boolean().optional(),
+  metrics_server_mode: z.boolean().optional(),
+  metrics_source: z.string().optional(),
   devtools_reason: z.string().optional(),
   openai_reason: z.string().optional(),
   recommended_fixes: z
@@ -326,6 +328,7 @@ export const liveEventsResponseSchema = z.object({
       created_at: z.string(),
       path: z.string().nullable().optional(),
       properties: z.record(z.unknown()).optional(),
+      summary: z.string().optional(),
     }),
   ),
 });

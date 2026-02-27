@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 
@@ -10,15 +11,19 @@ function buildClient() {
   });
 }
 
-export function getAdminClient() {
+export function getAdminSupabase() {
   return buildClient();
+}
+
+export function getAdminClient() {
+  return getAdminSupabase();
 }
 
 export const supabaseAdmin: any = new Proxy(
   {},
   {
     get(_target, prop) {
-      const client = buildClient() as any;
+      const client = getAdminSupabase() as any;
       return client[prop];
     },
   },

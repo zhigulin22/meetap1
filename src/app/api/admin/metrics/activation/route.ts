@@ -1,7 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
-import { parseWindow } from "@/server/admin-metrics";
+import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
 import { getMetricsBlock } from "@/server/metrics-lab";
 
 export async function GET(req: Request) {
@@ -16,7 +16,8 @@ export async function GET(req: Request) {
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
 
     const { fromISO, toISO } = parseWindow(parsed.data.from, parsed.data.to, 30);
-    const block = await getMetricsBlock("activation", fromISO, toISO);
+    const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
+    const block = await getMetricsBlock("activation", fromISO, toISO, userIds);
     return ok({ kind: "activation", range: { from: fromISO, to: toISO, segment: parsed.data.segment }, ...block });
   } catch {
     return fail("Forbidden", 403);

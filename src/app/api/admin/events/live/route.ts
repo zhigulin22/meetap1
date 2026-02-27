@@ -7,8 +7,23 @@ const querySchema = z.object({
   event_name: z.string().trim().max(120).optional(),
   user_id: z.string().trim().max(120).optional(),
   demo_group: z.string().trim().max(80).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(200),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
 });
+
+function summarizeProperties(input: Record<string, unknown> | null | undefined) {
+  if (!input) return "-";
+  const keys = ["demo_group", "event_id", "city", "reason", "run_id", "chaos", "message_hash"];
+  const chunks: string[] = [];
+  for (const key of keys) {
+    if (input[key] === undefined || input[key] === null || input[key] === "") continue;
+    chunks.push(`${key}:${String(input[key])}`);
+  }
+  if (!chunks.length) {
+    const fallback = Object.entries(input).slice(0, 3).map(([k, v]) => `${k}:${String(v)}`);
+    return fallback.join(" | ") || "-";
+  }
+  return chunks.join(" | ");
+}
 
 export async function GET(req: Request) {
   try {
@@ -38,7 +53,12 @@ export async function GET(req: Request) {
     const { data, error } = await query;
     if (error) return fail(error.message, 500);
 
-    return ok({ items: data ?? [] });
+    return ok({
+      items: (data ?? []).map((row: any) => ({
+        ...row,
+        summary: summarizeProperties(row.properties as Record<string, unknown> | null),
+      })),
+    });
   } catch {
     return fail("Forbidden", 403);
   }

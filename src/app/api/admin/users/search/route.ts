@@ -25,6 +25,26 @@ function applySearch(query: any, q: string, limit: number, cols: Set<string>) {
   return next.or(searchChunks.join(","));
 }
 
+function userFromId(id: string) {
+  return {
+    id,
+    name: `User ${id.slice(0, 8)}`,
+    phone: null,
+    city: null,
+    role: "user",
+    is_demo: false,
+    is_blocked: false,
+    shadow_banned: false,
+    message_limited: false,
+    blocked_reason: null,
+    blocked_until: null,
+    created_at: new Date(0).toISOString(),
+    last_post_at: null,
+    telegram_verified: false,
+    profile_completed: false,
+  };
+}
+
 export async function GET(req: Request) {
   try {
     await requireAdminUserId();
@@ -43,58 +63,81 @@ export async function GET(req: Request) {
 
     const schema = await getSchemaSnapshot(["users"]);
     const userCols = asSet(schema, "users");
-    if (!userCols.has("id")) return fail("users.id is required", 500);
 
-    const selectCols = [
-      "id",
-      "name",
-      "phone",
-      "telegram_user_id",
-      "city",
-      "country",
-      "role",
-      "is_demo",
-      "demo_group",
-      "is_blocked",
-      "shadow_banned",
-      "message_limited",
-      "blocked_reason",
-      "blocked_until",
-      "created_at",
-      "last_post_at",
-      "telegram_verified",
-      "profile_completed",
-    ].filter((col) => userCols.has(col));
+    let users: any[] = [];
 
-    if (!selectCols.includes("id")) selectCols.unshift("id");
+    if (userCols.has("id")) {
+      const selectCols = [
+        "id",
+        "name",
+        "phone",
+        "telegram_user_id",
+        "city",
+        "country",
+        "role",
+        "is_demo",
+        "demo_group",
+        "is_blocked",
+        "shadow_banned",
+        "message_limited",
+        "blocked_reason",
+        "blocked_until",
+        "created_at",
+        "last_post_at",
+        "telegram_verified",
+        "profile_completed",
+      ].filter((col) => userCols.has(col));
 
-    let query = applySearch(
-      supabaseAdmin.from("users").select(selectCols.join(",")),
-      q,
-      limit,
-      userCols,
-    );
+      if (!selectCols.includes("id")) selectCols.unshift("id");
 
-    if (demoFilter === "demo") {
-      if (userCols.has("is_demo")) query = query.eq("is_demo", true);
-      else if (userCols.has("name")) query = query.ilike("name", "Demo %");
+      let query = applySearch(
+        supabaseAdmin.from("users").select(selectCols.join(",")),
+        q,
+        limit,
+        userCols,
+      );
+
+      if (demoFilter === "demo") {
+        if (userCols.has("is_demo")) query = query.eq("is_demo", true);
+        else if (userCols.has("name")) query = query.ilike("name", "Demo %");
+      }
+
+      if (demoFilter === "real") {
+        if (userCols.has("is_demo")) query = query.or("is_demo.is.null,is_demo.eq.false");
+        else if (userCols.has("name")) query = query.not("name", "ilike", "Demo %");
+      }
+
+      if (demoFilter === "traffic") {
+        if (userCols.has("is_demo")) query = query.eq("is_demo", true);
+        if (userCols.has("demo_group")) query = query.eq("demo_group", "traffic");
+        else if (userCols.has("name")) query = query.ilike("name", "Traffic Demo %");
+      }
+
+      if (demoGroup.length && userCols.has("demo_group")) query = query.eq("demo_group", demoGroup);
+
+      const usersRes = await query;
+      if (usersRes.error) return fail(usersRes.error.message, 500);
+      users = usersRes.data ?? [];
     }
 
-    if (demoFilter === "real") {
-      if (userCols.has("is_demo")) query = query.or("is_demo.is.null,is_demo.eq.false");
-      else if (userCols.has("name")) query = query.not("name", "ilike", "Demo %");
+    if (!users.length) {
+      const events = await supabaseAdmin
+        .from("analytics_events")
+        .select("user_id,properties,created_at")
+        .order("created_at", { ascending: false })
+        .limit(120000);
+
+      const ids = new Set<string>();
+      for (const row of events.data ?? []) {
+        if (!row.user_id) continue;
+        if (q && !String(row.user_id).includes(q)) continue;
+        if (demoGroup.length && String((row.properties as Record<string, unknown> | null)?.demo_group ?? "") !== demoGroup) continue;
+        ids.add(String(row.user_id));
+        if (ids.size >= limit) break;
+      }
+
+      users = [...ids].map((id) => userFromId(id));
     }
-
-    if (demoFilter === "traffic") {
-      if (userCols.has("is_demo")) query = query.eq("is_demo", true);
-      if (userCols.has("demo_group")) query = query.eq("demo_group", "traffic");
-      else if (userCols.has("name")) query = query.ilike("name", "Traffic Demo %");
-    }
-
-    if (demoGroup.length && userCols.has("demo_group")) query = query.eq("demo_group", demoGroup);
-
-    const { data: users, error } = await query;
-    if (error) return fail(error.message, 500);
 
     const userIds = (users ?? []).map((u: any) => u.id);
     if (!userIds.length) return ok({ items: [] });

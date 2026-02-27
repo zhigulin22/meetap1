@@ -206,11 +206,7 @@ export async function GET() {
       });
     }
 
-    if (!canReadAnalytics) {
-      issues.push("RLS/permissions: cannot read analytics_events via anon");
-      fixes.push("Проверь RLS policies или читай только через server routes.");
-    }
-
+    
     const metricsEndpoints = {
       series_ok: Array.isArray(seriesProbe.points),
       sample_points_count: seriesProbe.points.length,
@@ -252,6 +248,8 @@ export async function GET() {
       seed_minimal: seedMinimal,
       openai,
       can_read_analytics: canReadAnalytics,
+      metrics_server_mode: true,
+      metrics_source: "service_role",
       issues,
       fixes,
       recommended_fixes,
