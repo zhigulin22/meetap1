@@ -38,7 +38,8 @@ export async function GET(req: Request) {
 
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
 
-    const demoFilter = (searchParams.get("demo") ?? "all") as "all" | "demo" | "real";
+    const demoFilter = (searchParams.get("demo") ?? "all") as "all" | "demo" | "real" | "traffic";
+    const demoGroup = (searchParams.get("demo_group") ?? "").trim();
     const { q, limit } = parsed.data;
 
     let query = applySearch(
@@ -52,10 +53,12 @@ export async function GET(req: Request) {
 
     if (demoFilter === "demo") query = query.eq("is_demo", true);
     if (demoFilter === "real") query = query.or("is_demo.is.null,is_demo.eq.false");
+    if (demoFilter === "traffic") query = query.eq("is_demo", true).eq("demo_group", "traffic");
+    if (demoGroup.length) query = query.eq("demo_group", demoGroup);
 
     let usersRes = await query;
 
-    if (usersRes.error && (isMissingColumnError(usersRes.error.message, "is_demo") || isMissingColumnError(usersRes.error.message, "city"))) {
+    if (usersRes.error && (isMissingColumnError(usersRes.error.message, "is_demo") || isMissingColumnError(usersRes.error.message, "city") || isMissingColumnError(usersRes.error.message, "demo_group"))) {
       let fallback = applySearch(
         supabaseAdmin
           .from("users")
@@ -67,6 +70,7 @@ export async function GET(req: Request) {
 
       if (demoFilter === "demo") fallback = fallback.ilike("name", "Demo %");
       if (demoFilter === "real") fallback = fallback.not("name", "ilike", "Demo %");
+      if (demoFilter === "traffic") fallback = fallback.ilike("name", "Traffic Demo %");
       usersRes = fallback;
     }
 

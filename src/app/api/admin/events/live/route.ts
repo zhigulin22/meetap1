@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 const querySchema = z.object({
   event_name: z.string().trim().max(120).optional(),
   user_id: z.string().trim().max(120).optional(),
+  demo_group: z.string().trim().max(80).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(200),
 });
 
@@ -16,6 +17,7 @@ export async function GET(req: Request) {
     const parsed = querySchema.safeParse({
       event_name: searchParams.get("event_name") ?? undefined,
       user_id: searchParams.get("user_id") ?? undefined,
+      demo_group: searchParams.get("demo_group") ?? undefined,
       limit: searchParams.get("limit") ?? undefined,
     });
 
@@ -31,6 +33,7 @@ export async function GET(req: Request) {
 
     if (parsed.data.event_name) query = query.eq("event_name", parsed.data.event_name);
     if (parsed.data.user_id) query = query.eq("user_id", parsed.data.user_id);
+    if (parsed.data.demo_group) query = query.filter("properties->>demo_group", "eq", parsed.data.demo_group);
 
     const { data, error } = await query;
     if (error) return fail(error.message, 500);

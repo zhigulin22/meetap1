@@ -1,6 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { buildSingleUserRisk } from "@/server/risk";
+import { canonicalizeEventName } from "@/server/event-dictionary";
 import { supabaseAdmin } from "@/supabase/admin";
 
 function dayKey(iso: string) {
@@ -71,7 +72,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const eventsByName = new Map<string, number>();
     for (const row of analyticsRows) {
-      eventsByName.set(row.event_name, (eventsByName.get(row.event_name) ?? 0) + 1);
+      const canonical = canonicalizeEventName(row.event_name);
+      eventsByName.set(canonical, (eventsByName.get(canonical) ?? 0) + 1);
     }
 
     const videoCount = (posts.data ?? []).filter((p: any) => p.type === "reel").length;

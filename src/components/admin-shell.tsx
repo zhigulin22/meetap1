@@ -31,7 +31,7 @@ export type AdminSection =
   | "overview"
   | "metrics_lab"
   | "events_live"
-  | "qa_bots"
+  | "traffic"
   | "funnels"
   | "retention"
   | "experiments"
@@ -51,7 +51,7 @@ const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<
   { id: "overview", title: "Обзор", icon: Gauge },
   { id: "metrics_lab", title: "Метрики (Lab)", icon: ChartColumnIncreasing },
   { id: "events_live", title: "События (Live)", icon: Activity },
-  { id: "qa_bots", title: "QA Bots", icon: Bot },
+  { id: "traffic", title: "Traffic Generator", icon: Bot },
   { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
   { id: "retention", title: "Когорты", icon: Sparkles },
   { id: "experiments", title: "Эксперименты", icon: Beaker },

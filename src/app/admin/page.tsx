@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -271,7 +271,7 @@ export default function AdminPage() {
   const [segment, setSegment] = useState<"all" | "verified" | "new" | "active">("all");
   const [search, setSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
-  const [userDemoFilter, setUserDemoFilter] = useState<"all" | "demo" | "real">("all");
+  const [userDemoFilter, setUserDemoFilter] = useState<"all" | "demo" | "real" | "traffic">("all");
   const [liveEventName, setLiveEventName] = useState("");
   const [liveUserId, setLiveUserId] = useState("");
   const [aiQuestion, setAiQuestion] = useState("");
@@ -287,8 +287,9 @@ export default function AdminPage() {
   const [expForm, setExpForm] = useState({ key: "", rollout_percent: 20, status: "draft", primary_metric: "WMC" });
   const [configForm, setConfigForm] = useState({ key: "feed_lock_days", value: '{"value":7}', description: "" });
   const [metricsTab, setMetricsTab] = useState<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health">("growth");
-  const [qaBotsForm, setQaBotsForm] = useState({ users_count: 30, interval_sec: 12, mode: "normal" as "normal" | "chaos" });
-  const [qaBotLogFilter, setQaBotLogFilter] = useState("");
+  const [trafficForm, setTrafficForm] = useState({ users_count: 30, interval_sec: 8, intensity: "normal" as "low" | "normal" | "high", chaos: true });
+  const [trafficTickResult, setTrafficTickResult] = useState<{ events_written: number; last_db_event_at: string | null } | null>(null);
+  const [liveDemoGroup, setLiveDemoGroup] = useState("");
   const [showDiagnosticsJson, setShowDiagnosticsJson] = useState(false);
   const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
   const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
@@ -372,41 +373,29 @@ export default function AdminPage() {
   });
 
   const liveEvents = useQuery({
-    queryKey: ["admin-live-events", liveEventName, liveUserId],
+    queryKey: ["admin-live-events", liveEventName, liveUserId, liveDemoGroup],
     queryFn: () =>
       adminApi(
-        "/api/admin/events/live?event_name=" + encodeURIComponent(liveEventName) + "&user_id=" + encodeURIComponent(liveUserId) + "&limit=200",
+        "/api/admin/events/live?event_name=" + encodeURIComponent(liveEventName) + "&user_id=" + encodeURIComponent(liveUserId) + "&demo_group=" + encodeURIComponent(liveDemoGroup) + "&limit=200",
         liveEventsResponseSchema,
       ),
     refetchInterval: section === "events_live" ? 3000 : false,
   });
 
-  const qaBots = useQuery({
-    queryKey: ["admin-qa-bots-status"],
-    queryFn: () => api<any>("/api/admin/qa-bots/status"),
-    refetchInterval: section === "qa_bots" ? 5000 : false,
-    enabled: section === "qa_bots",
+  const traffic = useQuery({
+    queryKey: ["admin-traffic-status"],
+    queryFn: () => api<any>("/api/admin/traffic/status"),
+    refetchInterval: section === "traffic" ? 5000 : false,
+    enabled: section === "traffic",
   });
 
-  const qaBotsProof = useQuery({
-    queryKey: ["admin-qa-bots-proof"],
-    queryFn: () => api<{ minutes: number; events_last_window: number; last_event_at: string | null }>("/api/admin/qa-bots/proof?minutes=2"),
-    refetchInterval: section === "qa_bots" ? 5000 : false,
-    enabled: section === "qa_bots",
+  const trafficProof = useQuery({
+    queryKey: ["admin-traffic-proof"],
+    queryFn: () => api<{ minutes: number; events_last_window: number; last_event_at: string | null }>("/api/admin/traffic/proof?minutes=2"),
+    refetchInterval: section === "traffic" ? 5000 : false,
+    enabled: section === "traffic",
   });
 
-  const qaBotsLogs = useQuery({
-    queryKey: ["admin-qa-bots-logs", qaBotLogFilter],
-    queryFn: () => {
-      const botId = qaBotLogFilter.trim();
-      const path = botId.length
-        ? "/api/admin/qa-bots/logs?limit=200&bot_id=" + encodeURIComponent(botId)
-        : "/api/admin/qa-bots/logs?limit=200";
-      return api<{ items: Array<{ id: string; bot_id: string; level: string; message: string; created_at: string }> }>(path);
-    },
-    refetchInterval: section === "qa_bots" ? 5000 : false,
-    enabled: section === "qa_bots",
-  });
   const refetchOverview = overview.refetch;
   const refetchFunnels = funnels.refetch;
   const refetchUsers = users.refetch;
@@ -480,29 +469,44 @@ export default function AdminPage() {
     }
   }
 
-  async function startQaBotsAction() {
+  async function startTrafficAction() {
     try {
-      setActionLoading("qaBotsStart");
-      await api("/api/admin/qa-bots/start", {
+      setActionLoading("trafficStart");
+      await api("/api/admin/traffic/start", {
         method: "POST",
-        body: JSON.stringify(qaBotsForm),
+        body: JSON.stringify(trafficForm),
       });
-      await Promise.all([qaBots.refetch(), qaBotsProof.refetch(), qaBotsLogs.refetch(), liveEvents.refetch(), diagnostics.refetch()]);
-      setSection("qa_bots");
-      setActionSuccess("qaBotsStart", "STARTING");
+      await Promise.all([traffic.refetch(), trafficProof.refetch(), liveEvents.refetch(), diagnostics.refetch(), overview.refetch(), funnels.refetch(), metricsLab.refetch(), users.refetch(), risk.refetch()]);
+      setSection("traffic");
+      setActionSuccess("trafficStart", "STARTING");
     } catch (e) {
-      setActionError("qaBotsStart", e instanceof Error ? e.message : "Не удалось запустить QA Bots");
+      setActionError("trafficStart", e instanceof Error ? e.message : "Не удалось запустить Traffic Generator");
     }
   }
 
-  async function stopQaBotsAction() {
+  async function stopTrafficAction() {
     try {
-      setActionLoading("qaBotsStop");
-      await api("/api/admin/qa-bots/stop", { method: "POST" });
-      await Promise.all([qaBots.refetch(), qaBotsProof.refetch(), qaBotsLogs.refetch(), diagnostics.refetch()]);
-      setActionSuccess("qaBotsStop", "STOPPED");
+      setActionLoading("trafficStop");
+      await api("/api/admin/traffic/stop", { method: "POST", body: JSON.stringify({ run_id: trafficRunId }) });
+      await Promise.all([traffic.refetch(), trafficProof.refetch(), diagnostics.refetch(), overview.refetch(), funnels.refetch(), metricsLab.refetch(), users.refetch(), risk.refetch()]);
+      setActionSuccess("trafficStop", "STOPPED");
     } catch (e) {
-      setActionError("qaBotsStop", e instanceof Error ? e.message : "Не удалось остановить QA Bots");
+      setActionError("trafficStop", e instanceof Error ? e.message : "Не удалось остановить Traffic Generator");
+    }
+  }
+
+  async function tickTrafficAction() {
+    try {
+      setActionLoading("trafficTick");
+      const res = await api<{ events_written: number; last_db_event_at: string | null }>("/api/admin/traffic/tick", {
+        method: "POST",
+        body: JSON.stringify({ run_id: trafficRunId }),
+      });
+      setTrafficTickResult({ events_written: Number(res.events_written ?? 0), last_db_event_at: res.last_db_event_at ?? null });
+      await Promise.all([traffic.refetch(), trafficProof.refetch(), liveEvents.refetch(), overview.refetch(), funnels.refetch(), metricsLab.refetch(), users.refetch(), risk.refetch()]);
+      setActionSuccess("trafficTick", `+${Number(res.events_written ?? 0)} events`);
+    } catch (e) {
+      setActionError("trafficTick", e instanceof Error ? e.message : "Tick failed");
     }
   }
 
@@ -819,9 +823,8 @@ export default function AdminPage() {
     metricsLab.error,
     diagnostics.error,
     liveEvents.error,
-    qaBots.error,
-    qaBotsProof.error,
-    qaBotsLogs.error,
+    traffic.error,
+    trafficProof.error,
   ]
     .filter(Boolean)
     .map((error) => (error instanceof Error ? error.message : "Request failed"));
@@ -876,15 +879,25 @@ export default function AdminPage() {
     return out;
   }, [metricsSeries.data?.points, fromISO, toISO]);
 
-  const qaDesiredStatus = String(qaBots.data?.desired_status ?? qaBots.data?.control?.desired_status ?? "stopped").toUpperCase();
-  const qaRuntimeStatus = String(qaBots.data?.runtime_status ?? "STOPPED").toUpperCase();
-  const qaAliveBots = Number(qaBots.data?.alive_bots ?? 0);
-  const qaTargetBots = Number(qaBots.data?.target_bots ?? qaBotsForm.users_count ?? 30);
-  const qaDbProofEvents = Number(qaBotsProof.data?.events_last_window ?? qaBots.data?.proof?.events_last_window ?? 0);
-  const qaDbProofLastEventAt = (qaBotsProof.data?.last_event_at ?? qaBots.data?.proof?.last_event_at ?? null) as string | null;
-  const qaNoHeartbeat = qaDesiredStatus === "RUNNING" && qaAliveBots === 0;
-  const qaRunnerNoEvents = qaDesiredStatus === "RUNNING" && qaAliveBots > 0 && qaDbProofEvents === 0;
-  const qaHeartbeatRows = (qaBots.data?.heartbeat_rows ?? []) as Array<{ bot_id: string; status?: string; last_action?: string; last_error?: string; last_seen_at?: string }>;
+  const trafficRunId = traffic.data?.run?.id ?? null;
+  const trafficDesiredStatus = String(traffic.data?.run?.status ?? "stopped").toUpperCase();
+  const trafficRuntimeStatus = String(traffic.data?.runtime_status ?? "STOPPED").toUpperCase();
+  const trafficTargetUsers = Number(traffic.data?.run?.users_count ?? trafficForm.users_count ?? 30);
+  const trafficDbProofEvents = Number(trafficProof.data?.events_last_window ?? traffic.data?.events_last_2m ?? 0);
+  const trafficDbProofLastEventAt = (trafficProof.data?.last_event_at ?? traffic.data?.last_event_at ?? null) as string | null;
+  const trafficNoEvents = trafficRuntimeStatus === "RUNNING" && trafficDbProofEvents === 0;
+  const trafficRecentEvents = (traffic.data?.sample_events ?? []) as Array<{ event_name: string; user_id: string | null; created_at: string }>;
+
+  useEffect(() => {
+    if (trafficDesiredStatus !== "RUNNING" || !trafficRunId) return;
+    const intervalMs = Math.max(3000, Math.min(30000, Number(traffic.data?.run?.interval_sec ?? trafficForm.interval_sec ?? 8) * 1000));
+
+    const timer = window.setInterval(() => {
+      void tickTrafficAction();
+    }, intervalMs);
+
+    return () => window.clearInterval(timer);
+  }, [trafficDesiredStatus, trafficRunId, traffic.data?.run?.interval_sec, trafficForm.interval_sec]);
 
   const conversionRows = useMemo(() => {
     const ov = overview.data?.overview;
@@ -1296,10 +1309,11 @@ export default function AdminPage() {
             <CardContent className="space-y-2">
               <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_220px]">
                 <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Поиск по id/имени/телефону" />
-                <select className="admin-select w-full" value={userDemoFilter} onChange={(e) => setUserDemoFilter(e.target.value as "all" | "demo" | "real")}>
+                <select className="admin-select w-full" value={userDemoFilter} onChange={(e) => setUserDemoFilter(e.target.value as "all" | "demo" | "real" | "traffic")}>
                   <option value="all">Все пользователи</option>
                   <option value="demo">Только demo</option>
                   <option value="real">Только real</option>
+                  <option value="traffic">Traffic demo</option>
                 </select>
               </div>
               <AnimatePresence initial={false}>
@@ -1495,9 +1509,10 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>События (Live)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
                 <Input value={liveEventName} onChange={(e) => setLiveEventName(e.target.value)} placeholder="event_name (например auth.registration_completed)" />
                 <Input value={liveUserId} onChange={(e) => setLiveUserId(e.target.value)} placeholder="user_id" />
+                <Input value={liveDemoGroup} onChange={(e) => setLiveDemoGroup(e.target.value)} placeholder="demo_group (например traffic)" />
                 <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить трекинг" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
                 <Button variant="secondary" onClick={() => liveEvents.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Обновить</Button>
               </div>
@@ -1532,73 +1547,70 @@ export default function AdminPage() {
       ) : null}
 
 
-      {section === "qa_bots" ? (
+      {section === "traffic" ? (
         <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Card className="xl:col-span-2">
-            <CardHeader><CardTitle>QA Bots Control</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Traffic Generator Control</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <Input type="number" value={qaBotsForm.users_count} onChange={(e) => setQaBotsForm((s) => ({ ...s, users_count: Number(e.target.value || 30) }))} placeholder="Users" />
-                <Input type="number" value={qaBotsForm.interval_sec} onChange={(e) => setQaBotsForm((s) => ({ ...s, interval_sec: Number(e.target.value || 12) }))} placeholder="Interval" />
-                <select className="admin-select" value={qaBotsForm.mode} onChange={(e) => setQaBotsForm((s) => ({ ...s, mode: e.target.value as "normal" | "chaos" }))}>
-                  <option value="normal">normal</option>
-                  <option value="chaos">chaos</option>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                <Input type="number" value={trafficForm.users_count} onChange={(e) => setTrafficForm((v) => ({ ...v, users_count: Number(e.target.value || 30) }))} placeholder="Users" />
+                <Input type="number" value={trafficForm.interval_sec} onChange={(e) => setTrafficForm((v) => ({ ...v, interval_sec: Number(e.target.value || 8) }))} placeholder="Interval sec" />
+                <select className="admin-select" value={trafficForm.intensity} onChange={(e) => setTrafficForm((v) => ({ ...v, intensity: e.target.value as "low" | "normal" | "high" }))}>
+                  <option value="low">intensity: low</option>
+                  <option value="normal">intensity: normal</option>
+                  <option value="high">intensity: high</option>
+                </select>
+                <select className="admin-select" value={trafficForm.chaos ? "chaos" : "normal"} onChange={(e) => setTrafficForm((v) => ({ ...v, chaos: e.target.value === "chaos" }))}>
+                  <option value="normal">mode: normal</option>
+                  <option value="chaos">mode: chaos</option>
                 </select>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <ActionButton state={actionUi.qaBotsStart} idleLabel="Start QA Bots" loadingLabel="Starting..." successLabel={actionUi.qaBotsStart?.label} onClick={startQaBotsAction} />
-                <ActionButton state={actionUi.qaBotsStop} variant="secondary" idleLabel="Stop QA Bots" loadingLabel="Stopping..." successLabel={actionUi.qaBotsStop?.label} onClick={stopQaBotsAction} />
-                <Button variant="secondary" onClick={() => Promise.all([qaBots.refetch(), qaBotsProof.refetch(), qaBotsLogs.refetch()])}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
+                <ActionButton state={actionUi.trafficStart} idleLabel="Start" loadingLabel="Starting..." successLabel={actionUi.trafficStart?.label} onClick={startTrafficAction} />
+                <ActionButton state={actionUi.trafficStop} variant="secondary" idleLabel="Stop" loadingLabel="Stopping..." successLabel={actionUi.trafficStop?.label} onClick={stopTrafficAction} />
+                <ActionButton state={actionUi.trafficTick} variant="secondary" idleLabel="Tick" loadingLabel="Tick..." successLabel={actionUi.trafficTick?.label} onClick={tickTrafficAction} />
+                <Button variant="secondary" onClick={() => Promise.all([traffic.refetch(), trafficProof.refetch(), liveEvents.refetch()])}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
               </div>
 
-              {qaNoHeartbeat ? <InlineError message="RUNNING (NO HEARTBEAT): Alive bots = 0. Проверь runner и токен." /> : null}
-              {qaRunnerNoEvents ? <InlineError message="Runner is running but not producing events (bot events last 2 min = 0)." /> : null}
-              <InlineError message={actionUi.qaBotsStart?.error ?? actionUi.qaBotsStop?.error} />
+              {trafficNoEvents ? <InlineError message="Traffic RUNNING, но в БД нет событий за 2 минуты. Нажми Tick или проверь диагностику." /> : null}
+              <InlineError message={actionUi.trafficStart?.error ?? actionUi.trafficStop?.error ?? actionUi.trafficTick?.error} />
 
               <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface2/70 p-3 text-sm md:grid-cols-2">
-                <p>desired: <strong>{qaDesiredStatus}</strong></p>
-                <p>runtime: <strong>{qaRuntimeStatus}</strong></p>
-                <p>reason: <span className="text-muted">{String(qaBots.data?.runtime_reason ?? "-")}</span></p>
-                <p>run_id: <span className="text-xs text-muted">{String(qaBots.data?.control?.run_id ?? qaBots.data?.run?.id ?? "-")}</span></p>
-                <p>Alive bots: <strong>{qaAliveBots}/{qaTargetBots}</strong></p>
-                <p>DB events last 2 min: <strong>{qaDbProofEvents}</strong></p>
-                <p>last heartbeat: <strong>{qaBots.data?.heartbeat_last_seen_at ? new Date(qaBots.data.heartbeat_last_seen_at).toLocaleString("ru-RU") : "нет"}</strong></p>
-                <p>last db event: <strong>{qaDbProofLastEventAt ? new Date(qaDbProofLastEventAt).toLocaleString("ru-RU") : "нет"}</strong></p>
+                <p>run_id: <span className="text-xs text-muted">{trafficRunId ?? "-"}</span></p>
+                <p>status: <strong className={cn(trafficRuntimeStatus === "RUNNING" ? "text-action" : "text-muted")}>{trafficRuntimeStatus}</strong></p>
+                <p>desired: <strong>{trafficDesiredStatus}</strong></p>
+                <p>users target: <strong>{trafficTargetUsers}</strong></p>
+                <p>total events: <strong>{Number(traffic.data?.total_events ?? 0).toLocaleString("ru-RU")}</strong></p>
+                <p>DB events last 2 min: <strong>{trafficDbProofEvents}</strong></p>
+                <p>last db event: <strong>{trafficDbProofLastEventAt ? new Date(trafficDbProofLastEventAt).toLocaleString("ru-RU") : "нет"}</strong></p>
+                <p>last tick: <strong>{trafficTickResult?.last_db_event_at ? new Date(trafficTickResult.last_db_event_at).toLocaleString("ru-RU") : "-"}</strong> {trafficTickResult ? `( +${trafficTickResult.events_written} )` : ""}</p>
               </div>
 
               <div className="rounded-xl border border-border bg-surface2/70 p-3">
-                <p className="mb-2 text-sm font-semibold">Heartbeat states</p>
+                <p className="mb-2 text-sm font-semibold">Recent events</p>
                 <div className="max-h-56 space-y-2 overflow-auto">
-                  {qaHeartbeatRows.map((row) => (
-                    <div key={row.bot_id} className="rounded-lg border border-border/50 bg-surface px-3 py-2 text-xs">
-                      <p className="font-medium text-text">{row.bot_id}</p>
-                      <p>status: {row.status ?? "-"}</p>
-                      <p>last action: {row.last_action ?? "-"}</p>
-                      <p>last seen: {row.last_seen_at ? new Date(row.last_seen_at).toLocaleString("ru-RU") : "-"}</p>
-                      {row.last_error ? <p className="text-danger">error: {row.last_error}</p> : null}
-                    </div>
+                  {trafficRecentEvents.map((row, idx) => (
+                    <motion.div key={`${row.event_name}-${row.created_at}-${idx}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border/50 bg-surface px-3 py-2 text-xs">
+                      <p className="font-medium text-text">{row.event_name}</p>
+                      <p>user: {row.user_id ?? "-"}</p>
+                      <p>time: {new Date(row.created_at).toLocaleString("ru-RU")}</p>
+                    </motion.div>
                   ))}
-                  {!qaHeartbeatRows.length ? <p className="text-sm text-muted">Нет heartbeat строк. Запусти runner.</p> : null}
+                  {!trafficRecentEvents.length ? <p className="text-sm text-muted">Пока нет событий, нажми Start или Tick.</p> : null}
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="xl:col-span-1">
-            <CardHeader><CardTitle>Logs</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <Input value={qaBotLogFilter} onChange={(e) => setQaBotLogFilter(e.target.value)} placeholder="Фильтр bot_id" />
-              <div className="max-h-[540px] space-y-2 overflow-auto">
-                {(qaBotsLogs.data?.items ?? []).map((item: any) => (
-                  <div key={item.id} className="rounded-lg border border-border bg-surface2/70 p-2 text-xs">
-                    <p className="font-medium">{item.bot_id} · {item.level}</p>
-                    <p className="text-muted">{new Date(item.created_at).toLocaleString("ru-RU")}</p>
-                    <p className="mt-1 break-words">{item.message}</p>
-                  </div>
-                ))}
-                {!(qaBotsLogs.data?.items?.length ?? 0) ? <p className="text-sm text-muted">Логов пока нет.</p> : null}
-              </div>
+            <CardHeader><CardTitle>Traffic Quick Guide</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted">
+              <p>1. Нажми Start.</p>
+              <p>2. Подожди 30-60 сек или нажми Tick вручную.</p>
+              <p>3. Открой Metrics Lab и Events Live.</p>
+              <p>4. Для кейсов Risk включи chaos mode.</p>
+              <Link href="/admin/events-stream"><Button size="sm" variant="secondary">Open /admin/events-stream</Button></Link>
             </CardContent>
           </Card>
         </div>
@@ -1850,13 +1862,14 @@ export default function AdminPage() {
             <Button variant="secondary" onClick={() => setSection("overview")}><SlidersHorizontal className="mr-1 h-4 w-4" />Обзор</Button>
             <Button variant="secondary" onClick={() => setSection("metrics_lab")}><SlidersHorizontal className="mr-1 h-4 w-4" />Metrics Lab</Button>
             <Button variant="secondary" onClick={() => setSection("events_live")}><RefreshCw className="mr-1 h-4 w-4" />События Live</Button>
-            <Button variant="secondary" onClick={() => setSection("qa_bots")}><Bot className="mr-1 h-4 w-4" />QA Bots</Button>
+            <Button variant="secondary" onClick={() => setSection("traffic")}><Bot className="mr-1 h-4 w-4" />Traffic Generator</Button>
             <Button variant="secondary" onClick={() => setSection("users")}><Users className="mr-1 h-4 w-4" />Users 360</Button>
             <Button variant="secondary" onClick={() => setSection("moderation")}><Shield className="mr-1 h-4 w-4" />Модерация</Button>
             <Button variant="secondary" onClick={() => setSection("reports")}><Flag className="mr-1 h-4 w-4" />Reports</Button>
             <Button variant="secondary" onClick={checkTracking}><RefreshCw className="mr-1 h-4 w-4" />Проверить трекинг</Button>
             <Button variant="secondary" onClick={runDiagnostics}><RefreshCw className="mr-1 h-4 w-4" />Run Diagnostics</Button>
             <Link href="/admin/how-to-test"><Button variant="secondary">Как тестировать</Button></Link>
+            <Link href="/admin/events-stream"><Button variant="secondary">Events Stream page</Button></Link>
             <Button onClick={seedDemo} disabled={isSeedLoading}>{isSeedLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}Seed Minimal</Button>
             <ActionButton state={actionUi.clearSeedDemo} variant="secondary" idleLabel="Очистить демо" loadingLabel="Cleaning..." successLabel={actionUi.clearSeedDemo?.label} onClick={clearSeedDemo} />
           </CardContent>

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/supabase/admin";
+import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
 
 export type RiskSignal = {
   key: string;
@@ -41,7 +42,7 @@ export async function buildRiskProfiles(userIds: string[], fromISO?: string, toI
       .from("analytics_events")
       .select("user_id,event_name,properties,created_at")
       .in("user_id", userIds)
-      .in("event_name", ["connect_sent", "connect_replied", "message_sent", "chat_message_sent", "report_created"]) 
+      .in("event_name", aliasesForCanonicals(["connect_sent", "connect_replied", "message_sent", "report_created"])) 
       .gte("created_at", from)
       .lte("created_at", to)
       .limit(120000),
@@ -109,11 +110,12 @@ export async function buildRiskProfiles(userIds: string[], fromISO?: string, toI
     const day = row.created_at.slice(0, 10);
     s.dailyEvents.set(day, (s.dailyEvents.get(day) ?? 0) + 1);
 
-    if (row.event_name === "connect_sent") {
+    const canonical = canonicalizeEventName(row.event_name);
+    if (canonical === "connect_sent") {
       s.connectSent += 1;
       s.dailyConnectSent.set(day, (s.dailyConnectSent.get(day) ?? 0) + 1);
     }
-    if (row.event_name === "connect_replied") s.connectReplied += 1;
+    if (canonical === "connect_replied") s.connectReplied += 1;
 
     const hash = String((row.properties as Record<string, unknown> | null)?.message_hash ?? "");
     if (hash && hash !== "undefined" && hash !== "null") {
