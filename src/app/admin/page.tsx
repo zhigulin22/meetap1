@@ -548,7 +548,7 @@ export default function AdminPage() {
       await api("/api/admin/moderation/actions", { method: "POST", body: JSON.stringify({ ...action, reason: moderationReason }) });
 
       if (action.targetType === "user") {
-        queryClient.setQueryData<any>(["admin-users-v5", userSearch, userDemoFilter], (prev) => {
+        queryClient.setQueryData<any>(["admin-users-v5", userSearch, userDemoFilter], (prev: any) => {
           if (!prev?.items) return prev;
           return {
             ...prev,
@@ -563,7 +563,7 @@ export default function AdminPage() {
           };
         });
 
-        queryClient.setQueryData<any>(["admin-risk-v3"], (prev) => {
+        queryClient.setQueryData<any>(["admin-risk-v3"], (prev: any) => {
           if (!prev?.items) return prev;
           return {
             ...prev,
