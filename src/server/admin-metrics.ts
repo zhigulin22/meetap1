@@ -1,3 +1,4 @@
+import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { supabaseAdmin } from "@/supabase/admin";
 
 export type Segment = "all" | "verified" | "new" | "active";
@@ -22,15 +23,24 @@ export function parseWindow(from?: string, to?: string, fallbackDays = 30) {
   };
 }
 
+async function getCols(table: string) {
+  const schema = await getSchemaSnapshot([table]);
+  return asSet(schema, table);
+}
+
 export async function getSegmentUserIds(segment: Segment, fromISO: string, toISO: string) {
   if (segment === "all") return null as string[] | null;
 
   if (segment === "verified") {
+    const usersCols = await getCols("users");
+    if (!usersCols.has("id") || !usersCols.has("telegram_verified")) return [];
     const { data } = await supabaseAdmin.from("users").select("id").eq("telegram_verified", true).limit(10000);
     return (data ?? []).map((x: any) => x.id);
   }
 
   if (segment === "new") {
+    const usersCols = await getCols("users");
+    if (!usersCols.has("id") || !usersCols.has("created_at")) return [];
     const { data } = await supabaseAdmin
       .from("users")
       .select("id")
@@ -39,6 +49,9 @@ export async function getSegmentUserIds(segment: Segment, fromISO: string, toISO
       .limit(10000);
     return (data ?? []).map((x: any) => x.id);
   }
+
+  const analyticsCols = await getCols("analytics_events");
+  if (!analyticsCols.has("user_id") || !analyticsCols.has("created_at")) return [];
 
   const { data } = await supabaseAdmin
     .from("analytics_events")
@@ -60,17 +73,22 @@ export async function filterCountByUsers(
   createdAtColumn = "created_at",
   extra?: { field: string; op: "eq" | "gte" | "lte"; value: string | number | boolean },
 ) {
-  const query = (supabaseAdmin as any)
-    .from(table)
-    .select("id", { count: "exact", head: true })
-    .gte(createdAtColumn, fromISO)
-    .lte(createdAtColumn, toISO);
+  const cols = await getCols(table);
+  const probeCol = cols.has("id") ? "id" : cols.values().next().value;
+  if (!probeCol) return 0;
+
+  const query = (supabaseAdmin as any).from(table).select(probeCol, { count: "exact", head: true });
+
+  if (createdAtColumn && cols.has(createdAtColumn)) {
+    query.gte(createdAtColumn, fromISO).lte(createdAtColumn, toISO);
+  }
 
   if (userIds && userIds.length) {
+    if (!cols.has(column)) return 0;
     query.in(column, userIds);
   }
 
-  if (extra) {
+  if (extra && cols.has(extra.field)) {
     if (extra.op === "eq") query.eq(extra.field, extra.value);
     if (extra.op === "gte") query.gte(extra.field, extra.value);
     if (extra.op === "lte") query.lte(extra.field, extra.value);
@@ -81,6 +99,9 @@ export async function filterCountByUsers(
 }
 
 export async function getUsersRegisteredBetween(fromISO: string, toISO: string) {
+  const usersCols = await getCols("users");
+  if (!usersCols.has("id") || !usersCols.has("created_at")) return [];
+
   const { data } = await supabaseAdmin
     .from("users")
     .select("id,created_at")
@@ -94,6 +115,11 @@ export async function getUsersRegisteredBetween(fromISO: string, toISO: string) 
 
 export async function getUserActiveDays(userIds: string[], endISO: string) {
   if (!userIds.length) return new Map<string, Set<string>>();
+
+  const analyticsCols = await getCols("analytics_events");
+  if (!analyticsCols.has("user_id") || !analyticsCols.has("created_at")) {
+    return new Map<string, Set<string>>();
+  }
 
   const { data } = await supabaseAdmin
     .from("analytics_events")

@@ -3,12 +3,14 @@ import { fail, ok } from "@/lib/http";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow } from "@/server/admin-metrics";
 import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
+import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { supabaseAdmin } from "@/supabase/admin";
 
 type UserRow = {
   id: string;
-  name: string | null;
-  country: string | null;
+  name?: string | null;
+  city?: string | null;
+  country?: string | null;
 };
 
 const schema = z.object({
@@ -24,6 +26,23 @@ function aliasesForMetric(metric: string) {
   if (metric === "post_published_daily_duo") return aliasesForCanonicals(["post_published_daily_duo"]);
   if (metric === "post_published_video") return aliasesForCanonicals(["post_published_video"]);
   return [metric];
+}
+
+async function loadUsersMap(ids: string[]) {
+  if (!ids.length) return new Map<string, UserRow>();
+  const snapshot = await getSchemaSnapshot(["users"]);
+  const userCols = asSet(snapshot, "users");
+  if (!userCols.has("id")) return new Map<string, UserRow>();
+
+  const selectCols = ["id", "name", "city", "country"].filter((c) => userCols.has(c));
+  if (!selectCols.includes("id")) selectCols.unshift("id");
+
+  const users = await supabaseAdmin
+    .from("users")
+    .select(selectCols.join(","))
+    .in("id", ids.slice(0, 5000));
+
+  return new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u) => [u.id, u]));
 }
 
 export async function GET(req: Request) {
@@ -56,19 +75,16 @@ export async function GET(req: Request) {
       }
 
       const ids = [...counts.keys()];
-      const users = ids.length
-        ? await supabaseAdmin.from("users").select("id,name,country").in("id", ids.slice(0, 5000))
-        : { data: [] as UserRow[] };
-      const userMap = new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u: any) => [u.id, u]));
+      const userMap = await loadUsersMap(ids);
 
       const items = [...counts.entries()]
         .map(([user_id, value]) => ({
           user_id,
           value,
           name: userMap.get(user_id)?.name ?? "Unknown",
-          city: userMap.get(user_id)?.country ?? null,
+          city: userMap.get(user_id)?.city ?? userMap.get(user_id)?.country ?? null,
         }))
-        .sort((a: any, b: any) => b.value - a.value)
+        .sort((a, b) => b.value - a.value)
         .slice(0, parsed.data.limit);
 
       return ok({ metric: parsed.data.metric, items });
@@ -96,19 +112,16 @@ export async function GET(req: Request) {
     }
 
     const ids = [...counts.keys()];
-    const users = ids.length
-      ? await supabaseAdmin.from("users").select("id,name,country").in("id", ids.slice(0, 5000))
-      : { data: [] as UserRow[] };
-    const userMap = new Map<string, UserRow>(((users.data ?? []) as UserRow[]).map((u: any) => [u.id, u]));
+    const userMap = await loadUsersMap(ids);
 
     const items = [...counts.entries()]
       .map(([user_id, value]) => ({
         user_id,
         value,
         name: userMap.get(user_id)?.name ?? "Unknown",
-        city: userMap.get(user_id)?.country ?? null,
+        city: userMap.get(user_id)?.city ?? userMap.get(user_id)?.country ?? null,
       }))
-      .sort((a: any, b: any) => b.value - a.value)
+      .sort((a, b) => b.value - a.value)
       .slice(0, parsed.data.limit);
 
     return ok({ metric: parsed.data.metric, items });

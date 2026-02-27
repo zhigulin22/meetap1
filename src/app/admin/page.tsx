@@ -372,6 +372,12 @@ export default function AdminPage() {
     retry: false,
   });
 
+  const schemaIntrospect = useQuery({
+    queryKey: ["admin-schema-introspect"],
+    queryFn: () => api<Record<string, string[]>>("/api/admin/schema/introspect"),
+    refetchInterval: section === "overview" ? 20000 : false,
+  });
+
   const liveEvents = useQuery({
     queryKey: ["admin-live-events", liveEventName, liveUserId, liveDemoGroup],
     queryFn: () =>
@@ -537,6 +543,17 @@ export default function AdminPage() {
       setActionSuccess("fixTables", "Tables fixed");
     } catch (e) {
       setActionError("fixTables", e instanceof Error ? e.message : "Fix tables failed");
+    }
+  }
+
+  async function addOptionalColumnsAction() {
+    try {
+      setActionLoading("addOptionalColumns");
+      await api("/api/admin/schema/add-optional-columns", { method: "POST" });
+      await Promise.all([schemaIntrospect.refetch(), diagnostics.refetch(), users.refetch(), overview.refetch()]);
+      setActionSuccess("addOptionalColumns", "Columns added");
+    } catch (e) {
+      setActionError("addOptionalColumns", e instanceof Error ? e.message : "Не удалось добавить optional columns");
     }
   }
 
@@ -825,6 +842,7 @@ export default function AdminPage() {
     liveEvents.error,
     traffic.error,
     trafficProof.error,
+    schemaIntrospect.error,
   ]
     .filter(Boolean)
     .map((error) => (error instanceof Error ? error.message : "Request failed"));
@@ -878,6 +896,9 @@ export default function AdminPage() {
     }
     return out;
   }, [metricsSeries.data?.points, fromISO, toISO]);
+
+  const usersSchemaColumns = useMemo(() => new Set(schemaIntrospect.data?.users ?? []), [schemaIntrospect.data?.users]);
+  const cityColumnAvailable = usersSchemaColumns.has("city");
 
   const trafficRunId = traffic.data?.run?.id ?? null;
   const trafficDesiredStatus = String(traffic.data?.run?.status ?? "stopped").toUpperCase();
@@ -950,7 +971,7 @@ export default function AdminPage() {
                 <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Проверить трекинг" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
                 <ActionButton state={actionUi.seedDemo} idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedDemo?.label} onClick={seedDemo} />
                 <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix common issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={() => fixCommonIssues()} />              </div>
-              <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.checkTracking?.error ?? actionUi.seedDemo?.error ?? actionUi.fixCommon?.error} />
+              <InlineError message={actionUi.diagnostics?.error ?? actionUi.fixTables?.error ?? actionUi.addOptionalColumns?.error ?? actionUi.checkTracking?.error ?? actionUi.seedDemo?.error ?? actionUi.fixCommon?.error} />
             </CardContent>
           </Card>
         </div>
@@ -1043,6 +1064,7 @@ export default function AdminPage() {
                   <p>Supabase: <strong>{!diagnostics.isFetched ? "N/A" : diagnostics.data?.supabase_ok ? "OK" : "ISSUES"}</strong></p>
                   <p>Seed Minimal: <strong>{diagnostics.data?.seed_minimal.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.seed_minimal.reason ?? "-"}</p>
                   <p>OpenAI: <strong>{diagnostics.data?.openai.enabled ? "ENABLED" : "DISABLED"}</strong> · {diagnostics.data?.openai.reason ?? "-"}</p>
+                  <p>users.city: <strong>{cityColumnAvailable ? "available" : "missing"}</strong></p>
                   <p>Последнее событие: <strong>{diagnostics.data?.last_event_at ? new Date(diagnostics.data.last_event_at).toLocaleString("ru-RU") : diagnostics.isFetched ? "нет" : "запусти диагностику"}</strong></p>
                 </div>
 
@@ -1111,6 +1133,7 @@ export default function AdminPage() {
                   <ActionButton state={actionUi.diagnostics} variant="secondary" idleLabel="Run Diagnostics" loadingLabel="Running..." successLabel={actionUi.diagnostics?.label} onClick={runDiagnostics} />
                   <ActionButton state={actionUi.fixCommon} variant="secondary" idleLabel="Fix Common Issues" loadingLabel="Fixing..." successLabel={actionUi.fixCommon?.label} onClick={() => fixCommonIssues()} />
                   <ActionButton state={actionUi.fixTables} variant="secondary" idleLabel="Fix now" loadingLabel="Fixing..." successLabel={actionUi.fixTables?.label} onClick={fixMissingTables} />
+                  <ActionButton state={actionUi.addOptionalColumns} variant="secondary" idleLabel="Add optional columns" loadingLabel="Adding..." successLabel={actionUi.addOptionalColumns?.label} onClick={addOptionalColumnsAction} />
                   <ActionButton state={actionUi.checkTracking} variant="secondary" idleLabel="Check Tracking" loadingLabel="Checking..." successLabel={actionUi.checkTracking?.label} onClick={checkTracking} />
                   <ActionButton state={actionUi.seedMinimal} variant="secondary" idleLabel="Seed Minimal" loadingLabel="Seeding..." successLabel={actionUi.seedMinimal?.label} onClick={seedMinimal} />                  <Button size="sm" variant="secondary" onClick={() => setShowDiagnosticsJson((v) => !v)}>{showDiagnosticsJson ? "Hide JSON" : "Diagnostics JSON"}</Button>
                 </div>
@@ -1627,6 +1650,12 @@ export default function AdminPage() {
                   <Button key={tab} size="sm" variant={metricsTab === tab ? "default" : "secondary"} onClick={() => setMetricsTab(tab)}>{metricsTabLabels[tab]}</Button>
                 ))}
               </div>
+
+              {!cityColumnAvailable ? (
+                <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+                  Сегментация по городу недоступна: в users нет колонки city. Нажми "Add optional columns".
+                </div>
+              ) : null}
 
               {metricsLab.isLoading ? <Skeleton className="h-60 w-full" /> : null}
 

@@ -2,6 +2,7 @@ import { fail, ok } from "@/lib/http";
 import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow, getSegmentUserIds, filterCountByUsers } from "@/server/admin-metrics";
+import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
 import { computeSeries } from "@/server/metrics-series";
 import { supabaseAdmin } from "@/supabase/admin";
@@ -16,6 +17,19 @@ async function countByAliases(aliases: string[], fromISO: string, toISO: string,
     .lte("created_at", toISO);
 
   if (userIds && userIds.length) query.in("user_id", userIds);
+  const { count } = await query;
+  return count ?? 0;
+}
+
+async function countUsersByBooleanColumn(
+  usersCols: Set<string>,
+  column: string,
+  value: boolean,
+  userIds: string[] | null,
+) {
+  if (!usersCols.has("id") || !usersCols.has(column)) return 0;
+  let query = supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq(column, value);
+  if (userIds && userIds.length) query = query.in("id", userIds);
   const { count } = await query;
   return count ?? 0;
 }
@@ -123,6 +137,8 @@ export async function GET(req: Request) {
 
     const { fromISO, toISO } = parseWindow(parsed.data.from, parsed.data.to, 30);
     const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
+    const usersSchema = await getSchemaSnapshot(["users"]);
+    const usersCols = asSet(usersSchema, "users");
 
     const now = Date.now();
     const d1 = new Date(now - 24 * 60 * 60 * 1000).toISOString();
@@ -193,11 +209,7 @@ export async function GET(req: Request) {
       filterCountByUsers("users", "id", fromISO, toISO, userIds, "created_at"),
       filterCountByUsers("users", "id", d1, toISO, userIds, "created_at"),
       filterCountByUsers("users", "id", d7, toISO, userIds, "created_at"),
-      (() => {
-        const q = supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("telegram_verified", true);
-        if (userIds && userIds.length) q.in("id", userIds);
-        return q.then((x: any) => x.count ?? 0);
-      })(),
+      countUsersByBooleanColumn(usersCols, "telegram_verified", true, userIds),
       countUniqueActiveUsers(d1, toISO, userIds),
       countUniqueActiveUsers(d7, toISO, userIds),
       countUniqueActiveUsers(d30, toISO, userIds),
@@ -215,11 +227,7 @@ export async function GET(req: Request) {
       countByAliases(aliases.connectReply, fromISO, toISO, userIds),
       supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open").then((x: any) => x.count ?? 0),
       supabaseAdmin.from("content_flags").select("id", { count: "exact", head: true }).eq("status", "open").then((x: any) => x.count ?? 0),
-      (() => {
-        const q = supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("is_blocked", true);
-        if (userIds && userIds.length) q.in("id", userIds);
-        return q.then((x: any) => x.count ?? 0);
-      })(),
+      countUsersByBooleanColumn(usersCols, "is_blocked", true, userIds),
       countByAliases(aliases.connectReply, d7, toISO, userIds),
       countByAliases(aliases.apiErrors, d1, toISO, null),
       countByAliases(aliases.aiCalls, d7, toISO, null),

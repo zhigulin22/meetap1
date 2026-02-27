@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { supabaseAdmin } from "@/supabase/admin";
+import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 
 type Intensity = "low" | "normal" | "high";
 
@@ -34,7 +35,6 @@ type TrafficRunRow = {
 };
 
 const CITIES = ["Moscow", "Dubai", "Tbilisi", "Berlin", "Warsaw", "Belgrade", "London", "Lisbon"];
-const NAMES = ["Alex", "Mila", "Ivan", "Nina", "Artem", "Sofia", "Tim", "Daria", "Leo", "Mark", "Sam", "Eva"];
 const INTERESTS = ["design", "startup", "music", "sport", "ai", "marketing", "product", "travel", "coffee", "books"];
 
 function rnd(min: number, max: number) {
@@ -115,22 +115,20 @@ function weightedEvent(intensity: Intensity): TrafficEventName {
   return "events.viewed";
 }
 
-function missingColumn(message: string | undefined, column: string) {
+function isMissingTableError(message?: string) {
   if (!message) return false;
   const m = message.toLowerCase();
-  return m.includes("column") && m.includes(column.toLowerCase()) && m.includes("does not exist");
-}
-
-function missingTable(message: string | undefined, table: string) {
-  if (!message) return false;
-  const m = message.toLowerCase();
-  return m.includes(table.toLowerCase()) && (m.includes("does not exist") || m.includes("relation") || m.includes("could not find"));
+  return (
+    (m.includes("relation") && m.includes("does not exist")) ||
+    m.includes("could not find the table") ||
+    m.includes("schema cache")
+  );
 }
 
 async function assertTable(table: string, probe = "id") {
   const check = await supabaseAdmin.from(table).select(probe, { count: "exact", head: true }).limit(1);
   if (!check.error) return true;
-  if (missingTable(check.error.message, table)) return false;
+  if (isMissingTableError(check.error.message)) return false;
   throw new Error(check.error.message);
 }
 
@@ -146,115 +144,151 @@ export async function missingTrafficTables() {
   return map.filter((_, idx) => !checks[idx]).map((x) => x[0]);
 }
 
-async function selectTrafficUsers(limit: number) {
-  const q = await supabaseAdmin
-    .from("users")
-    .select("id,name,city,country")
-    .eq("is_demo", true)
-    .eq("demo_group", "traffic")
-    .order("created_at", { ascending: true })
-    .limit(limit);
+async function readColumns() {
+  const schema = await getSchemaSnapshot([
+    "users",
+    "events",
+    "analytics_events",
+    "traffic_runs",
+    "posts",
+    "connections",
+    "messages",
+    "reports",
+    "event_members",
+  ]);
 
-  if (!q.error) return q.data ?? [];
-  if (!missingColumn(q.error.message, "demo_group")) throw new Error(q.error.message);
-
-  const fallback = await supabaseAdmin
-    .from("users")
-    .select("id,name,city,country")
-    .eq("is_demo", true)
-    .ilike("name", "Traffic Demo%")
-    .order("created_at", { ascending: true })
-    .limit(limit);
-
-  if (fallback.error) throw new Error(fallback.error.message);
-  return fallback.data ?? [];
+  return {
+    users: asSet(schema, "users"),
+    events: asSet(schema, "events"),
+    analytics: asSet(schema, "analytics_events"),
+    runs: asSet(schema, "traffic_runs"),
+    posts: asSet(schema, "posts"),
+    connections: asSet(schema, "connections"),
+    messages: asSet(schema, "messages"),
+    reports: asSet(schema, "reports"),
+    eventMembers: asSet(schema, "event_members"),
+  };
 }
 
-async function ensureTrafficUsers(target: number) {
-  const existing = await selectTrafficUsers(target);
+async function selectTrafficUsers(limit: number, userCols: Set<string>) {
+  const selectCols = ["id", "name", "phone", "city", "country", "is_demo", "demo_group"].filter((c) => userCols.has(c));
+  if (!selectCols.includes("id")) selectCols.unshift("id");
+
+  let query = supabaseAdmin
+    .from("users")
+    .select(selectCols.join(","))
+    .limit(limit);
+
+  if (userCols.has("created_at")) query = query.order("created_at", { ascending: true });
+  else if (userCols.has("id")) query = query.order("id", { ascending: true });
+
+  if (userCols.has("is_demo")) query = query.eq("is_demo", true);
+  if (userCols.has("demo_group")) query = query.eq("demo_group", "traffic");
+  else if (userCols.has("name")) query = query.ilike("name", "Traffic Demo%");
+
+  const res = await query;
+  if (res.error) throw new Error(res.error.message);
+  return res.data ?? [];
+}
+
+async function ensureTrafficUsers(target: number, userCols: Set<string>) {
+  const existing = await selectTrafficUsers(target, userCols);
   if (existing.length >= target) return existing.slice(0, target);
 
   const need = target - existing.length;
-  const rows = Array.from({ length: need }).map((_, idx) => {
+  const rows: Array<Record<string, unknown>> = [];
+
+  for (let idx = 0; idx < need; idx += 1) {
     const city = pick(CITIES);
     const n = existing.length + idx + 1;
-    return {
-      id: randomUUID(),
-      phone: randomPhone(),
-      name: `Traffic Demo ${String(n).padStart(2, "0")}`,
-      telegram_verified: chance(0.7),
-      role: "user",
-      is_demo: true,
-      demo_group: "traffic",
-      city,
-      country: city,
-      interests: randomInterests(rnd(3, 5)),
-      hobbies: ["networking", "events", "demo"],
-      facts: ["Демо пользователь", "Сгенерирован сервером", "Для QA метрик"],
-      profile_completed: chance(0.65),
-      level: rnd(1, 6),
-      xp: rnd(0, 120),
-    };
-  });
 
-  let ins = await supabaseAdmin.from("users").insert(rows);
-  if (ins.error && missingColumn(ins.error.message, "demo_group")) {
-    const fallbackRows = rows.map(({ demo_group: _skip, ...rest }) => rest);
-    ins = await supabaseAdmin.from("users").insert(fallbackRows);
+    const candidate = pickExistingColumns(
+      {
+        id: randomUUID(),
+        phone: randomPhone(),
+        name: `Traffic Demo ${String(n).padStart(2, "0")}`,
+        telegram_verified: chance(0.7),
+        role: "user",
+        is_demo: true,
+        demo_group: "traffic",
+        city,
+        country: city,
+        interests: randomInterests(rnd(3, 5)),
+        hobbies: ["networking", "events", "demo"],
+        facts: ["Демо пользователь", "Сгенерирован сервером", "Для QA метрик"],
+        profile_completed: chance(0.65),
+        level: rnd(1, 6),
+        xp: rnd(0, 120),
+      },
+      userCols,
+    );
+
+    if (userCols.has("name") && !candidate.name) candidate.name = `Traffic Demo ${String(n).padStart(2, "0")}`;
+    if (userCols.has("phone") && !candidate.phone) candidate.phone = randomPhone();
+    if (userCols.has("id") && !candidate.id) candidate.id = randomUUID();
+
+    rows.push(candidate);
   }
-  if (ins.error) throw new Error(ins.error.message);
 
-  return selectTrafficUsers(target);
+  if (rows.length > 0) {
+    const ins = await supabaseAdmin.from("users").insert(rows);
+    if (ins.error) throw new Error(ins.error.message);
+  }
+
+  return selectTrafficUsers(target, userCols);
 }
 
-async function ensureTrafficEvents(target = 10) {
-  const existingRes = await supabaseAdmin
+async function ensureTrafficEvents(target: number, eventCols: Set<string>) {
+  const selectCols = ["id", "title", "city", "is_demo", "demo_group"].filter((c) => eventCols.has(c));
+  if (!selectCols.includes("id")) selectCols.unshift("id");
+
+  let existingQuery = supabaseAdmin
     .from("events")
-    .select("id,title,city")
-    .eq("is_demo", true)
-    .eq("demo_group", "traffic")
-    .order("created_at", { ascending: false })
+    .select(selectCols.join(","))
     .limit(target);
 
-  let existing = existingRes.data ?? [];
-  if (existingRes.error) {
-    if (!missingColumn(existingRes.error.message, "demo_group")) throw new Error(existingRes.error.message);
-    const fallback = await supabaseAdmin
-      .from("events")
-      .select("id,title,city")
-      .eq("is_demo", true)
-      .ilike("title", "Traffic Event%")
-      .order("created_at", { ascending: false })
-      .limit(target);
-    if (fallback.error) throw new Error(fallback.error.message);
-    existing = fallback.data ?? [];
-  }
+  if (eventCols.has("created_at")) existingQuery = existingQuery.order("created_at", { ascending: false });
+  else if (eventCols.has("id")) existingQuery = existingQuery.order("id", { ascending: false });
 
+  if (eventCols.has("is_demo")) existingQuery = existingQuery.eq("is_demo", true);
+  if (eventCols.has("demo_group")) existingQuery = existingQuery.eq("demo_group", "traffic");
+  else if (eventCols.has("title")) existingQuery = existingQuery.ilike("title", "Traffic Event%");
+
+  const existingRes = await existingQuery;
+  if (existingRes.error) throw new Error(existingRes.error.message);
+
+  const existing = existingRes.data ?? [];
   if (existing.length >= target) return existing;
 
   const need = target - existing.length;
-  const rows = Array.from({ length: need }).map((_, idx) => {
+  const rows: Array<Record<string, unknown>> = [];
+
+  for (let idx = 0; idx < need; idx += 1) {
     const city = pick(CITIES);
-    return {
-      title: `Traffic Event ${idx + 1}`,
-      description: "Демо событие для оживления аналитики",
-      outcomes: ["нетворкинг", "воронка", "retention"],
-      event_date: new Date(Date.now() + rnd(1, 12) * 24 * 60 * 60 * 1000).toISOString(),
-      city,
-      price: chance(0.6) ? 0 : rnd(500, 2000),
-      is_demo: true,
-      demo_group: "traffic",
-    };
-  });
+    const row = pickExistingColumns(
+      {
+        title: `Traffic Event ${idx + 1}`,
+        description: "Демо событие для оживления аналитики",
+        outcomes: ["нетворкинг", "воронка", "retention"],
+        event_date: new Date(Date.now() + rnd(1, 12) * 24 * 60 * 60 * 1000).toISOString(),
+        city,
+        price: chance(0.6) ? 0 : rnd(500, 2000),
+        is_demo: true,
+        demo_group: "traffic",
+      },
+      eventCols,
+    );
 
-  let ins = await supabaseAdmin.from("events").insert(rows);
-  if (ins.error && missingColumn(ins.error.message, "demo_group")) {
-    const fallbackRows = rows.map(({ demo_group: _skip, ...rest }) => rest);
-    ins = await supabaseAdmin.from("events").insert(fallbackRows);
+    if (eventCols.has("title") && !row.title) row.title = `Traffic Event ${idx + 1}`;
+    rows.push(row);
   }
-  if (ins.error) throw new Error(ins.error.message);
 
-  return ensureTrafficEvents(target);
+  if (rows.length > 0) {
+    const ins = await supabaseAdmin.from("events").insert(rows);
+    if (ins.error) throw new Error(ins.error.message);
+  }
+
+  return ensureTrafficEvents(target, eventCols);
 }
 
 export async function startTrafficRun(input: {
@@ -269,20 +303,21 @@ export async function startTrafficRun(input: {
     throw new Error(`Cannot start traffic: missing tables ${missing.join(", ")}`);
   }
 
+  const cols = await readColumns();
+
   const usersCount = Math.max(5, Math.min(200, input.usersCount));
   const intervalSec = Math.max(3, Math.min(30, input.intervalSec));
 
-  await ensureTrafficUsers(usersCount);
-  await ensureTrafficEvents(10);
+  await ensureTrafficUsers(usersCount, cols.users);
+  await ensureTrafficEvents(10, cols.events);
 
   await supabaseAdmin
     .from("traffic_runs")
-    .update({ status: "stopped", stopped_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update(pickExistingColumns({ status: "stopped", stopped_at: new Date().toISOString(), updated_at: new Date().toISOString() }, cols.runs))
     .eq("status", "running");
 
-  const ins = await supabaseAdmin
-    .from("traffic_runs")
-    .insert({
+  const runRow = pickExistingColumns(
+    {
       status: "running",
       users_count: usersCount,
       interval_sec: intervalSec,
@@ -291,10 +326,11 @@ export async function startTrafficRun(input: {
       created_by: input.createdBy,
       started_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    })
-    .select("*")
-    .single();
+    },
+    cols.runs,
+  );
 
+  const ins = await supabaseAdmin.from("traffic_runs").insert(runRow).select("*").single();
   if (ins.error) throw new Error(ins.error.message);
 
   return ins.data as TrafficRunRow;
@@ -314,29 +350,38 @@ export async function stopTrafficRun(runId?: string | null) {
     targetId = latest.data?.id ?? null;
   }
 
-  if (!targetId) {
-    return { run_id: null, status: "stopped" as const };
-  }
+  if (!targetId) return { run_id: null, status: "stopped" as const };
 
+  const cols = await readColumns();
   const upd = await supabaseAdmin
     .from("traffic_runs")
-    .update({ status: "stopped", stopped_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update(pickExistingColumns({ status: "stopped", stopped_at: new Date().toISOString(), updated_at: new Date().toISOString() }, cols.runs))
     .eq("id", targetId)
     .select("id,status")
     .maybeSingle();
 
   if (upd.error) throw new Error(upd.error.message);
-
   return { run_id: targetId, status: "stopped" as const };
 }
 
-export async function getTrafficStatus(runId?: string | null) {
-  let query = supabaseAdmin
-    .from("traffic_runs")
-    .select("*")
-    .order("started_at", { ascending: false })
-    .limit(1);
+function applyTrafficScope(query: any, analyticsCols: Set<string>, runStartedAt: string, demoUserIds: string[]) {
+  let scoped = query;
 
+  if (analyticsCols.has("properties")) {
+    scoped = scoped.filter("properties->>demo_group", "eq", "traffic");
+  } else if (analyticsCols.has("user_id") && demoUserIds.length) {
+    scoped = scoped.in("user_id", demoUserIds);
+  }
+
+  if (analyticsCols.has("created_at")) {
+    scoped = scoped.gte("created_at", runStartedAt);
+  }
+
+  return scoped;
+}
+
+export async function getTrafficStatus(runId?: string | null) {
+  let query = supabaseAdmin.from("traffic_runs").select("*").order("started_at", { ascending: false }).limit(1);
   if (runId) query = supabaseAdmin.from("traffic_runs").select("*").eq("id", runId).limit(1);
 
   const runRes = await query.maybeSingle();
@@ -354,34 +399,45 @@ export async function getTrafficStatus(runId?: string | null) {
     };
   }
 
+  const cols = await readColumns();
+  const users = await selectTrafficUsers(Math.max(10, run.users_count), cols.users);
+  const userIds = users.map((u: any) => String(u.id)).filter(Boolean);
+
   const [countAll, count2m, lastEv, sample] = await Promise.all([
-    supabaseAdmin
-      .from("analytics_events")
-      .select("id", { count: "exact", head: true })
-      .filter("properties->>demo_group", "eq", "traffic")
-      .gte("created_at", run.started_at),
-    supabaseAdmin
-      .from("analytics_events")
-      .select("id", { count: "exact", head: true })
-      .filter("properties->>demo_group", "eq", "traffic")
-      .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString()),
-    supabaseAdmin
-      .from("analytics_events")
-      .select("created_at")
-      .filter("properties->>demo_group", "eq", "traffic")
-      .order("created_at", { ascending: false })
-      .limit(1),
-    supabaseAdmin
-      .from("analytics_events")
-      .select("event_name,created_at,user_id")
-      .filter("properties->>demo_group", "eq", "traffic")
-      .order("created_at", { ascending: false })
-      .limit(12),
+    applyTrafficScope(
+      supabaseAdmin.from("analytics_events").select("id", { count: "exact", head: true }),
+      cols.analytics,
+      run.started_at,
+      userIds,
+    ),
+    applyTrafficScope(
+      supabaseAdmin
+        .from("analytics_events")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString()),
+      cols.analytics,
+      run.started_at,
+      userIds,
+    ),
+    applyTrafficScope(
+      supabaseAdmin.from("analytics_events").select("created_at").order("created_at", { ascending: false }).limit(1),
+      cols.analytics,
+      run.started_at,
+      userIds,
+    ),
+    applyTrafficScope(
+      supabaseAdmin.from("analytics_events").select("event_name,created_at,user_id").order("created_at", { ascending: false }).limit(12),
+      cols.analytics,
+      run.started_at,
+      userIds,
+    ),
   ]);
 
-  const totalEvents = countAll.count ?? 0;
-  const events2m = count2m.count ?? 0;
-  const lastEventAt = lastEv.data?.[0]?.created_at ?? null;
+  const [totalRes, twoRes, lastRes, sampleRes] = await Promise.all([countAll, count2m, lastEv, sample]);
+
+  const totalEvents = totalRes.count ?? 0;
+  const events2m = twoRes.count ?? 0;
+  const lastEventAt = (lastRes.data?.[0] as any)?.created_at ?? null;
 
   let runtimeStatus = "STOPPED";
   if (run.status === "running") {
@@ -396,97 +452,119 @@ export async function getTrafficStatus(runId?: string | null) {
     total_events: totalEvents,
     events_last_2m: events2m,
     last_event_at: lastEventAt,
-    sample_events: sample.data ?? [],
+    sample_events: sampleRes.data ?? [],
   };
 }
 
-async function tryInsertPost(userId: string, eventName: TrafficEventName, createdAt: string) {
+async function tryInsertPost(userId: string, eventName: TrafficEventName, createdAt: string, postCols: Set<string>) {
   if (eventName !== "feed.post_published_daily_duo" && eventName !== "feed.post_published_video") return;
 
-  const row = {
-    user_id: userId,
-    type: eventName === "feed.post_published_daily_duo" ? "daily_duo" : "reel",
-    caption: eventName === "feed.post_published_daily_duo" ? "Traffic demo duo" : "Traffic demo video",
-    is_demo: true,
-    demo_group: "traffic",
-    created_at: createdAt,
-  };
+  const row = pickExistingColumns(
+    {
+      user_id: userId,
+      type: eventName === "feed.post_published_daily_duo" ? "daily_duo" : "reel",
+      caption: eventName === "feed.post_published_daily_duo" ? "Traffic demo duo" : "Traffic demo video",
+      is_demo: true,
+      demo_group: "traffic",
+      created_at: createdAt,
+    },
+    postCols,
+  );
 
-  let ins = await supabaseAdmin.from("posts").insert(row);
-  if (ins.error && missingColumn(ins.error.message, "demo_group")) {
-    const { demo_group: _skip, ...fallback } = row;
-    ins = await supabaseAdmin.from("posts").insert(fallback);
-  }
+  if (!Object.keys(row).length) return;
+  await supabaseAdmin.from("posts").insert(row);
 }
 
-async function tryInsertEventJoin(userId: string, eventId: string, createdAt: string) {
-  await supabaseAdmin.from("event_members").insert({
-    event_id: eventId,
-    user_id: userId,
-    joined_at: createdAt,
-  }).select("event_id").maybeSingle();
+async function tryInsertEventJoin(userId: string, eventId: string, createdAt: string, eventMembersCols: Set<string>) {
+  const row = pickExistingColumns(
+    {
+      event_id: eventId,
+      user_id: userId,
+      joined_at: createdAt,
+      created_at: createdAt,
+    },
+    eventMembersCols,
+  );
+
+  if (!Object.keys(row).length) return;
+  await supabaseAdmin.from("event_members").insert(row).select("event_id").maybeSingle();
 }
 
-async function tryInsertConnectionAndMessage(fromUser: string, toUser: string, createdAt: string, eventName: TrafficEventName, chaos = false) {
+async function tryInsertConnectionAndMessage(
+  fromUser: string,
+  toUser: string,
+  createdAt: string,
+  eventName: TrafficEventName,
+  cols: { connections: Set<string>; messages: Set<string> },
+  chaos = false,
+) {
   if (eventName !== "chat.connect_sent" && eventName !== "chat.connect_replied" && eventName !== "chat.message_sent") return;
 
   const status = eventName === "chat.connect_replied" || eventName === "chat.message_sent" ? "accepted" : "pending";
-  const conRow = {
-    from_user_id: fromUser,
-    to_user_id: toUser,
-    status,
-    is_demo: true,
-    demo_group: "traffic",
-    created_at: createdAt,
-  };
 
-  let cIns = await supabaseAdmin.from("connections").insert(conRow);
-  if (cIns.error && missingColumn(cIns.error.message, "demo_group")) {
-    const { demo_group: _skip, ...fallback } = conRow;
-    cIns = await supabaseAdmin.from("connections").insert(fallback);
+  const connectionRow = pickExistingColumns(
+    {
+      from_user_id: fromUser,
+      to_user_id: toUser,
+      status,
+      is_demo: true,
+      demo_group: "traffic",
+      created_at: createdAt,
+    },
+    cols.connections,
+  );
+
+  if (Object.keys(connectionRow).length) {
+    await supabaseAdmin.from("connections").insert(connectionRow);
   }
 
   if (eventName === "chat.message_sent" || eventName === "chat.connect_replied") {
     const text = chaos ? "hello-traffic-spam" : pick(["Привет!", "Давай познакомимся", "Как прошел ивент?"]);
-    const mRow = {
-      from_user_id: fromUser,
-      to_user_id: toUser,
-      content: text,
-      is_demo: true,
-      demo_group: "traffic",
-      created_at: createdAt,
-    };
+    const messageRow = pickExistingColumns(
+      {
+        from_user_id: fromUser,
+        to_user_id: toUser,
+        content: text,
+        is_demo: true,
+        demo_group: "traffic",
+        created_at: createdAt,
+      },
+      cols.messages,
+    );
 
-    let mIns = await supabaseAdmin.from("messages").insert(mRow);
-    if (mIns.error && missingColumn(mIns.error.message, "demo_group")) {
-      const { demo_group: _skip, ...fallback } = mRow;
-      mIns = await supabaseAdmin.from("messages").insert(fallback);
+    if (Object.keys(messageRow).length) {
+      await supabaseAdmin.from("messages").insert(messageRow);
     }
   }
 }
 
-async function tryInsertReport(reporter: string, target: string, createdAt: string) {
-  await supabaseAdmin.from("reports").insert({
-    reporter_user_id: reporter,
-    target_user_id: target,
-    content_type: "profile",
-    content_id: null,
-    reason: "spam",
-    details: "traffic generator demo report",
-    status: "open",
-    created_at: createdAt,
-  });
+async function tryInsertReport(reporter: string, target: string, createdAt: string, reportsCols: Set<string>) {
+  const row = pickExistingColumns(
+    {
+      reporter_user_id: reporter,
+      target_user_id: target,
+      content_type: "profile",
+      content_id: null,
+      reason: "spam",
+      details: "traffic generator demo report",
+      status: "open",
+      created_at: createdAt,
+    },
+    reportsCols,
+  );
+
+  if (!Object.keys(row).length) return;
+  await supabaseAdmin.from("reports").insert(row);
 }
 
 export async function tickTrafficRun(runId?: string | null): Promise<TrafficTickResult> {
   const status = await getTrafficStatus(runId);
   const run = status.run;
-  if (!run || run.status !== "running") {
-    throw new Error("Traffic is not running");
-  }
+  if (!run || run.status !== "running") throw new Error("Traffic is not running");
 
-  const users = await ensureTrafficUsers(run.users_count);
-  const events = await ensureTrafficEvents(10);
+  const cols = await readColumns();
+  const users = await ensureTrafficUsers(run.users_count, cols.users);
+  const events = await ensureTrafficEvents(10, cols.events);
   if (!users.length || !events.length) {
     throw new Error("No demo users/events available for traffic generation");
   }
@@ -497,7 +575,7 @@ export async function tickTrafficRun(runId?: string | null): Promise<TrafficTick
   const sample: Array<{ event_name: string; user_id: string; created_at: string }> = [];
 
   const spamUsers = (run.chaos ? users.slice(0, 2).map((u: any) => String(u.id)) : []) as string[];
-  const reportTarget = run.chaos && users.length > 3 ? users[3]?.id : null;
+  const reportTarget = run.chaos && users.length > 3 ? String(users[3]?.id) : null;
 
   for (let i = 0; i < batch; i += 1) {
     const user = pick(users) as any;
@@ -515,35 +593,32 @@ export async function tickTrafficRun(runId?: string | null): Promise<TrafficTick
     };
 
     if (event === "chat.connect_sent" || event === "chat.message_sent") {
-      properties.message_hash = run.chaos && spamUsers.includes(user.id) ? "traffic-spam-hash" : `msg-${rnd(1, 12)}`;
+      properties.message_hash = run.chaos && spamUsers.includes(String(user.id)) ? "traffic-spam-hash" : `msg-${rnd(1, 12)}`;
     }
 
-    rows.push({
-      event_name: event,
-      user_id: user.id,
-      path:
-        event.startsWith("events")
-          ? "/events"
-          : event.startsWith("feed")
-            ? "/feed"
-            : event.startsWith("chat")
-              ? "/contacts"
-              : "/register",
-      properties,
-      created_at: createdAt,
-    });
+    const analyticsRow = pickExistingColumns(
+      {
+        event_name: event,
+        user_id: String(user.id),
+        path: event.startsWith("events") ? "/events" : event.startsWith("feed") ? "/feed" : event.startsWith("chat") ? "/contacts" : "/register",
+        properties,
+        created_at: createdAt,
+      },
+      cols.analytics,
+    );
 
-    if (sample.length < 12) sample.push({ event_name: event, user_id: user.id, created_at: createdAt });
+    rows.push(analyticsRow);
+    if (sample.length < 12) sample.push({ event_name: event, user_id: String(user.id), created_at: createdAt });
 
-    void tryInsertPost(user.id, event, createdAt);
-    if (event === "events.joined") void tryInsertEventJoin(user.id, eventObj.id, createdAt);
+    void tryInsertPost(String(user.id), event, createdAt, cols.posts);
+    if (event === "events.joined") void tryInsertEventJoin(String(user.id), String(eventObj.id), createdAt, cols.eventMembers);
 
     let peer = pick(users) as any;
-    while (peer.id === user.id) peer = pick(users) as any;
-    void tryInsertConnectionAndMessage(user.id, peer.id, createdAt, event, false);
+    while (String(peer.id) === String(user.id)) peer = pick(users) as any;
+    void tryInsertConnectionAndMessage(String(user.id), String(peer.id), createdAt, event, { connections: cols.connections, messages: cols.messages }, false);
 
-    if (event === "safety.report_created" && reportTarget && reportTarget !== user.id) {
-      void tryInsertReport(user.id, reportTarget, createdAt);
+    if (event === "safety.report_created" && reportTarget && reportTarget !== String(user.id)) {
+      void tryInsertReport(String(user.id), reportTarget, createdAt, cols.reports);
     }
   }
 
@@ -551,68 +626,77 @@ export async function tickTrafficRun(runId?: string | null): Promise<TrafficTick
     for (let j = 0; j < 22; j += 1) {
       const spammer = String(pick(spamUsers));
       let peer = pick(users) as any;
-      while (peer.id === spammer) peer = pick(users) as any;
+      while (String(peer.id) === spammer) peer = pick(users) as any;
       const createdAt = new Date(now - rnd(0, 30_000)).toISOString();
 
-      rows.push({
-        event_name: "chat.connect_sent",
-        user_id: spammer,
-        path: "/contacts",
-        properties: {
-          demo_group: "traffic",
-          is_demo: true,
-          run_id: run.id,
-          chaos: true,
-          message_hash: "traffic-spam-hash",
-          spam_burst: true,
-        },
-        created_at: createdAt,
-      });
+      rows.push(
+        pickExistingColumns(
+          {
+            event_name: "chat.connect_sent",
+            user_id: spammer,
+            path: "/contacts",
+            properties: {
+              demo_group: "traffic",
+              is_demo: true,
+              run_id: run.id,
+              chaos: true,
+              message_hash: "traffic-spam-hash",
+              spam_burst: true,
+            },
+            created_at: createdAt,
+          },
+          cols.analytics,
+        ),
+      );
 
-      void tryInsertConnectionAndMessage(spammer, peer.id, createdAt, "chat.connect_sent", true);
+      void tryInsertConnectionAndMessage(spammer, String(peer.id), createdAt, "chat.connect_sent", { connections: cols.connections, messages: cols.messages }, true);
     }
 
     if (reportTarget) {
       for (let k = 0; k < 8; k += 1) {
         const reporter = pick(users) as any;
-        if (reporter.id === reportTarget) continue;
+        if (String(reporter.id) === reportTarget) continue;
         const createdAt = new Date(now - rnd(0, 20_000)).toISOString();
 
-        rows.push({
-          event_name: "safety.report_created",
-          user_id: reporter.id,
-          path: "/reports",
-          properties: {
-            demo_group: "traffic",
-            is_demo: true,
-            run_id: run.id,
-            chaos: true,
-            target_user_id: reportTarget,
-          },
-          created_at: createdAt,
-        });
+        rows.push(
+          pickExistingColumns(
+            {
+              event_name: "safety.report_created",
+              user_id: String(reporter.id),
+              path: "/reports",
+              properties: {
+                demo_group: "traffic",
+                is_demo: true,
+                run_id: run.id,
+                chaos: true,
+                target_user_id: reportTarget,
+              },
+              created_at: createdAt,
+            },
+            cols.analytics,
+          ),
+        );
 
-        void tryInsertReport(reporter.id, reportTarget, createdAt);
+        void tryInsertReport(String(reporter.id), reportTarget, createdAt, cols.reports);
       }
     }
   }
 
-  const ins = await supabaseAdmin.from("analytics_events").insert(rows);
-  if (ins.error) throw new Error(ins.error.message);
+  const rowsToInsert = rows.filter((r) => Object.keys(r).length > 0);
+  if (rowsToInsert.length > 0) {
+    const ins = await supabaseAdmin.from("analytics_events").insert(rowsToInsert);
+    if (ins.error) throw new Error(ins.error.message);
+  }
 
-  await supabaseAdmin
-    .from("traffic_runs")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", run.id)
-    .eq("status", "running");
+  await supabaseAdmin.from("traffic_runs").update(pickExistingColumns({ updated_at: new Date().toISOString() }, cols.runs)).eq("id", run.id).eq("status", "running");
 
-  const lastAt = rows.reduce((acc, row) => {
+  const lastAt = rowsToInsert.reduce((acc, row) => {
     const ts = String(row.created_at ?? "");
     return ts > acc ? ts : acc;
   }, new Date().toISOString());
 
   return {
-    events_written: rows.length,
+    events_written: rowsToInsert.length,
     last_event_at: lastAt,
     sample_events: sample,
   };
