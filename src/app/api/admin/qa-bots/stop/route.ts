@@ -16,7 +16,9 @@ export async function POST() {
     });
 
     return ok({ ok: true, ...result });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Forbidden";
+    if (msg === "Forbidden") return fail("Forbidden", 403);
+    return fail(msg, 400);
   }
 }

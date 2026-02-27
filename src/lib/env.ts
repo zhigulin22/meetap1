@@ -15,6 +15,7 @@ const serverSchema = z.object({
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
   QA_BOTS_CONTROL_TOKEN: z.string().min(1).default("qa-bots-control-disabled"),
   QA_BOTS_PASSWORD: z.string().min(8).default("QaBots!2026"),
+  DEMO_AUTH_ENABLED: z.coerce.boolean().default(false),
 });
 
 let publicCache: z.infer<typeof publicSchema> | null = null;
@@ -52,6 +53,7 @@ export function getServerEnv() {
     QA_BOTS_CONTROL_TOKEN:
       process.env.QA_BOTS_CONTROL_TOKEN ?? "qa-bots-control-disabled",
     QA_BOTS_PASSWORD: process.env.QA_BOTS_PASSWORD ?? "QaBots!2026",
+    DEMO_AUTH_ENABLED: process.env.DEMO_AUTH_ENABLED ?? "false",
   };
 
   const parsed = serverSchema.parse(source);

@@ -7,7 +7,9 @@ export async function GET() {
     await requireAdminUserId(["admin", "analyst", "moderator"]);
     const status = await getQaBotsStatus();
     return ok(status);
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Forbidden";
+    if (msg === "Forbidden") return fail("Forbidden", 403);
+    return fail(msg, 400);
   }
 }

@@ -287,7 +287,8 @@ export default function AdminPage() {
   const [expForm, setExpForm] = useState({ key: "", rollout_percent: 20, status: "draft", primary_metric: "WMC" });
   const [configForm, setConfigForm] = useState({ key: "feed_lock_days", value: '{"value":7}', description: "" });
   const [metricsTab, setMetricsTab] = useState<"growth" | "activation" | "engagement" | "content" | "events" | "social" | "safety" | "ai" | "health">("growth");
-  const [qaBotsForm, setQaBotsForm] = useState({ users_count: 30, interval_sec: 8, mode: "normal" as "normal" | "chaos" });
+  const [qaBotsForm, setQaBotsForm] = useState({ users_count: 30, interval_sec: 12, mode: "normal" as "normal" | "chaos" });
+  const [qaBotLogFilter, setQaBotLogFilter] = useState("");
   const [showDiagnosticsJson, setShowDiagnosticsJson] = useState(false);
   const [actionUi, setActionUi] = useState<Record<string, ActionUiState>>({});
   const [updatedRows, setUpdatedRows] = useState<Record<string, number>>({});
@@ -385,6 +386,18 @@ export default function AdminPage() {
     queryFn: () => api<any>("/api/admin/qa-bots/status"),
     refetchInterval: section === "qa_bots" ? 5000 : false,
   });
+
+  const qaBotsProof = useQuery({
+    queryKey: ["admin-qa-bots-proof"],
+    queryFn: () => api<{ minutes: number; events_last_window: number; last_event_at: string | null }>("/api/admin/qa-bots/proof?minutes=2"),
+    refetchInterval: section === "qa_bots" ? 5000 : false,
+  });
+
+  const qaBotsLogs = useQuery({
+    queryKey: ["admin-qa-bots-logs", qaBotLogFilter],
+    queryFn: () => api<{ items: Array<{ id: string; bot_id: string; level: string; message: string; created_at: string }> }>("/api/admin/qa-bots/logs?limit=200&bot_id=" + encodeURIComponent(qaBotLogFilter)),
+    refetchInterval: section === "qa_bots" ? 5000 : false,
+  });
   const refetchOverview = overview.refetch;
   const refetchFunnels = funnels.refetch;
   const refetchUsers = users.refetch;
@@ -465,9 +478,9 @@ export default function AdminPage() {
         method: "POST",
         body: JSON.stringify(qaBotsForm),
       });
-      await Promise.all([qaBots.refetch(), liveEvents.refetch(), diagnostics.refetch()]);
+      await Promise.all([qaBots.refetch(), qaBotsProof.refetch(), qaBotsLogs.refetch(), liveEvents.refetch(), diagnostics.refetch()]);
       setSection("qa_bots");
-      setActionSuccess("qaBotsStart", "RUNNING");
+      setActionSuccess("qaBotsStart", "STARTING");
     } catch (e) {
       setActionError("qaBotsStart", e instanceof Error ? e.message : "Не удалось запустить QA Bots");
     }
@@ -477,7 +490,7 @@ export default function AdminPage() {
     try {
       setActionLoading("qaBotsStop");
       await api("/api/admin/qa-bots/stop", { method: "POST" });
-      await Promise.all([qaBots.refetch(), diagnostics.refetch()]);
+      await Promise.all([qaBots.refetch(), qaBotsProof.refetch(), qaBotsLogs.refetch(), diagnostics.refetch()]);
       setActionSuccess("qaBotsStop", "STOPPED");
     } catch (e) {
       setActionError("qaBotsStop", e instanceof Error ? e.message : "Не удалось остановить QA Bots");
@@ -798,6 +811,8 @@ export default function AdminPage() {
     diagnostics.error,
     liveEvents.error,
     qaBots.error,
+    qaBotsProof.error,
+    qaBotsLogs.error,
   ]
     .filter(Boolean)
     .map((error) => (error instanceof Error ? error.message : "Request failed"));
@@ -851,6 +866,16 @@ export default function AdminPage() {
     }
     return out;
   }, [metricsSeries.data?.points, fromISO, toISO]);
+
+  const qaDesiredStatus = String(qaBots.data?.desired_status ?? qaBots.data?.control?.desired_status ?? "stopped").toUpperCase();
+  const qaRuntimeStatus = String(qaBots.data?.runtime_status ?? "STOPPED").toUpperCase();
+  const qaAliveBots = Number(qaBots.data?.alive_bots ?? 0);
+  const qaTargetBots = Number(qaBots.data?.target_bots ?? qaBotsForm.users_count ?? 30);
+  const qaDbProofEvents = Number(qaBotsProof.data?.events_last_window ?? qaBots.data?.proof?.events_last_window ?? 0);
+  const qaDbProofLastEventAt = (qaBotsProof.data?.last_event_at ?? qaBots.data?.proof?.last_event_at ?? null) as string | null;
+  const qaNoHeartbeat = qaDesiredStatus === "RUNNING" && qaAliveBots === 0;
+  const qaRunnerNoEvents = qaDesiredStatus === "RUNNING" && qaAliveBots > 0 && qaDbProofEvents === 0;
+  const qaHeartbeatRows = (qaBots.data?.heartbeat_rows ?? []) as Array<{ bot_id: string; status?: string; last_action?: string; last_error?: string; last_seen_at?: string }>;
 
   const conversionRows = useMemo(() => {
     const ov = overview.data?.overview;
@@ -1499,13 +1524,13 @@ export default function AdminPage() {
 
 
       {section === "qa_bots" ? (
-        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card>
+        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <Card className="xl:col-span-2">
             <CardHeader><CardTitle>QA Bots Control</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <Input type="number" value={qaBotsForm.users_count} onChange={(e) => setQaBotsForm((s) => ({ ...s, users_count: Number(e.target.value || 30) }))} placeholder="Users" />
-                <Input type="number" value={qaBotsForm.interval_sec} onChange={(e) => setQaBotsForm((s) => ({ ...s, interval_sec: Number(e.target.value || 8) }))} placeholder="Interval" />
+                <Input type="number" value={qaBotsForm.interval_sec} onChange={(e) => setQaBotsForm((s) => ({ ...s, interval_sec: Number(e.target.value || 12) }))} placeholder="Interval" />
                 <select className="admin-select" value={qaBotsForm.mode} onChange={(e) => setQaBotsForm((s) => ({ ...s, mode: e.target.value as "normal" | "chaos" }))}>
                   <option value="normal">normal</option>
                   <option value="chaos">chaos</option>
@@ -1515,31 +1540,56 @@ export default function AdminPage() {
               <div className="flex flex-wrap gap-2">
                 <ActionButton state={actionUi.qaBotsStart} idleLabel="Start QA Bots" loadingLabel="Starting..." successLabel={actionUi.qaBotsStart?.label} onClick={startQaBotsAction} />
                 <ActionButton state={actionUi.qaBotsStop} variant="secondary" idleLabel="Stop QA Bots" loadingLabel="Stopping..." successLabel={actionUi.qaBotsStop?.label} onClick={stopQaBotsAction} />
-                <Button variant="secondary" onClick={() => qaBots.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
+                <Button variant="secondary" onClick={() => Promise.all([qaBots.refetch(), qaBotsProof.refetch(), qaBotsLogs.refetch()])}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
               </div>
+
+              {qaNoHeartbeat ? <InlineError message="RUNNING (NO HEARTBEAT): Alive bots = 0. Проверь runner и токен." /> : null}
+              {qaRunnerNoEvents ? <InlineError message="Runner is running but not producing events (bot events last 2 min = 0)." /> : null}
               <InlineError message={actionUi.qaBotsStart?.error ?? actionUi.qaBotsStop?.error} />
 
-              <div className="rounded-xl border border-border bg-surface2/70 p-3 text-sm">
-                <p>status: <strong>{String(qaBots.data?.control?.desired_status ?? "stopped")}</strong></p>
-                <p>run_id: <span className="text-xs text-muted">{String(qaBots.data?.control?.run_id ?? "-")}</span></p>
-                <p>active bots: <strong>{Number(qaBots.data?.active_bots ?? 0)}</strong></p>
-                <p>heartbeat: <strong>{qaBots.data?.heartbeat?.last_event_at ? new Date(qaBots.data.heartbeat.last_event_at).toLocaleString("ru-RU") : "нет"}</strong></p>
-                <p>events written: <strong>{Number(qaBots.data?.heartbeat?.events_written ?? 0)}</strong></p>
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface2/70 p-3 text-sm md:grid-cols-2">
+                <p>desired: <strong>{qaDesiredStatus}</strong></p>
+                <p>runtime: <strong>{qaRuntimeStatus}</strong></p>
+                <p>reason: <span className="text-muted">{String(qaBots.data?.runtime_reason ?? "-")}</span></p>
+                <p>run_id: <span className="text-xs text-muted">{String(qaBots.data?.control?.run_id ?? qaBots.data?.run?.id ?? "-")}</span></p>
+                <p>Alive bots: <strong>{qaAliveBots}/{qaTargetBots}</strong></p>
+                <p>DB events last 2 min: <strong>{qaDbProofEvents}</strong></p>
+                <p>last heartbeat: <strong>{qaBots.data?.heartbeat_last_seen_at ? new Date(qaBots.data.heartbeat_last_seen_at).toLocaleString("ru-RU") : "нет"}</strong></p>
+                <p>last db event: <strong>{qaDbProofLastEventAt ? new Date(qaDbProofLastEventAt).toLocaleString("ru-RU") : "нет"}</strong></p>
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                <p className="mb-2 text-sm font-semibold">Heartbeat states</p>
+                <div className="max-h-56 space-y-2 overflow-auto">
+                  {qaHeartbeatRows.map((row) => (
+                    <div key={row.bot_id} className="rounded-lg border border-border/50 bg-surface px-3 py-2 text-xs">
+                      <p className="font-medium text-text">{row.bot_id}</p>
+                      <p>status: {row.status ?? "-"}</p>
+                      <p>last action: {row.last_action ?? "-"}</p>
+                      <p>last seen: {row.last_seen_at ? new Date(row.last_seen_at).toLocaleString("ru-RU") : "-"}</p>
+                      {row.last_error ? <p className="text-danger">error: {row.last_error}</p> : null}
+                    </div>
+                  ))}
+                  {!qaHeartbeatRows.length ? <p className="text-sm text-muted">Нет heartbeat строк. Запусти runner.</p> : null}
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>QA Bots Last Actions</CardTitle></CardHeader>
+          <Card className="xl:col-span-1">
+            <CardHeader><CardTitle>Logs</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {(qaBots.data?.heartbeat?.actions ?? []).map((item: any, idx: number) => (
-                <div key={`${item.bot}-${item.at}-${idx}`} className="rounded-xl border border-border bg-surface2/70 p-2 text-xs">
-                  <p className="font-medium">{item.bot}</p>
-                  <p>{item.action}</p>
-                  <p className="text-muted">{item.at}</p>
-                </div>
-              ))}
-              {!(qaBots.data?.heartbeat?.actions?.length ?? 0) ? <p className="text-sm text-muted">Нет heartbeat от runner. Запусти runner на отдельной машине.</p> : null}
+              <Input value={qaBotLogFilter} onChange={(e) => setQaBotLogFilter(e.target.value)} placeholder="Фильтр bot_id" />
+              <div className="max-h-[540px] space-y-2 overflow-auto">
+                {(qaBotsLogs.data?.items ?? []).map((item: any) => (
+                  <div key={item.id} className="rounded-lg border border-border bg-surface2/70 p-2 text-xs">
+                    <p className="font-medium">{item.bot_id} · {item.level}</p>
+                    <p className="text-muted">{new Date(item.created_at).toLocaleString("ru-RU")}</p>
+                    <p className="mt-1 break-words">{item.message}</p>
+                  </div>
+                ))}
+                {!(qaBotsLogs.data?.items?.length ?? 0) ? <p className="text-sm text-muted">Логов пока нет.</p> : null}
+              </div>
             </CardContent>
           </Card>
         </div>
