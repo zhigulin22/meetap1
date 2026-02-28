@@ -4,7 +4,7 @@ import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow, getSegmentUserIds, filterCountByUsers } from "@/server/admin-metrics";
 import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
-import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
+import { aliasesForCanonicals, canonicalizeEventName, isActivityEventName } from "@/server/event-dictionary";
 import { computeSeries } from "@/server/metrics-series";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getServerEnv } from "@/lib/env";
@@ -36,20 +36,9 @@ async function countUsersByBooleanColumn(
 }
 
 async function countUniqueActiveUsers(fromISO: string, toISO: string, userIds: string[] | null) {
-  const aliases = aliasesForCanonicals([
-        "event_viewed",
-    "event_joined",
-    "post_published_daily_duo",
-    "post_published_video",
-    "connect_sent",
-    "connect_replied",
-    "message_sent",
-  ]);
-
   const query = supabaseAdmin
     .from("analytics_events")
-    .select("user_id")
-    .in("event_name", aliases)
+    .select("user_id,event_name")
     .gte("created_at", fromISO)
     .lte("created_at", toISO)
     .not("user_id", "is", null)
@@ -58,8 +47,17 @@ async function countUniqueActiveUsers(fromISO: string, toISO: string, userIds: s
   if (userIds && userIds.length) query.in("user_id", userIds);
 
   const { data } = await query;
-  return new Set((data ?? []).map((x: any) => x.user_id).filter(Boolean) as string[]).size;
+  const users = new Set<string>();
+
+  for (const row of data ?? []) {
+    if (!row.user_id) continue;
+    if (!isActivityEventName(row.event_name)) continue;
+    users.add(row.user_id);
+  }
+
+  return users.size;
 }
+
 
 async function sumAiCost(fromISO: string, toISO: string, userIds: string[] | null) {
   const aliases = aliasesForCanonicals(["ai_cost"]);

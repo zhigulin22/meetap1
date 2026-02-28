@@ -173,11 +173,11 @@ export async function GET() {
     }
 
     const analyticsTable = tableRows.find((x: any) => x.name === "analytics_events");
-    const events24h = analyticsTable?.rows_24h ?? 0;
+    const events24h = event_counts_24h.total > 0 ? event_counts_24h.total : (analyticsTable?.rows_24h ?? 0);
 
     if (events24h === 0) {
-      issues.push("0 events in analytics_events for 24h");
-      fixes.push("Нажми Check Tracking или включи трекинг analytics_events в приложении.");
+      issues.push("За 24ч нет событий из выбранной категории");
+      fixes.push("Нажми Check Tracking или открой Events Stream и проверь event_name/диапазон дат.");
       recommended_fixes.push({
         key: "write_test_event",
         title: "Write test event",

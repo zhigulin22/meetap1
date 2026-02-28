@@ -864,14 +864,30 @@ export default function AdminPage() {
 
   const diagnosticsRootCause = useMemo(() => {
     const reasons: string[] = [];
-    if ((diagnostics.data?.event_counts_24h?.total ?? 0) > 0 && (diagnostics.data?.metrics_endpoints?.sample_points_count ?? 0) === 0) {
-      reasons.push("Есть события, но series вернула пустой набор");
+    const total24h = diagnostics.data?.event_counts_24h?.total ?? 0;
+    const top5 = (diagnostics.data?.top_event_names ?? [])
+      .slice(0, 5)
+      .map((x) => x.event_name + ":" + x.count_24h)
+      .join(", ");
+
+    if (total24h > 0 && (diagnostics.data?.metrics_endpoints?.sample_points_count ?? 0) === 0) {
+      const suffix = top5 ? "; топ: " + top5 : "";
+      reasons.push("Есть события (" + total24h + " за 24ч" + suffix + "), но series вернула пустой набор");
     }
-    if (diagnostics.data?.metrics_endpoints?.errors) reasons.push("Series endpoint error: " + diagnostics.data.metrics_endpoints.errors);
+
+    if (diagnostics.data?.metrics_endpoints?.errors) {
+      reasons.push("Series endpoint error: " + diagnostics.data.metrics_endpoints.errors);
+    }
+
     if ((diagnostics.data?.top_event_names?.length ?? 0) > 0 && (diagnostics.data?.issues ?? []).some((x) => x.toLowerCase().includes("event names mismatch"))) {
       reasons.push("Имена событий не совпадают со словарем метрик");
     }
-    if ((diagnostics.data?.event_counts_24h?.total ?? 0) === 0) reasons.push("За 24ч нет событий analytics");
+
+    if (total24h === 0) {
+      const suffix = top5 ? "; топ: " + top5 : "";
+      reasons.push("За 24ч нет событий из выбранной категории (всего событий: " + total24h + suffix + ")");
+    }
+
     return reasons;
   }, [diagnostics.data?.event_counts_24h?.total, diagnostics.data?.metrics_endpoints?.sample_points_count, diagnostics.data?.metrics_endpoints?.errors, diagnostics.data?.top_event_names, diagnostics.data?.issues, diagnosticsRlsIssues.length]);
   const normalizedSeriesPoints = useMemo(() => {

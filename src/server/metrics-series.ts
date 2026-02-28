@@ -1,7 +1,24 @@
-import { aliasesForMetric, canonicalizeEventName, canonicalsForMetric } from "@/server/event-dictionary";
+import {
+  aliasesForMetric,
+  canonicalizeEventName,
+  canonicalsForMetric,
+  isActivityEventName,
+} from "@/server/event-dictionary";
 import { fetchEventRows } from "@/server/metrics-lab";
 
 export type SeriesPoint = { ts: string; value: number };
+
+const RAW_POST_EVENTS = new Set([
+  "post_published_daily_duo",
+  "post_published_video",
+  "feed.post_published_daily_duo",
+  "feed.post_published_video",
+]);
+
+const RAW_CONNECT_REPLIED_EVENTS = new Set([
+  "connect_replied",
+  "chat.connect_replied",
+]);
 
 export function dayRange(fromISO: string, toISO: string) {
   const out: string[] = [];
@@ -54,16 +71,14 @@ export async function computeSeries(input: {
     return { metric, from: fromISO, to: toISO, points };
   }
 
-  const rows = await fetchEventRows(fromISO, toISO, aliasesForMetric(metric));
-
   if (metric === "dau") {
+    const rows = await fetchEventRows(fromISO, toISO);
     const dayUsers = new Map<string, Set<string>>();
-    const allowedCanonicals = new Set(canonicalsForMetric("dau"));
 
     for (const row of rows) {
       if (!row.user_id) continue;
       if (filterUsers && !filterUsers.has(row.user_id)) continue;
-      if (!allowedCanonicals.has(canonicalizeEventName(row.event_name))) continue;
+      if (!isActivityEventName(row.event_name)) continue;
       const d = row.created_at.slice(0, 10);
       const set = dayUsers.get(d) ?? new Set<string>();
       set.add(row.user_id);
@@ -73,6 +88,8 @@ export async function computeSeries(input: {
     const points = dayRange(fromISO, toISO).map((d: any) => ({ ts: d, value: dayUsers.get(d)?.size ?? 0 }));
     return { metric, from: fromISO, to: toISO, points };
   }
+
+  const rows = await fetchEventRows(fromISO, toISO, aliasesForMetric(metric));
 
   if (metric === "ai_cost") {
     const dayCost = new Map<string, number>();
@@ -94,7 +111,19 @@ export async function computeSeries(input: {
 
   for (const row of rows) {
     if (filterUsers && row.user_id && !filterUsers.has(row.user_id)) continue;
-    if (!allowedCanonicals.has(canonicalizeEventName(row.event_name))) continue;
+
+    if (metric === "posts") {
+      const isPostRaw = RAW_POST_EVENTS.has(String(row.event_name));
+      const isPostCanonical = allowedCanonicals.has(canonicalizeEventName(row.event_name));
+      if (!isPostRaw && !isPostCanonical) continue;
+    } else if (metric === "connect_replied") {
+      const isConnectRaw = RAW_CONNECT_REPLIED_EVENTS.has(String(row.event_name));
+      const isConnectCanonical = allowedCanonicals.has(canonicalizeEventName(row.event_name));
+      if (!isConnectRaw && !isConnectCanonical) continue;
+    } else if (!allowedCanonicals.has(canonicalizeEventName(row.event_name))) {
+      continue;
+    }
+
     const d = row.created_at.slice(0, 10);
     dayCount.set(d, (dayCount.get(d) ?? 0) + 1);
   }

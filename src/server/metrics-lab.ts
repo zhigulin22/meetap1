@@ -1,4 +1,4 @@
-import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
+import { aliasesForCanonicals, canonicalizeEventName, isActivityEventName } from "@/server/event-dictionary";
 import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { supabaseAdmin } from "@/supabase/admin";
 
@@ -227,27 +227,12 @@ export async function getMetricsBlock(
   toISO: string,
   userIds?: string[] | null,
 ) {
-  const canonicalUniverse = [
-    "register_started",
-    "telegram_verified",
-    "registration_completed",
-    "profile_completed",
-    "post_published_daily_duo",
-    "post_published_video",
-    "event_viewed",
-    "event_joined",
-    "connect_sent",
-    "connect_replied",
-    "message_sent",
-    "comment_created",
-    "report_created",
-  ];
-
-  const rowsRaw = await fetchEventRows(fromISO, toISO, aliasesForCanonicals(canonicalUniverse), null);
+  const rowsRaw = await fetchEventRows(fromISO, toISO, undefined, null);
   const rows = filterByUsers(rowsRaw, userIds);
+  const activityRows = rows.filter((r) => isActivityEventName(r.event_name));
   const days = rangeDays(fromISO, toISO);
 
-  const activeUsers = uniqueUsers(rows).size;
+  const activeUsers = uniqueUsers(activityRows).size
   const messages = eventCount(rows, "message_sent");
   const sent = eventCount(rows, "connect_sent");
   const replied = eventCount(rows, "connect_replied");
@@ -271,13 +256,13 @@ export async function getMetricsBlock(
   const regCompleted = eventCount(rows, "registration_completed");
   const profileCompleted = eventCount(rows, "profile_completed");
 
-  const dauSeries = buildUniqueSeries(rows, fromISO, toISO);
+  const dauSeries = buildUniqueSeries(activityRows, fromISO, toISO);
   const postsSeries = buildSeries(rows, fromISO, toISO, ["post_published_daily_duo", "post_published_video"]);
   const connectReplySeries = buildSeries(rows, fromISO, toISO, ["connect_replied"]);
 
   const todayDAU = dauSeries[dauSeries.length - 1]?.value ?? 0;
-  const wau = new Set(rows.filter((r) => new Date(r.created_at).getTime() >= (Date.now() - 7 * 24 * 60 * 60 * 1000) && r.user_id).map((r) => String(r.user_id))).size;
-  const mau = new Set(rows.filter((r) => new Date(r.created_at).getTime() >= (Date.now() - 30 * 24 * 60 * 60 * 1000) && r.user_id).map((r) => String(r.user_id))).size;
+  const wau = new Set(activityRows.filter((r) => new Date(r.created_at).getTime() >= (Date.now() - 7 * 24 * 60 * 60 * 1000) && r.user_id).map((r) => String(r.user_id))).size;
+  const mau = new Set(activityRows.filter((r) => new Date(r.created_at).getTime() >= (Date.now() - 30 * 24 * 60 * 60 * 1000) && r.user_id).map((r) => String(r.user_id))).size;
 
   const topByCanonical = (canonical: string, limit = 10) => {
     const counts = new Map<string, number>();
@@ -313,7 +298,7 @@ export async function getMetricsBlock(
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
-  const insufficient = rows.length === 0;
+  const insufficient = activityRows.length === 0;
 
   if (kind === "growth") {
     const byCity = new Map<string, number>();

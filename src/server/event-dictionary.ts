@@ -121,6 +121,14 @@ export const EVENT_DICTIONARY: EventDictionaryItem[] = [
     aliases: ["safety.report_created", "report_created", "report_submitted"],
   },
   {
+    event_name: "ai_request",
+    family: "ai",
+    display_ru: "AI запрос",
+    metric_tags: ["ai", "usage"],
+    is_key: true,
+    aliases: ["ai_request", "ai.request", "ai_call"],
+  },
+  {
     event_name: "ai_cost",
     family: "ai",
     display_ru: "AI cost",
@@ -202,17 +210,51 @@ export function eventDictionarySeedRows() {
   }));
 }
 
+export const EVENT_CATEGORY_CANONICAL = {
+  AUTH: ["register_started", "telegram_verified", "registration_completed"],
+  PROFILE: ["profile_completed"],
+  CONTENT: ["post_published_daily_duo", "post_published_video"],
+  EVENTS: ["event_viewed", "event_joined"],
+  SOCIAL: ["connect_sent", "connect_replied", "message_sent"],
+  SAFETY: ["report_created"],
+  AI: ["ai_request", "ai_cost", "ai_error"],
+} as const;
+
+export function isAdminOrDiagnosticsEventName(eventName: string | null | undefined) {
+  const raw = String(eventName ?? "").toLowerCase();
+  if (!raw) return false;
+
+  if (
+    raw.startsWith("admin.") ||
+    raw.startsWith("admin_") ||
+    raw.startsWith("diagnostics.") ||
+    raw.startsWith("diagnostics_")
+  ) {
+    return true;
+  }
+
+  const canonical = String(canonicalizeEventName(eventName)).toLowerCase();
+  return (
+    canonical.startsWith("admin.") ||
+    canonical.startsWith("admin_") ||
+    canonical.startsWith("diagnostics.") ||
+    canonical.startsWith("diagnostics_") ||
+    canonical === "admin_test_event"
+  );
+}
+
+export function isActivityEventName(eventName: string | null | undefined) {
+  return Boolean(eventName) && !isAdminOrDiagnosticsEventName(eventName);
+}
+
 const METRIC_CANONICAL: Record<string, string[]> = {
   dau: [
+    ...EVENT_CATEGORY_CANONICAL.AUTH,
+    ...EVENT_CATEGORY_CANONICAL.PROFILE,
+    ...EVENT_CATEGORY_CANONICAL.CONTENT,
+    ...EVENT_CATEGORY_CANONICAL.EVENTS,
+    ...EVENT_CATEGORY_CANONICAL.SOCIAL,
     "app.session_start",
-    "event_viewed",
-    "event_joined",
-    "post_published_daily_duo",
-    "post_published_video",
-    "connect_sent",
-    "connect_replied",
-    "message_sent",
-    "comment_created",
   ],
   new_users: ["registration_completed"],
   tg_verify_rate_num: ["telegram_verified"],
