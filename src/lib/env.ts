@@ -8,10 +8,9 @@ const publicSchema = z.object({
 
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  OPENAI_API_KEY: z.string().min(1),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
-  FACE_DETECT_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  AI_SERVICE_URL: z.string().url().default("http://127.0.0.1:8000"),
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
 });
 
@@ -41,11 +40,10 @@ export function getServerEnv() {
   const source = {
     SUPABASE_SERVICE_ROLE_KEY:
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-service-role",
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-openai",
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ?? "placeholder-telegram",
     TELEGRAM_WEBHOOK_SECRET:
       process.env.TELEGRAM_WEBHOOK_SECRET ?? "placeholder-secret",
-    FACE_DETECT_MODEL: process.env.FACE_DETECT_MODEL ?? "gpt-4o-mini",
+    AI_SERVICE_URL: process.env.AI_SERVICE_URL ?? "http://127.0.0.1:8000",
     FACE_DETECT_MIN_CONFIDENCE: process.env.FACE_DETECT_MIN_CONFIDENCE ?? "0.35",
   };
 

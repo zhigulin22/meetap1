@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -20,6 +21,7 @@ type FeedPost = {
   type: "daily_duo" | "reel";
   caption: string | null;
   created_at: string;
+  is_mine: boolean;
   user: { id: string; name: string; avatar_url: string | null } | null;
   photos: { front?: string; back?: string; cover?: string };
   reactions: { like: number; connect: number; star: number };
@@ -60,6 +62,7 @@ function mediaKind(post: FeedPost) {
 }
 
 export default function FeedPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"all" | "video" | "duo" | "single">("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -138,6 +141,18 @@ export default function FeedPage() {
   function openComments(post: FeedPost) {
     setCommentsPost(post);
     setCommentsOpen(true);
+  }
+
+  function openDm(post: FeedPost) {
+    if (!post.user?.id) {
+      toast.error("Профиль автора недоступен");
+      return;
+    }
+    if (post.is_mine) {
+      toast.error("Нельзя писать самому себе");
+      return;
+    }
+    router.push(`/chats/${post.user.id}`);
   }
 
   async function sendComment() {
@@ -322,7 +337,14 @@ export default function FeedPage() {
       {!isLoading && !data?.locked ? (
         <div className="feed-scroll snap-y snap-mandatory space-y-3 overflow-y-auto pb-24">
           {filtered.map((post) => (
-            <PostCard key={post.id} post={post} onReact={react} onConnect={connect} onOpenComments={openComments} />
+            <PostCard
+              key={post.id}
+              post={post}
+              onReact={react}
+              onConnect={connect}
+              onMessage={openDm}
+              onOpenComments={openComments}
+            />
           ))}
           {!filtered.length ? (
             <Card>

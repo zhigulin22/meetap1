@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Handshake, MessageCircle, Star, Volume2, VolumeX } from "lucide-react";
+import { Heart, Handshake, MessageCircle, Send, Star, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type Post = {
@@ -12,6 +12,7 @@ type Post = {
   type: "daily_duo" | "reel";
   caption: string | null;
   created_at: string;
+  is_mine: boolean;
   user: { id: string; name: string; avatar_url: string | null } | null;
   photos: { front?: string; back?: string; cover?: string };
   reactions: { like: number; connect: number; star: number };
@@ -44,11 +45,13 @@ export function PostCard({
   post,
   onReact,
   onConnect,
+  onMessage,
   onOpenComments,
 }: {
   post: Post;
   onReact: (postId: string, reactionType: "like" | "star") => void;
   onConnect: (post: Post) => void;
+  onMessage: (post: Post) => void;
   onOpenComments: (post: Post) => void;
 }) {
   const mediaUrl = post.photos.cover || post.photos.front || post.photos.back;
@@ -159,7 +162,7 @@ export function PostCard({
 
           {post.caption ? renderCaption(post.caption) : null}
 
-          <div className="mt-3 grid grid-cols-[1fr_1fr_auto_1fr] gap-2">
+          <div className="mt-3 grid grid-cols-[1fr_1fr_auto_auto_1fr] gap-2">
             <Button
               variant="secondary"
               size="default"
@@ -172,6 +175,17 @@ export function PostCard({
 
             <Button variant="secondary" size="default" onClick={() => onOpenComments(post)} className="h-11">
               <MessageCircle className="mr-1 h-4 w-4" /> {post.comments_count}
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => onMessage(post)}
+              className="h-11 w-11"
+              aria-label="Написать сообщение"
+              disabled={!post.user?.id || post.is_mine}
+            >
+              <Send className="h-4 w-4" />
             </Button>
 
             <Button

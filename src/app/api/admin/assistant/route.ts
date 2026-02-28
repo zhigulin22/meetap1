@@ -1,5 +1,4 @@
 import { z } from "zod";
-import OpenAI from "openai";
 import { fail, ok } from "@/lib/http";
 import { getServerEnv } from "@/lib/env";
 import { requireAdminUserId } from "@/server/admin";
@@ -8,6 +7,61 @@ import { supabaseAdmin } from "@/supabase/admin";
 const schema = z.object({
   question: z.string().min(3).max(1000),
 });
+
+type AssistantResponse = {
+  summary: string;
+  risks: string[];
+  actions: string[];
+  queries: string[];
+};
+
+const fallback: AssistantResponse = {
+  summary: "AI не ответил вовремя. Используйте готовые метрики ниже.",
+  risks: ["Проверьте открытые флаги и резкий рост жалоб"],
+  actions: ["Проверить top events", "Проверить пользователей с высоким числом флагов"],
+  queries: ["поиск: наркот", "поиск: взрыв", "поиск: заклад"],
+};
+
+function stripTrailingSlash(url: string) {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+async function askPythonAssistant(question: string, snapshot: Record<string, unknown>) {
+  const env = getServerEnv();
+  const baseUrl = stripTrailingSlash(env.AI_SERVICE_URL);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const response = await fetch(`${baseUrl}/v1/admin-assistant`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question, snapshot }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI service failed with status ${response.status}`);
+    }
+
+    const body = (await response.json()) as Partial<AssistantResponse>;
+
+    if (!body.summary || !Array.isArray(body.risks) || !Array.isArray(body.actions) || !Array.isArray(body.queries)) {
+      return fallback;
+    }
+
+    return {
+      summary: String(body.summary),
+      risks: body.risks.map((x) => String(x)).slice(0, 8),
+      actions: body.actions.map((x) => String(x)).slice(0, 8),
+      queries: body.queries.map((x) => String(x)).slice(0, 8),
+    } satisfies AssistantResponse;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -48,64 +102,12 @@ export async function POST(req: Request) {
       recent_comments: recentComments.data ?? [],
     };
 
-    const env = getServerEnv();
-    const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-
-    const system = `
-Ты AI-ассистент админ-панели социальной сети офлайн-знакомств.
-Твоя задача: помогать с метриками, конверсиями, рисками безопасности и приоритетами продукта.
-Нельзя раскрывать лишние персональные данные.
-Формат ответа строго JSON: {
-  "summary": string,
-  "risks": string[],
-  "actions": string[],
-  "queries": string[]
-}
-`;
-
-    const user = `
-Вопрос админа: ${parsed.data.question}
-Данные снапшота: ${JSON.stringify(snapshot).slice(0, 12000)}
-`;
-
-    const response = await Promise.race([
-      client.responses.create({
-        model: "gpt-4o-mini",
-        input: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "admin_assistant",
-            schema: {
-              type: "object",
-              properties: {
-                summary: { type: "string" },
-                risks: { type: "array", items: { type: "string" } },
-                actions: { type: "array", items: { type: "string" } },
-                queries: { type: "array", items: { type: "string" } },
-              },
-              required: ["summary", "risks", "actions", "queries"],
-              additionalProperties: false,
-            },
-          },
-        },
-      } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
-    ]);
-
-    if (!response) {
-      return ok({
-        summary: "AI не ответил вовремя. Используйте готовые метрики ниже.",
-        risks: ["Проверьте открытые флаги и резкий рост жалоб"],
-        actions: ["Проверить top events", "Проверить пользователей с высоким числом флагов"],
-        queries: ["поиск: наркот", "поиск: взрыв", "поиск: заклад"],
-      });
+    try {
+      const result = await askPythonAssistant(parsed.data.question, snapshot);
+      return ok(result);
+    } catch {
+      return ok(fallback);
     }
-
-    return ok(JSON.parse(response.output_text));
   } catch {
     return fail("Forbidden", 403);
   }

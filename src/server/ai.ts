@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { getServerEnv } from "@/lib/env";
 
 type FaceValidation = {
@@ -8,15 +7,23 @@ type FaceValidation = {
   reason?: string;
 };
 
-const FACE_PROMPTS = [
-  "Count clearly visible real human faces. Ignore drawings, masks, statues, posters. Return strict JSON.",
-  "Estimate how many real human faces are visible. If at least one face exists, set ok=true.",
-] as const;
+type IcebreakerResponse = {
+  messages: string[];
+  topic: string;
+  question: string;
+  profileSummary?: string;
+  approachTips?: string[];
+  offlineIdeas?: string[];
+  onlineIdeas?: string[];
+};
 
-function getClient() {
-  const env = getServerEnv();
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
-}
+type FirstMessageSuggestionsResponse = {
+  messages: string[];
+};
+
+const FACE_TIMEOUT_MS = 12_000;
+const ICEBREAKER_TIMEOUT_MS = 15_000;
+const FIRST_MESSAGE_TIMEOUT_MS = 12_000;
 
 function normalizeFaceResult(value: unknown, minConfidence: number): FaceValidation {
   if (!value || typeof value !== "object") {
@@ -37,63 +44,42 @@ function normalizeFaceResult(value: unknown, minConfidence: number): FaceValidat
   };
 }
 
-async function detectFacesOnce(
-  client: OpenAI,
-  input: { imageUrl?: string; base64?: string },
-  prompt: string,
-  models: string[],
-  minConfidence: number,
-) {
-  const content = input.imageUrl
-    ? [{ type: "input_text", text: prompt }, { type: "input_image", image_url: input.imageUrl }]
-    : [{ type: "input_text", text: prompt }, { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` }];
+function stripTrailingSlash(url: string) {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
 
-  let aiResult: OpenAI.Responses.Response | null = null;
+async function callAiService<T>(
+  path: string,
+  body: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<T> {
+  const env = getServerEnv();
+  const baseUrl = stripTrailingSlash(env.AI_SERVICE_URL);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  for (const model of models) {
-    const attempt = await Promise.race([
-      client.responses.create({
-        model,
-        input: [{ role: "user", content }],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "face_validation",
-            schema: {
-              type: "object",
-              properties: {
-                faces_count: { type: "number" },
-                confidence: { type: "number" },
-                ok: { type: "boolean" },
-                reason: { type: "string" },
-              },
-              required: ["faces_count", "confidence", "ok"],
-              additionalProperties: false,
-            },
-          },
-        },
-      } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
-    ]).catch(() => null);
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: controller.signal,
+    });
 
-    if (attempt) {
-      aiResult = attempt;
-      break;
+    if (!response.ok) {
+      throw new Error(`AI service failed with status ${response.status}`);
     }
-  }
 
-  if (!aiResult) {
-    return { faces_count: 0, confidence: 0, ok: false, reason: "AI timeout" };
+    return (await response.json()) as T;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const parsed = JSON.parse(aiResult.output_text);
-  return normalizeFaceResult(parsed, minConfidence);
 }
 
 export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
   const env = getServerEnv();
   const minConfidence = env.FACE_DETECT_MIN_CONFIDENCE;
-  const models = [...new Set([env.FACE_DETECT_MODEL, "gpt-4o-mini", "gpt-4.1-mini"])];
 
   const fallback: FaceValidation = {
     faces_count: 0,
@@ -107,31 +93,16 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
   }
 
   try {
-    const client = getClient();
-
-    const results = await Promise.all(
-      FACE_PROMPTS.map((prompt) =>
-        detectFacesOnce(client, input, prompt, models, minConfidence).catch(() => ({
-          faces_count: 0,
-          confidence: 0,
-          ok: false,
-          reason: "Detection failed",
-        })),
-      ),
+    const ai = await callAiService<FaceValidation>(
+      "/v1/face-validate",
+      {
+        image_url: input.imageUrl,
+        base64: input.base64,
+      },
+      FACE_TIMEOUT_MS,
     );
 
-    const validCount = results.filter((r) => r.faces_count > 0).length;
-    const maxFaces = Math.max(...results.map((r) => r.faces_count), 0);
-    const maxConf = Math.max(...results.map((r) => r.confidence), 0);
-
-    const ok = validCount >= 1 && maxFaces > 0 && (maxConf >= minConfidence || validCount >= 2);
-
-    return {
-      faces_count: maxFaces,
-      confidence: maxConf,
-      ok,
-      reason: ok ? undefined : results.find((r) => r.reason)?.reason || "Face not confirmed",
-    };
+    return normalizeFaceResult(ai, minConfidence);
   } catch {
     return fallback;
   }
@@ -142,65 +113,84 @@ export async function buildIcebreaker(input: {
   user2: { name: string; interests: string[] };
   context?: string;
 }) {
+  const fallback: IcebreakerResponse = {
+    messages: [
+      `Привет! Увидел(а), что тебе близка тема ${input.user2.interests[0] ?? "оффлайн встреч"}. Хочешь познакомиться?`,
+      "Я бы с радостью присоединился(ась) к небольшому мероприятию или прогулке.",
+    ],
+    topic: "Общие интересы",
+    question: "Какой формат первого знакомства тебе комфортнее?",
+    profileSummary: `${input.user2.name} лучше откликается на спокойный диалог через общий контекст.`,
+    approachTips: [
+      "Начни коротко, без длинной самопрезентации",
+      "Ссылайся на общий интерес или недавний пост",
+    ],
+    offlineIdeas: ["Кофе рядом с мероприятием", "Короткая прогулка на 30 минут"],
+    onlineIdeas: ["Обменяться 2-3 вопросами перед встречей"],
+  };
+
   try {
-    const client = getClient();
-    const prompt = `
-Ты помощник по знакомствам. Ответ только JSON.
-Сделай рекомендации для ${input.user1.name}, чтобы познакомиться с ${input.user2.name}.
-Контекст: ${input.context ?? "offline meeting"}
-Интересы ${input.user1.name}: ${input.user1.interests.join(", ") || "не указаны"}
-Интересы ${input.user2.name}: ${input.user2.interests.join(", ") || "не указаны"}
-`;
-
-    const res = await client.responses.create({
-      model: "gpt-4o-mini",
-      input: prompt,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "icebreakers",
-          schema: {
-            type: "object",
-            properties: {
-              messages: { type: "array", items: { type: "string" } },
-              topic: { type: "string" },
-              question: { type: "string" },
-              profileSummary: { type: "string" },
-              approachTips: { type: "array", items: { type: "string" } },
-              offlineIdeas: { type: "array", items: { type: "string" } },
-              onlineIdeas: { type: "array", items: { type: "string" } },
-            },
-            required: ["messages", "topic", "question"],
-            additionalProperties: false,
-          },
-        },
+    const ai = await callAiService<Partial<IcebreakerResponse>>(
+      "/v1/icebreaker",
+      {
+        user1: input.user1,
+        user2: input.user2,
+        context: input.context,
       },
-    } as any);
+      ICEBREAKER_TIMEOUT_MS,
+    );
 
-    return JSON.parse(res.output_text) as {
-      messages: string[];
-      topic: string;
-      question: string;
-      profileSummary?: string;
-      approachTips?: string[];
-      offlineIdeas?: string[];
-      onlineIdeas?: string[];
+    if (!Array.isArray(ai.messages) || !ai.topic || !ai.question) {
+      return fallback;
+    }
+
+    return {
+      messages: ai.messages.map((x) => String(x)).slice(0, 6),
+      topic: String(ai.topic),
+      question: String(ai.question),
+      profileSummary: ai.profileSummary ? String(ai.profileSummary) : undefined,
+      approachTips: Array.isArray(ai.approachTips) ? ai.approachTips.map(String).slice(0, 8) : undefined,
+      offlineIdeas: Array.isArray(ai.offlineIdeas) ? ai.offlineIdeas.map(String).slice(0, 8) : undefined,
+      onlineIdeas: Array.isArray(ai.onlineIdeas) ? ai.onlineIdeas.map(String).slice(0, 8) : undefined,
     };
   } catch {
-    return {
-      messages: [
-        `Привет! Увидел(а), что тебе близка тема ${input.user2.interests[0] ?? "оффлайн встреч"}. Хочешь познакомиться?`,
-        "Я бы с радостью присоединился(ась) к небольшому мероприятию или прогулке.",
-      ],
-      topic: "Общие интересы",
-      question: "Какой формат первого знакомства тебе комфортнее?",
-      profileSummary: `${input.user2.name} лучше откликается на спокойный диалог через общий контекст.`,
-      approachTips: [
-        "Начни коротко, без длинной самопрезентации",
-        "Ссылайся на общий интерес или недавний пост",
-      ],
-      offlineIdeas: ["Кофе рядом с мероприятием", "Короткая прогулка на 30 минут"],
-      onlineIdeas: ["Обменяться 2-3 вопросами перед встречей"],
-    };
+    return fallback;
+  }
+}
+
+export async function buildFirstMessageSuggestions(input: {
+  user1: { name: string; interests: string[]; profileSummary?: string };
+  user2: { name: string; interests: string[]; profileSummary?: string };
+  context?: string;
+}) {
+  const myTopic = input.user1.interests[0] ?? "новые знакомства";
+  const baseTopic = input.user2.interests[0] ?? "знакомство";
+  const fallback: FirstMessageSuggestionsResponse = {
+    messages: [
+      `Привет! Пишу познакомиться. Как проходит твой день?`,
+      `Привет! Мне близка тема ${myTopic}, поэтому решил написать. Если комфортно, давай познакомимся.`,
+      `Привет! Вижу, тебе близка тема ${baseTopic}. Что тебе в ней сейчас больше всего нравится?`,
+    ],
+  };
+
+  try {
+    const ai = await callAiService<Partial<FirstMessageSuggestionsResponse>>(
+      "/v1/first-message-suggestions",
+      {
+        user1: input.user1,
+        user2: input.user2,
+        context: input.context,
+      },
+      FIRST_MESSAGE_TIMEOUT_MS,
+    );
+
+    if (!Array.isArray(ai.messages)) {
+      return fallback;
+    }
+
+    // Возвращаем ровно то, что вернул AI service (без дополнительной нормализации на стороне Next.js).
+    return { messages: ai.messages };
+  } catch {
+    return fallback;
   }
 }

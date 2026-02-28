@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/supabase/middleware";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 
-const protectedRoutes = ["/feed", "/events", "/contacts", "/profile", "/admin"];
+const protectedRoutes = ["/feed", "/events", "/chats", "/contacts", "/profile", "/admin"];
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
 
 async function isSessionActive(userId: string, sessionId: string) {

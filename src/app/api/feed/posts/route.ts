@@ -70,6 +70,7 @@ export async function GET() {
 
     const items = (posts ?? []).map((post) => ({
       ...post,
+      is_mine: post.user_id === userId,
       user: userMap.get(post.user_id) ?? null,
       photos: photoMap.get(post.id) ?? {},
       reactions: reactionMap.get(post.id) ?? { like: 0, connect: 0, star: 0 },
