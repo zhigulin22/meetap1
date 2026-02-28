@@ -7,6 +7,8 @@ import { buildRiskProfiles } from "@/server/risk";
 import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { supabaseAdmin } from "@/supabase/admin";
 
+type DemoFilter = "all" | "demo" | "real" | "traffic";
+
 function applySearch(query: any, q: string, limit: number, cols: Set<string>) {
   let next = query.limit(limit);
   if (cols.has("created_at")) next = next.order("created_at", { ascending: false });
@@ -14,6 +16,8 @@ function applySearch(query: any, q: string, limit: number, cols: Set<string>) {
 
   const searchChunks: string[] = [];
   if (cols.has("name")) searchChunks.push(`name.ilike.%${q}%`);
+  if (cols.has("username")) searchChunks.push(`username.ilike.%${q}%`);
+  if (cols.has("email")) searchChunks.push(`email.ilike.%${q}%`);
   if (cols.has("phone")) searchChunks.push(`phone.ilike.%${q}%`);
   if (cols.has("telegram_user_id")) searchChunks.push(`telegram_user_id.eq.${q}`);
   if (cols.has("city")) searchChunks.push(`city.ilike.%${q}%`);
@@ -30,6 +34,8 @@ function userFromId(id: string) {
   return {
     id,
     name: `User ${id.slice(0, 8)}`,
+    username: null,
+    email: null,
     phone: null,
     city: null,
     role: "user",
@@ -58,8 +64,13 @@ export async function GET(req: Request) {
 
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
 
-    const demoFilter = (searchParams.get("demo") ?? "all") as "all" | "demo" | "real" | "traffic";
+    const demoFilter = (searchParams.get("demo") ?? "all") as DemoFilter;
     const demoGroup = (searchParams.get("demo_group") ?? "").trim();
+    const roleFilter = (searchParams.get("role") ?? "all").trim();
+    const cityFilter = (searchParams.get("city") ?? "").trim();
+    const flagShadow = (searchParams.get("shadow_banned") ?? "").trim();
+    const flagLimited = (searchParams.get("message_limited") ?? "").trim();
+    const flagProfileCompleted = (searchParams.get("profile_completed") ?? "").trim();
     const { q, limit } = parsed.data;
 
     const schema = await getSchemaSnapshot(["users"]);
@@ -71,6 +82,8 @@ export async function GET(req: Request) {
       const selectCols = [
         "id",
         "name",
+        "username",
+        "email",
         "phone",
         "telegram_user_id",
         "city",
@@ -115,6 +128,11 @@ export async function GET(req: Request) {
       }
 
       if (demoGroup.length && userCols.has("demo_group")) query = query.eq("demo_group", demoGroup);
+      if (roleFilter !== "all" && userCols.has("role")) query = query.eq("role", roleFilter);
+      if (cityFilter.length && userCols.has("city")) query = query.ilike("city", `%${cityFilter}%`);
+      if (flagShadow === "true" && userCols.has("shadow_banned")) query = query.eq("shadow_banned", true);
+      if (flagLimited === "true" && userCols.has("message_limited")) query = query.eq("message_limited", true);
+      if (flagProfileCompleted === "true" && userCols.has("profile_completed")) query = query.eq("profile_completed", true);
 
       const usersRes = await query;
       if (usersRes.error) return fail(usersRes.error.message, 500);
@@ -195,6 +213,8 @@ export async function GET(req: Request) {
         return {
           ...u,
           name: typeof u.name === "string" && u.name.trim() ? u.name : fallbackName,
+          username: typeof u.username === "string" ? u.username : null,
+          email: typeof u.email === "string" ? u.email : null,
           role: typeof u.role === "string" && u.role ? u.role : "user",
           city: u.city ?? u.country ?? null,
           is_demo: Boolean(u.is_demo ?? inferredDemo),

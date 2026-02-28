@@ -207,6 +207,9 @@ async function ensureTrafficUsers(target: number, userCols: Set<string>) {
         id: randomUUID(),
         phone: randomPhone(),
         name: `Traffic Demo ${String(n).padStart(2, "0")}`,
+        username: `traffic_demo_${String(n).padStart(3, "0")}`,
+        email: `traffic.demo.${String(n).padStart(3, "0")}@example.meetap`,
+        avatar_url: null,
         telegram_verified: chance(0.7),
         role: "user",
         is_demo: true,
@@ -217,6 +220,10 @@ async function ensureTrafficUsers(target: number, userCols: Set<string>) {
         hobbies: ["networking", "events", "demo"],
         facts: ["Демо пользователь", "Сгенерирован сервером", "Для QA метрик"],
         profile_completed: chance(0.65),
+        personality_profile: chance(0.55)
+          ? { type: pick(["strategist", "connector", "creator", "explorer"]), updated_at: new Date().toISOString() }
+          : null,
+        preferences: { networking_mode: pick(["friends", "dating", "mixed"]), openness: pick(["low", "medium", "high"]) },
         level: rnd(1, 6),
         xp: rnd(0, 120),
       },

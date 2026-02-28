@@ -10,6 +10,21 @@ const bodySchema = z.object({
   run_id: z.string().uuid().optional(),
 });
 
+function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("TIMEOUT: traffic operation exceeded 8s")), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const adminId = await requireAdminUserId(["admin"]);
@@ -24,7 +39,7 @@ export async function POST(req: Request) {
       return fail("Traffic is not running", 409);
     }
 
-    const result = await tickTrafficRun(parsed.data.run_id ?? null);
+    const result = await withTimeout(tickTrafficRun(parsed.data.run_id ?? null));
 
     await Promise.all([
       trackEvent({

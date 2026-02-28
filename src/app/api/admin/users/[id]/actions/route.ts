@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
 import { logAdminAction } from "@/server/admin-audit";
@@ -12,7 +13,7 @@ const schema = z.object({
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const adminId = await requireAdminUserId();
+    const adminId = await requireAdminUserId(["admin", "moderator"]);
     const body = await req.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
@@ -53,7 +54,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       .single();
 
     return ok({ success: true, user });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/users/[id]/actions", error);
   }
 }

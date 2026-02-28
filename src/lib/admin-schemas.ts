@@ -332,3 +332,75 @@ export const liveEventsResponseSchema = z.object({
     }),
   ),
 });
+
+export const adminHealthResponseSchema = z.object({
+  ok: z.boolean(),
+  user_id: z.string().optional(),
+  env: z.object({
+    NEXT_PUBLIC_SUPABASE_URL: z.boolean(),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.boolean(),
+    SUPABASE_SERVICE_ROLE_KEY: z.boolean(),
+  }),
+  db: z.object({ connected: z.boolean(), error: z.string().nullable() }),
+  tables: z.array(
+    z.object({
+      name: z.string(),
+      exists: z.boolean(),
+      rows_24h: z.number(),
+      rows_7d: z.number(),
+      rows_30d: z.number(),
+      error: z.string().optional(),
+    }),
+  ),
+  issues: z.array(z.string()),
+  steps: z.array(z.string()),
+});
+
+export const metricsSummaryResponseSchema = z.object({
+  period: z.object({ from: z.string(), to: z.string(), days: z.number() }),
+  kpis: z.record(z.number()),
+  tables: z.object({
+    top_events_24h: z.array(z.object({ event_name: z.string(), count: z.number() })),
+    top_users_30d: z.array(
+      z.object({
+        user_id: z.string(),
+        events: z.number(),
+        connect_sent: z.number(),
+        connect_replied: z.number(),
+        posts: z.number(),
+        joins: z.number(),
+        city: z.string(),
+      }),
+    ),
+    cities_30d: z.array(
+      z.object({ city: z.string(), users: z.number(), events: z.number(), joins: z.number() }),
+    ),
+    risk_top: z.array(
+      z.object({ user_id: z.string(), risk_score: z.number(), signals: z.array(z.string()) }),
+    ),
+    roles_count: z.array(z.object({ role: z.string(), count: z.number() })).optional(),
+    breakdown_by_day: z.array(
+      z.object({
+        day: z.string(),
+        events: z.number(),
+        active_users: z.number(),
+        posts: z.number(),
+        joins: z.number(),
+        connect_sent: z.number(),
+        connect_replied: z.number(),
+        reports: z.number(),
+      }),
+    ),
+  }),
+  funnel: z.object({
+    steps: z.array(
+      z.object({
+        step: z.string(),
+        users: z.number(),
+        conversion: z.number(),
+        dropoff: z.number(),
+      }),
+    ),
+  }),
+  warnings: z.array(z.string()),
+});

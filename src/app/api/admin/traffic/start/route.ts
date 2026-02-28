@@ -13,6 +13,21 @@ const bodySchema = z.object({
   chaos: z.coerce.boolean().default(false),
 });
 
+function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("TIMEOUT: traffic operation exceeded 8s")), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const adminId = await requireAdminUserId(["admin"]);
@@ -22,13 +37,13 @@ export async function POST(req: Request) {
       return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
     }
 
-    const run = await startTrafficRun({
+    const run = await withTimeout(startTrafficRun({
       createdBy: adminId,
       usersCount: parsed.data.users_count,
       intervalSec: parsed.data.interval_sec,
       intensity: parsed.data.intensity,
       chaos: parsed.data.chaos,
-    });
+    }));
 
     await Promise.all([
       trackEvent({
