@@ -52,19 +52,19 @@ async function getUserAccess(userId: string) {
       cache: "no-store",
     });
 
-    if (!res.ok) return { role: "user", blocked: false };
+    if (!res.ok) return { role: "user", blocked: false, degraded: true };
 
     const rows = (await res.json()) as Array<{ role?: string; is_blocked?: boolean; blocked_until?: string | null }>;
     const row = rows[0];
 
-    if (!row) return { role: "user", blocked: false };
+    if (!row) return { role: "user", blocked: false, degraded: false };
 
     const blockedUntil = row.blocked_until ? new Date(row.blocked_until).getTime() : null;
     const blocked = Boolean(row.is_blocked) && (!blockedUntil || blockedUntil > Date.now());
 
-    return { role: row.role ?? "user", blocked };
+    return { role: row.role ?? "user", blocked, degraded: false };
   } catch {
-    return { role: "user", blocked: false };
+    return { role: "user", blocked: false, degraded: true };
   }
 }
 
@@ -161,7 +161,7 @@ export async function middleware(request: NextRequest) {
       hit.count += 1;
     }
   }
-  if (request.nextUrl.pathname.startsWith("/admin") && !["admin","moderator","analyst","content_manager","support"].includes(access.role)) {
+  if (request.nextUrl.pathname.startsWith("/admin") && !access.degraded && !["admin","moderator","analyst","content_manager","support"].includes(access.role)) {
     const url = request.nextUrl.clone();
     url.pathname = "/feed";
     return NextResponse.redirect(url);

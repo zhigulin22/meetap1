@@ -20,6 +20,13 @@ import {
   Sparkles,
   Users,
   Wrench,
+  LifeBuoy,
+  ScrollText,
+  Settings2,
+  Workflow,
+  FileBarChart2,
+  UserCog,
+  Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +36,7 @@ import { cn } from "@/lib/utils";
 
 export type AdminSection =
   | "overview"
+  | "operations"
   | "metrics_lab"
   | "events_live"
   | "traffic"
@@ -38,6 +46,12 @@ export type AdminSection =
   | "flags"
   | "alerts"
   | "users"
+  | "support"
+  | "audit"
+  | "config"
+  | "data_quality"
+  | "exports"
+  | "rbac"
   | "risk"
   | "reports"
   | "moderation"
@@ -45,27 +59,38 @@ export type AdminSection =
   | "system"
   | "integrations"
   | "security"
-  | "backup";
+  | "backup"
+  | "campaigns";
+
+export type AdminSegment = "all" | "demo" | "real" | "verified" | "new" | "active";
 
 const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", title: "Обзор", icon: Gauge },
+  { id: "operations", title: "Operations Center", icon: Workflow },
   { id: "metrics_lab", title: "Метрики (Lab)", icon: ChartColumnIncreasing },
-  { id: "events_live", title: "События (Live)", icon: Activity },
-  { id: "traffic", title: "Traffic Generator", icon: Bot },
   { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
   { id: "retention", title: "Когорты", icon: Sparkles },
-  { id: "experiments", title: "Эксперименты", icon: Beaker },
-  { id: "flags", title: "Фичи и конфиг", icon: SlidersHorizontal },
-  { id: "alerts", title: "Алерты", icon: BellRing },
+  { id: "events_live", title: "События (Live)", icon: Activity },
   { id: "users", title: "Users 360", icon: Users },
-  { id: "risk", title: "Risk Center", icon: ShieldAlert },
+  { id: "support", title: "Support Desk", icon: LifeBuoy },
   { id: "reports", title: "Жалобы", icon: Flag },
+  { id: "risk", title: "Risk Center", icon: ShieldAlert },
   { id: "moderation", title: "Модерация", icon: Shield },
+  { id: "audit", title: "Admin Audit Log", icon: ScrollText },
+  { id: "config", title: "Config Center", icon: Settings2 },
+  { id: "flags", title: "Feature Flags", icon: SlidersHorizontal },
+  { id: "experiments", title: "Эксперименты", icon: Beaker },
+  { id: "alerts", title: "Алерты", icon: BellRing },
+  { id: "data_quality", title: "Data Quality", icon: FileBarChart2 },
+  { id: "exports", title: "Exports & Snapshots", icon: HardDriveDownload },
+  { id: "rbac", title: "RBAC & Admins", icon: UserCog },
+  { id: "traffic", title: "Traffic Generator", icon: Bot },
   { id: "assistant", title: "AI Ассистент", icon: Bot },
   { id: "system", title: "System Settings", icon: Wrench },
   { id: "integrations", title: "Интеграции", icon: Plug },
   { id: "security", title: "Безопасность", icon: Database },
-  { id: "backup", title: "Экспорт и backup", icon: HardDriveDownload },
+  { id: "backup", title: "Backup", icon: HardDriveDownload },
+  { id: "campaigns", title: "Campaigns", icon: Megaphone },
 ];
 
 export function AdminShell({
@@ -85,8 +110,8 @@ export function AdminShell({
   onSectionChange: (v: AdminSection) => void;
   dateRange: "7d" | "14d" | "30d" | "90d";
   onDateRangeChange: (v: "7d" | "14d" | "30d" | "90d") => void;
-  segment: "all" | "verified" | "new" | "active";
-  onSegmentChange: (v: "all" | "verified" | "new" | "active") => void;
+  segment: AdminSegment;
+  onSegmentChange: (v: AdminSegment) => void;
   onAskAI: () => void;
   search: string;
   onSearch: (v: string) => void;
@@ -99,7 +124,7 @@ export function AdminShell({
       <div className="mb-3 rounded-2xl border border-border bg-surface2/85 p-3">
         <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Control Center</p>
         <p className="font-display text-lg font-semibold text-text">Meetap Admin</p>
-        <p className="text-xs text-muted">growth · safety · product</p>
+        <p className="text-xs text-muted">numbers-first · ops · safety</p>
       </div>
 
       {items.map((item) => {
@@ -114,7 +139,7 @@ export function AdminShell({
               setOpen(false);
             }}
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition",
+              "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition active:scale-[0.98]",
               active
                 ? "border-cyan/40 bg-[linear-gradient(135deg,#193968,#1e4a7f)] text-[#e3efff] shadow-glow"
                 : "border-border bg-surface2/70 text-muted hover:text-text",
@@ -169,16 +194,18 @@ export function AdminShell({
 
               <select
                 value={segment}
-                onChange={(e) => onSegmentChange(e.target.value as "all" | "verified" | "new" | "active")}
+                onChange={(e) => onSegmentChange(e.target.value as AdminSegment)}
                 className="admin-select"
               >
-                <option value="all">Все пользователи</option>
+                <option value="all">Все (all)</option>
+                <option value="demo">Demo</option>
+                <option value="real">Real</option>
                 <option value="verified">Верифицированные</option>
                 <option value="new">Новые</option>
                 <option value="active">Активные</option>
               </select>
 
-              <Button onClick={onAskAI}>
+              <Button onClick={onAskAI} className="active:scale-[0.98] transition-transform">
                 <Bot className="mr-1 h-4 w-4" /> AI
               </Button>
             </div>

@@ -1,12 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, RefreshCw, Play, Square, Gauge, Users, ShieldAlert, Activity, Trash2 } from "lucide-react";
-import { AdminShell, type AdminSection } from "@/components/admin-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  Download,
+  Gauge,
+  Loader2,
+  Play,
+  RefreshCw,
+  Save,
+  ShieldAlert,
+  Square,
+  Trash2,
+  Users,
+  Workflow,
+} from "lucide-react";
+import { AdminShell, type AdminSection, type AdminSegment } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { adminApi } from "@/lib/admin-client";
 import {
   adminHealthResponseSchema,
@@ -29,100 +45,53 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const KPI_GROUPS: Record<string, string[]> = {
-  growth: [
-    "users_total",
-    "users_new_24h",
-    "users_new_7d",
-    "users_new_30d",
-    "registration_completion_rate",
-    "tg_verify_rate",
-    "activation_rate",
-    "profile_completed_rate",
-  ],
-  activation: [
-    "profile_completed_rate",
-    "facts_filled_rate",
-    "avatar_rate",
-    "psychotest_completed_rate",
-    "avg_interests_count",
-  ],
-  engagement: [
-    "events_total_24h",
-    "events_total_7d",
-    "events_total_30d",
-    "active_users_24h",
-    "active_users_7d",
-    "active_users_30d",
-    "sessions_24h",
-    "dau_proxy",
-    "wau_proxy",
-  ],
-  content: [
-    "posts_duo_24h",
-    "posts_duo_7d",
-    "posts_duo_30d",
-    "posts_video_24h",
-    "posts_video_7d",
-    "posts_video_30d",
-    "comments_24h",
-    "comments_7d",
-    "comments_30d",
-    "posters_7d",
-  ],
-  events: [
-    "event_viewed_24h",
-    "event_viewed_7d",
-    "event_viewed_30d",
-    "event_joined_24h",
-    "event_joined_7d",
-    "event_joined_30d",
-    "join_rate",
-  ],
-  social: [
-    "connect_sent_24h",
-    "connect_sent_7d",
-    "connect_sent_30d",
-    "connect_replied_24h",
-    "connect_replied_7d",
-    "connect_replied_30d",
-    "reply_rate",
-    "messages_sent_24h",
-    "messages_sent_7d",
-    "messages_sent_30d",
-    "continued_chats_proxy_30d",
-  ],
-  safety: [
-    "shadow_banned_count",
-    "message_limited_count",
-    "reports_count_24h",
-    "reports_count_7d",
-    "reports_count_30d",
-    "risk_users_count",
-    "deleted_users_30d",
-  ],
-  ai: [
-    "ai_cost_total_24h",
-    "ai_cost_total_7d",
-    "ai_cost_total_30d",
-    "ai_calls_24h",
-    "ai_error_rate",
-  ],
-  health: [
-    "events_total_24h",
-    "events_total_7d",
-    "events_total_30d",
-    "active_users_24h",
-    "users_total",
-  ],
+  growth: ["users_total", "users_new_24h", "users_new_7d", "users_new_30d", "registration_completion_rate", "tg_verify_rate", "activation_rate", "profile_completed_rate"],
+  activation: ["profile_completed_rate", "facts_filled_rate", "avatar_rate", "psychotest_completed_rate", "avg_interests_count"],
+  engagement: ["events_total_24h", "events_total_7d", "events_total_30d", "active_users_24h", "active_users_7d", "active_users_30d", "sessions_24h", "dau_proxy", "wau_proxy"],
+  content: ["posts_duo_24h", "posts_duo_7d", "posts_duo_30d", "posts_video_24h", "posts_video_7d", "posts_video_30d", "comments_24h", "comments_7d", "comments_30d", "posters_7d"],
+  events: ["event_viewed_24h", "event_viewed_7d", "event_viewed_30d", "event_joined_24h", "event_joined_7d", "event_joined_30d", "join_rate"],
+  social: ["connect_sent_24h", "connect_sent_7d", "connect_sent_30d", "connect_replied_24h", "connect_replied_7d", "connect_replied_30d", "reply_rate", "messages_sent_24h", "messages_sent_7d", "messages_sent_30d", "continued_chats_proxy_30d"],
+  safety: ["shadow_banned_count", "message_limited_count", "reports_count_24h", "reports_count_7d", "reports_count_30d", "risk_users_count", "deleted_users_30d"],
+  ai: ["ai_cost_total_24h", "ai_cost_total_7d", "ai_cost_total_30d", "ai_calls_24h", "ai_error_rate"],
+  health: ["events_total_24h", "events_total_7d", "events_total_30d", "active_users_24h", "users_total"],
 };
 
+const REQUIRED_COVERAGE: Array<{ key: string; label: string; aliases: string[] }> = [
+  { key: "open_feed", label: "open_feed", aliases: ["open_feed", "app.session_start"] },
+  { key: "open_event", label: "open_event", aliases: ["open_event", "events.viewed", "event_viewed"] },
+  { key: "join_event", label: "join_event", aliases: ["join_event", "events.joined", "event_joined"] },
+  { key: "connect_sent", label: "connect_sent", aliases: ["connect_sent", "chat.connect_sent"] },
+  { key: "connect_replied", label: "connect_replied", aliases: ["connect_replied", "chat.connect_replied"] },
+  { key: "message_sent", label: "message_sent", aliases: ["message_sent", "chat.message_sent", "chat_message_sent"] },
+  { key: "comment_created", label: "comment_created", aliases: ["comment_created", "comment.created"] },
+  { key: "profile_updated", label: "profile_updated", aliases: ["profile_updated", "profile_completed", "profile.completed"] },
+  { key: "psychotest_completed", label: "psychotest_completed", aliases: ["psychotest_completed", "profile.psychotest_completed"] },
+];
+
 function formatKpi(key: string, value: number) {
-  if (!Number.isFinite(value)) return "0";
+  if (!Number.isFinite(value)) return "N/A";
   if (key.includes("_rate") || key.includes("rate")) return `${(value * 100).toFixed(1)}%`;
   if (key.includes("cost")) return `$${value.toFixed(4)}`;
   if (Math.abs(value) >= 1000) return Math.round(value).toLocaleString("ru-RU");
   if (Number.isInteger(value)) return value.toLocaleString("ru-RU");
   return value.toFixed(3);
+}
+
+function parseError(error: unknown) {
+  if (error instanceof ApiClientError) {
+    if (error.code === "FORBIDDEN" || error.code === "UNAUTHORIZED") {
+      return `Нет прав на ${error.endpoint}. Проверь роль пользователя.`;
+    }
+    if (error.code === "MISSING_ENV") {
+      return `Сервер не настроен: ${error.hint ?? "добавь ключи env и redeploy"}.`;
+    }
+    return `${error.endpoint}: ${error.message.replace(/\[[A-Z_]+\]\s*/g, "")}`;
+  }
+  return error instanceof Error ? error.message : "Request failed";
+}
+
+function EmptyNote({ text }: { text: string }) {
+  return <p className="rounded-xl border border-border bg-surface2/70 p-3 text-sm text-muted">{text}</p>;
 }
 
 function KpiGrid({ kpis, keys }: { kpis: Record<string, number>; keys?: string[] }) {
@@ -141,14 +110,10 @@ function KpiGrid({ kpis, keys }: { kpis: Record<string, number>; keys?: string[]
   );
 }
 
-function EmptyNote({ text }: { text: string }) {
-  return <p className="rounded-xl border border-border bg-surface2/70 p-3 text-sm text-muted">{text}</p>;
-}
-
 export default function AdminPage() {
   const [section, setSection] = useState<AdminSection>("overview");
   const [dateRange, setDateRange] = useState<"7d" | "14d" | "30d" | "90d">("30d");
-  const [segment, setSegment] = useState<"all" | "verified" | "new" | "active">("all");
+  const [segment, setSegment] = useState<AdminSegment>("all");
   const [search, setSearch] = useState("");
   const [metricsTab, setMetricsTab] = useState<keyof typeof KPI_GROUPS>("growth");
 
@@ -163,81 +128,241 @@ export default function AdminPage() {
     city: "",
   });
 
-  const [trafficForm, setTrafficForm] = useState({ users_count: 30, interval_sec: 8, intensity: "normal" as "low" | "normal" | "high", chaos: true });
+  const [trafficForm, setTrafficForm] = useState({ users_count: 40, interval_sec: 8, intensity: "normal" as "low" | "normal" | "high", chaos: true });
   const [trafficAction, setTrafficAction] = useState<null | "start" | "stop" | "tick" | "reset">(null);
   const [trafficError, setTrafficError] = useState<string | null>(null);
   const [trafficLastTick, setTrafficLastTick] = useState<{ events_written: number; last_db_event_at: string | null } | null>(null);
 
+  const [supportUserId, setSupportUserId] = useState<string>("");
+  const [supportNote, setSupportNote] = useState("");
+  const [supportTicketCategory, setSupportTicketCategory] = useState("support_general");
+  const [supportTicketNote, setSupportTicketNote] = useState("");
+
+  const [assistantQuestion, setAssistantQuestion] = useState("Где сейчас главный риск в продукте и что сделать первым шагом?");
+  const [assistantAnswer, setAssistantAnswer] = useState<any>(null);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+
+  const [roleReason, setRoleReason] = useState("Операционное назначение");
+  const [roleDraft, setRoleDraft] = useState<Record<string, string>>({});
+
+  const [limitsDraft, setLimitsDraft] = useState<any>(null);
+  const [qualityMapDraft, setQualityMapDraft] = useState({ event_name: "", family: "events", display_ru: "" });
+
+  const [riskSelected, setRiskSelected] = useState<string[]>([]);
+
   const days = dateRange === "7d" ? 7 : dateRange === "14d" ? 14 : dateRange === "30d" ? 30 : 90;
+  const summarySegment = ["all", "verified", "new", "active"].includes(segment) ? segment : "all";
 
   const health = useQuery({
-    queryKey: ["admin-health-v1"],
+    queryKey: ["admin-health-v2"],
     queryFn: () => adminApi("/api/admin/health", adminHealthResponseSchema),
     retry: false,
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
   const healthOk = health.data?.ok === true;
 
   const summary = useQuery({
-    queryKey: ["admin-summary-v1", days, segment],
-    queryFn: () => adminApi(`/api/admin/metrics/summary?days=${days}&segment=${segment}`, metricsSummaryResponseSchema),
+    queryKey: ["admin-summary-v2", days, summarySegment],
+    queryFn: () => adminApi(`/api/admin/metrics/summary?days=${days}&segment=${summarySegment}`, metricsSummaryResponseSchema),
     enabled: healthOk,
-    refetchInterval: section === "traffic" ? 8000 : 15000,
+    refetchInterval: section === "traffic" || section === "overview" || section === "operations" ? 7000 : 15000,
   });
 
   const users = useQuery({
-    queryKey: ["admin-users-v6", userFilter],
+    queryKey: ["admin-users-v7", userFilter],
     queryFn: () =>
       adminApi(
         `/api/admin/users/search?q=${encodeURIComponent(userFilter.q)}&limit=50&demo=${userFilter.demo}&role=${encodeURIComponent(userFilter.role)}&shadow_banned=${userFilter.shadow_banned}&message_limited=${userFilter.message_limited}&profile_completed=${userFilter.profile_completed}&city=${encodeURIComponent(userFilter.city)}`,
         userSearchResponseSchema,
       ),
-    enabled: healthOk,
+    enabled: healthOk && (section === "users" || section === "support"),
   });
 
   const liveEvents = useQuery({
-    queryKey: ["admin-events-live-v1", eventsFilter],
+    queryKey: ["admin-events-live-v2", eventsFilter],
     queryFn: () =>
       adminApi(
         `/api/admin/events/live?event_name=${encodeURIComponent(eventsFilter.eventName)}&user_id=${encodeURIComponent(eventsFilter.userId)}&demo_group=${encodeURIComponent(eventsFilter.demoGroup)}&limit=500`,
         liveEventsResponseSchema,
       ),
-    enabled: healthOk,
+    enabled: healthOk && section === "events_live",
     refetchInterval: section === "events_live" ? 4000 : false,
   });
 
+  const trafficCoverageEvents = useQuery({
+    queryKey: ["admin-traffic-coverage-events"],
+    queryFn: () => adminApi("/api/admin/events/live?demo_group=traffic&limit=900", liveEventsResponseSchema),
+    enabled: healthOk && section === "traffic",
+    refetchInterval: section === "traffic" ? 5000 : false,
+  });
+
   const trafficStatus = useQuery({
-    queryKey: ["admin-traffic-status-v2"],
+    queryKey: ["admin-traffic-status-v3"],
     queryFn: () => api<any>("/api/admin/traffic/status"),
     enabled: healthOk,
-    refetchInterval: section === "traffic" ? 4000 : false,
+    refetchInterval: section === "traffic" || section === "operations" ? 4000 : false,
   });
 
   const trafficProof = useQuery({
-    queryKey: ["admin-traffic-proof-v2"],
+    queryKey: ["admin-traffic-proof-v3"],
     queryFn: () => api<{ events_last_window: number; last_event_at: string | null }>("/api/admin/traffic/proof?minutes=2"),
     enabled: healthOk,
-    refetchInterval: section === "traffic" ? 4000 : false,
+    refetchInterval: section === "traffic" || section === "operations" ? 4000 : false,
   });
 
-  const activeErrors = [health.error, summary.error, users.error, liveEvents.error, trafficStatus.error, trafficProof.error]
+  const operations = useQuery({
+    queryKey: ["admin-operations-overview"],
+    queryFn: () => api<any>("/api/admin/operations/overview"),
+    enabled: healthOk && section === "operations",
+    refetchInterval: 7000,
+  });
+
+  const auditLog = useQuery({
+    queryKey: ["admin-audit-log", days],
+    queryFn: () => api<any>(`/api/admin/audit/log?days=${days}`),
+    enabled: healthOk && (section === "audit" || section === "security"),
+  });
+
+  const supportDesk = useQuery({
+    queryKey: ["admin-support-desk", search, supportUserId],
+    queryFn: () => api<any>(`/api/admin/support/desk?q=${encodeURIComponent(search)}&user_id=${encodeURIComponent(supportUserId)}`),
+    enabled: healthOk && section === "support",
+    refetchInterval: 8000,
+  });
+
+  const rbac = useQuery({
+    queryKey: ["admin-rbac-admins"],
+    queryFn: () => api<any>("/api/admin/rbac/admins"),
+    enabled: healthOk && section === "rbac",
+  });
+
+  const flags = useQuery({
+    queryKey: ["admin-feature-flags-v2"],
+    queryFn: () => api<any>("/api/admin/feature-flags"),
+    enabled: healthOk && (section === "flags" || section === "config"),
+  });
+
+  const limits = useQuery({
+    queryKey: ["admin-config-limits"],
+    queryFn: () => api<any>("/api/admin/config/limits"),
+    enabled: healthOk && section === "config",
+  });
+
+  const alerts = useQuery({
+    queryKey: ["admin-alerts-v2"],
+    queryFn: () => api<any>("/api/admin/alerts"),
+    enabled: healthOk && (section === "alerts" || section === "operations"),
+  });
+
+  const reports = useQuery({
+    queryKey: ["admin-reports-v2"],
+    queryFn: () => api<any>("/api/admin/reports"),
+    enabled: healthOk && (section === "reports" || section === "moderation" || section === "support"),
+  });
+
+  const risk = useQuery({
+    queryKey: ["admin-risk-v2"],
+    queryFn: () => api<any>("/api/admin/risk"),
+    enabled: healthOk && (section === "risk" || section === "moderation" || section === "operations"),
+  });
+
+  const quality = useQuery({
+    queryKey: ["admin-data-quality"],
+    queryFn: () => api<any>("/api/admin/data-quality"),
+    enabled: healthOk && section === "data_quality",
+    refetchInterval: 15000,
+  });
+
+  const security = useQuery({
+    queryKey: ["admin-security-overview"],
+    queryFn: () => api<any>("/api/admin/security/overview"),
+    enabled: healthOk && (section === "security" || section === "backup"),
+  });
+
+  const integrations = useQuery({
+    queryKey: ["admin-integrations"],
+    queryFn: () => api<any>("/api/admin/integrations/status"),
+    enabled: healthOk && (section === "integrations" || section === "operations"),
+  });
+
+  const settings = useQuery({
+    queryKey: ["admin-system-settings"],
+    queryFn: () => api<any>("/api/admin/system/settings"),
+    enabled: healthOk && section === "system",
+  });
+
+  const experiments = useQuery({
+    queryKey: ["admin-experiments"],
+    queryFn: () => api<any>("/api/admin/experiments"),
+    enabled: healthOk && section === "experiments",
+  });
+
+  const retention = useQuery({
+    queryKey: ["admin-retention", days],
+    queryFn: () => api<any>(`/api/admin/metrics/retention?days=${days}`),
+    enabled: healthOk && section === "retention",
+  });
+
+  useEffect(() => {
+    if (limits.data?.limits) {
+      setLimitsDraft(limits.data.limits);
+    }
+  }, [limits.data]);
+
+  const activeErrors = [
+    health.error,
+    summary.error,
+    users.error,
+    liveEvents.error,
+    trafficStatus.error,
+    trafficProof.error,
+    operations.error,
+    auditLog.error,
+    supportDesk.error,
+    rbac.error,
+    flags.error,
+    limits.error,
+    alerts.error,
+    reports.error,
+    risk.error,
+    quality.error,
+    security.error,
+    integrations.error,
+    settings.error,
+    experiments.error,
+    retention.error,
+  ]
     .filter(Boolean)
-    .map((e) => {
-      if (e instanceof ApiClientError) {
-        if (e.code === "FORBIDDEN" || e.code === "UNAUTHORIZED") {
-          return `Нет прав на ${e.endpoint}. Проверь роль пользователя (admin/moderator/analyst/support).`;
-        }
-        if (e.code === "MISSING_ENV") {
-          return `Сервер не настроен: ${e.hint ?? "добавь SERVICE_ROLE ключ и redeploy"}.`;
-        }
-        if (e.code === "RLS") {
-          return `Серверный доступ к БД ограничен: ${e.hint ?? "проверь SERVICE_ROLE и политики"}.`;
-        }
-        return `${e.endpoint}: ${e.message.replace(/\[[A-Z_]+\]\s*/g, "")}`;
-      }
-      return e instanceof Error ? e.message : "Request failed";
-    });
+    .map(parseError);
+
+  const coverage = useMemo(() => {
+    const items = trafficCoverageEvents.data?.items ?? [];
+    const since = Date.now() - 15 * 60 * 1000;
+    const recent = items.filter((x) => new Date(x.created_at).getTime() >= since);
+    const names = new Set(recent.map((x) => x.event_name));
+    return REQUIRED_COVERAGE.map((item) => ({
+      ...item,
+      ok: item.aliases.some((a) => names.has(a)),
+    }));
+  }, [trafficCoverageEvents.data]);
+
+  useEffect(() => {
+    if (section !== "traffic") return;
+    if (!["RUNNING", "STARTING", "DEGRADED"].includes(String(trafficStatus.data?.runtime_status ?? ""))) return;
+    const runId = trafficStatus.data?.run?.id;
+    if (!runId) return;
+
+    const intervalMs = Math.max(3000, Math.min(15000, Number(trafficStatus.data?.run?.interval_sec ?? 8) * 1000));
+    const timer = window.setInterval(() => {
+      void api("/api/admin/traffic/tick", { method: "POST", body: JSON.stringify({ run_id: runId }) })
+        .then((res: any) => setTrafficLastTick({ events_written: Number(res.events_written ?? 0), last_db_event_at: res.last_db_event_at ?? null }))
+        .then(() => Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), operations.refetch(), trafficCoverageEvents.refetch()]))
+        .catch(() => undefined);
+    }, intervalMs);
+
+    return () => window.clearInterval(timer);
+  }, [section, trafficStatus.data?.runtime_status, trafficStatus.data?.run?.id, trafficStatus.data?.run?.interval_sec]);
 
   const onTrafficStart = async () => {
     try {
@@ -248,10 +373,10 @@ export default function AdminPage() {
         method: "POST",
         body: JSON.stringify({ run_id: startRes?.run_id ?? null }),
       });
-      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), liveEvents.refetch(), users.refetch()]);
+      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), operations.refetch(), trafficCoverageEvents.refetch(), users.refetch()]);
       setSection("traffic");
     } catch (e) {
-      setTrafficError(e instanceof Error ? e.message : "Не удалось запустить traffic");
+      setTrafficError(parseError(e));
     } finally {
       setTrafficAction(null);
     }
@@ -262,9 +387,9 @@ export default function AdminPage() {
       setTrafficAction("stop");
       setTrafficError(null);
       await api("/api/admin/traffic/stop", { method: "POST", body: JSON.stringify({ run_id: trafficStatus.data?.run?.id ?? null }) });
-      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch()]);
+      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), operations.refetch()]);
     } catch (e) {
-      setTrafficError(e instanceof Error ? e.message : "Не удалось остановить traffic");
+      setTrafficError(parseError(e));
     } finally {
       setTrafficAction(null);
     }
@@ -279,9 +404,9 @@ export default function AdminPage() {
         body: JSON.stringify({ run_id: trafficStatus.data?.run?.id ?? null }),
       });
       setTrafficLastTick(res);
-      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), liveEvents.refetch(), users.refetch()]);
+      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), operations.refetch(), trafficCoverageEvents.refetch(), users.refetch()]);
     } catch (e) {
-      setTrafficError(e instanceof Error ? e.message : "Не удалось выполнить tick");
+      setTrafficError(parseError(e));
     } finally {
       setTrafficAction(null);
     }
@@ -292,39 +417,150 @@ export default function AdminPage() {
       setTrafficAction("reset");
       setTrafficError(null);
       await api("/api/admin/traffic/reset", { method: "POST" });
-      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), users.refetch(), liveEvents.refetch()]);
+      await Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), users.refetch(), trafficCoverageEvents.refetch(), liveEvents.refetch(), operations.refetch()]);
     } catch (e) {
-      setTrafficError(e instanceof Error ? e.message : "Не удалось очистить demo");
+      setTrafficError(parseError(e));
     } finally {
       setTrafficAction(null);
     }
   };
 
-  useEffect(() => {
-    if (section !== "traffic") return;
-    if (!["RUNNING", "STARTING", "DEGRADED"].includes(String(trafficStatus.data?.runtime_status ?? ""))) return;
-    const runId = trafficStatus.data?.run?.id;
-    if (!runId) return;
+  const runUserAction = async (userId: string, action: string) => {
+    await api(`/api/admin/users/${userId}/actions`, { method: "POST", body: JSON.stringify({ action, reason: "admin_panel_action" }) });
+    await Promise.all([users.refetch(), summary.refetch(), risk.refetch(), reports.refetch(), auditLog.refetch()]);
+  };
 
-    const intervalMs = Math.max(3000, Math.min(15000, Number(trafficStatus.data?.run?.interval_sec ?? 8) * 1000));
-    const timer = window.setInterval(() => {
-      void api("/api/admin/traffic/tick", { method: "POST", body: JSON.stringify({ run_id: runId }) })
-        .then((res: any) => setTrafficLastTick({ events_written: Number(res.events_written ?? 0), last_db_event_at: res.last_db_event_at ?? null }))
-        .then(() => Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch()]))
-        .catch(() => undefined);
-    }, intervalMs);
-
-    return () => window.clearInterval(timer);
-  }, [section, trafficStatus.data?.runtime_status, trafficStatus.data?.run?.id, trafficStatus.data?.run?.interval_sec]);
-
-  const runActions = async (userId: string, action: string) => {
-    try {
-      await api(`/api/admin/users/${userId}/actions`, { method: "POST", body: JSON.stringify({ action }) });
-      await users.refetch();
-      await summary.refetch();
-    } catch {
-      // error rendered by query/error banner on next refetch
+  const runBulkRiskAction = async (action: "limit_messaging" | "shadowban" | "block" | "mark_safe") => {
+    const ids = [...riskSelected].slice(0, 10);
+    for (const id of ids) {
+      await api(`/api/admin/users/${id}/actions`, { method: "POST", body: JSON.stringify({ action, reason: "risk_bulk_action" }) });
     }
+    setRiskSelected([]);
+    await Promise.all([risk.refetch(), users.refetch(), summary.refetch(), auditLog.refetch()]);
+  };
+
+  const updateAlertStatus = async (item: any, status: "active" | "paused" | "triggered") => {
+    await api("/api/admin/alerts", {
+      method: "POST",
+      body: JSON.stringify({
+        id: item.id,
+        type: item.type,
+        metric: item.metric,
+        threshold: Number(item.threshold ?? 0),
+        window_days: Number(item.window_days ?? 7),
+        status,
+      }),
+    });
+    await Promise.all([alerts.refetch(), operations.refetch(), auditLog.refetch()]);
+  };
+
+  const updateReportStatus = async (id: string, status: "open" | "in_review" | "resolved" | "rejected") => {
+    await api("/api/admin/reports", {
+      method: "PUT",
+      body: JSON.stringify({ id, status }),
+    });
+    await Promise.all([reports.refetch(), summary.refetch(), operations.refetch(), auditLog.refetch()]);
+  };
+
+  const addSupportNote = async () => {
+    if (!supportUserId || supportNote.trim().length < 2) return;
+    await api("/api/admin/support/notes", { method: "POST", body: JSON.stringify({ user_id: supportUserId, text: supportNote.trim() }) });
+    setSupportNote("");
+    await Promise.all([supportDesk.refetch(), auditLog.refetch()]);
+  };
+
+  const createSupportTicket = async () => {
+    if (!supportUserId || supportTicketCategory.trim().length < 2) return;
+    await api("/api/admin/support/tickets", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: supportUserId,
+        category: supportTicketCategory,
+        internal_note: supportTicketNote || null,
+      }),
+    });
+    setSupportTicketNote("");
+    await Promise.all([supportDesk.refetch(), auditLog.refetch()]);
+  };
+
+  const updateTicket = async (id: string, status: "open" | "in_progress" | "resolved") => {
+    await api("/api/admin/support/tickets", { method: "PUT", body: JSON.stringify({ id, status }) });
+    await Promise.all([supportDesk.refetch(), auditLog.refetch()]);
+  };
+
+  const updateRole = async (userId: string) => {
+    const role = roleDraft[userId];
+    if (!role) return;
+    await api("/api/admin/rbac/admins", { method: "PUT", body: JSON.stringify({ user_id: userId, role, reason: roleReason }) });
+    await Promise.all([rbac.refetch(), auditLog.refetch()]);
+  };
+
+  const toggleFlag = async (flag: any) => {
+    await api("/api/admin/feature-flags", {
+      method: "POST",
+      body: JSON.stringify({
+        id: flag.id,
+        key: flag.key,
+        enabled: !flag.enabled,
+        rollout: Number(flag.rollout ?? 100),
+        scope: flag.scope ?? "global",
+        payload: flag.payload ?? {},
+        description: flag.description ?? undefined,
+      }),
+    });
+    await Promise.all([flags.refetch(), auditLog.refetch(), operations.refetch()]);
+  };
+
+  const saveLimits = async () => {
+    if (!limitsDraft) return;
+    await api("/api/admin/config/limits", {
+      method: "PUT",
+      body: JSON.stringify({ ...limitsDraft, reason: "manual_update_from_config_center" }),
+    });
+    await Promise.all([limits.refetch(), auditLog.refetch()]);
+  };
+
+  const addToDictionary = async () => {
+    if (!qualityMapDraft.event_name || !qualityMapDraft.display_ru) return;
+    await api("/api/admin/data-quality", {
+      method: "POST",
+      body: JSON.stringify(qualityMapDraft),
+    });
+    setQualityMapDraft({ event_name: "", family: "events", display_ru: "" });
+    await Promise.all([quality.refetch(), auditLog.refetch()]);
+  };
+
+  const askAssistant = async () => {
+    try {
+      setAssistantLoading(true);
+      const res = await api<any>("/api/admin/assistant", { method: "POST", body: JSON.stringify({ question: assistantQuestion }) });
+      setAssistantAnswer(res);
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  const downloadCSV = (table: string) => {
+    window.open(`/api/admin/export?table=${encodeURIComponent(table)}`, "_blank", "noopener,noreferrer");
+  };
+
+  const downloadSnapshot = () => {
+    const payload = {
+      generated_at: new Date().toISOString(),
+      period_days: days,
+      segment,
+      summary: summary.data?.kpis ?? {},
+      top_events_24h: summary.data?.tables?.top_events_24h ?? [],
+      funnel: summary.data?.funnel?.steps ?? [],
+      warnings: summary.data?.warnings ?? [],
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meetap_snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
@@ -349,7 +585,7 @@ export default function AdminPage() {
         <div className="col-span-12">
           <Card>
             <CardHeader>
-              <CardTitle>Не подключено: Admin Health Check</CardTitle>
+              <CardTitle>{health.data?.code === "SERVICE_ROLE_UNAVAILABLE" ? "Degraded mode: Service Role недоступен" : "Не подключено: Admin Health Check"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               {health.isLoading ? (
@@ -358,8 +594,19 @@ export default function AdminPage() {
                 <>
                   {health.data ? (
                     <>
+                      <p>Режим: <strong>{health.data.mode === "degraded" ? "DEGRADED" : "NORMAL"}</strong></p>
                       <p>Статус БД: <strong>{health.data.db.connected ? "OK" : "ERROR"}</strong></p>
                       <p>ENV: URL={String(health.data.env.NEXT_PUBLIC_SUPABASE_URL)} · ANON={String(health.data.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)} · SERVICE={String(health.data.env.SUPABASE_SERVICE_ROLE_KEY)}</p>
+                      {health.data.checks ? (
+                        <p>Checks: service={String(health.data.checks.service_role_probe)} · users={String(health.data.checks.users_probe)} · analytics={String(health.data.checks.analytics_table_exists)}</p>
+                      ) : null}
+                      {health.data.code === "SERVICE_ROLE_UNAVAILABLE" ? (
+                        <div className="rounded-xl border border-warning/40 bg-warning/10 p-3">
+                          <p className="mb-1 font-medium text-warning">Degraded mode</p>
+                          <p>1. Проверь SUPABASE_SERVICE_ROLE_KEY в Vercel Production</p>
+                          <p>2. Выполни redeploy проекта</p>
+                        </div>
+                      ) : null}
                       {health.data.issues.length ? (
                         <div className="rounded-xl border border-danger/40 bg-danger/10 p-3">
                           <p className="mb-1 font-medium text-danger">Проблемы</p>
@@ -374,8 +621,11 @@ export default function AdminPage() {
                       ) : null}
                     </>
                   ) : null}
-                  {health.error ? <p className="text-danger">{health.error instanceof Error ? health.error.message : "Health request failed"}</p> : null}
-                  <Button variant="secondary" onClick={() => health.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Повторить проверку</Button>
+                  {health.error ? <p className="text-danger">{parseError(health.error)}</p> : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={() => health.refetch()} className="active:scale-[0.98] transition-transform"><RefreshCw className="mr-1 h-4 w-4" />Повторить проверку</Button>
+                    <Button variant="secondary" onClick={() => window.open("/api/admin/health/debug", "_blank", "noopener,noreferrer")}>Health debug</Button>
+                  </div>
                 </>
               )}
             </CardContent>
@@ -388,7 +638,7 @@ export default function AdminPage() {
           <Card className="border-warning/30 bg-warning/10">
             <CardHeader><CardTitle>Проблемы загрузки данных</CardTitle></CardHeader>
             <CardContent className="text-sm">
-              {activeErrors.slice(0, 6).map((x) => <p key={x}>• {x}</p>)}
+              {activeErrors.slice(0, 10).map((x) => <p key={x}>• {x}</p>)}
             </CardContent>
           </Card>
         </div>
@@ -416,7 +666,7 @@ export default function AdminPage() {
               <CardContent className="space-y-1 text-sm">
                 {(summary.data?.tables.top_events_24h ?? []).length ? (
                   summary.data?.tables.top_events_24h.map((r) => <p key={r.event_name} className="flex justify-between"><span>{r.event_name}</span><strong>{r.count}</strong></p>)
-                ) : <EmptyNote text="Нет событий за 24ч" />}
+                ) : <EmptyNote text="За 24ч нет событий из выбранной категории" />}
               </CardContent>
             </Card>
 
@@ -434,6 +684,76 @@ export default function AdminPage() {
         </>
       ) : null}
 
+      {healthOk && section === "operations" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="inline-flex items-center gap-2"><Workflow className="h-5 w-5" />Operations Center</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Events last 5m</p><p className="text-xl font-semibold">{operations.data?.status_strip?.events_last_5min ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">TG verify 15m</p><p className="text-xl font-semibold">{formatKpi("tg_verify_rate", Number(operations.data?.status_strip?.tg_verify_success_rate_15min ?? 0))}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">AI error rate 15m</p><p className="text-xl font-semibold">{formatKpi("ai_error_rate", Number(operations.data?.status_strip?.ai_error_rate_15min ?? 0))}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Reports 1h</p><p className="text-xl font-semibold">{operations.data?.status_strip?.reports_1h ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Risk high count</p><p className="text-xl font-semibold">{operations.data?.status_strip?.risk_high_count ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">API p95 latency</p><p className="text-xl font-semibold">{operations.data?.status_strip?.api_latency_p95_1h ?? 0} ms</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">AI cost today</p><p className="text-xl font-semibold">${Number(operations.data?.status_strip?.ai_cost_today ?? 0).toFixed(4)}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Last event</p><p className="text-sm font-semibold">{operations.data?.status_strip?.last_event_at ? new Date(operations.data.status_strip.last_event_at).toLocaleString("ru-RU") : "—"}</p></CardContent></Card>
+              </div>
+
+              {(operations.data?.warnings ?? []).length ? (
+                <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
+                  {(operations.data?.warnings ?? []).map((w: string) => <p key={w}>• {w}</p>)}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Active Alerts</CardTitle></CardHeader>
+              <CardContent className="max-h-[420px] space-y-2 overflow-auto text-sm">
+                {(alerts.data?.items ?? []).length ? (
+                  (alerts.data?.items ?? []).map((item: any) => (
+                    <div key={item.id} className="rounded-xl border border-border bg-surface2/70 p-3">
+                      <p className="font-medium">{item.type} · {item.metric}</p>
+                      <p className="text-xs text-muted">status: {item.status} · threshold: {item.threshold}</p>
+                      <div className="mt-2 flex gap-2">
+                        <Button size="sm" variant="secondary" className="active:scale-[0.98]" onClick={() => updateAlertStatus(item, "paused")}>Ack</Button>
+                        <Button size="sm" variant="secondary" className="active:scale-[0.98]" onClick={() => updateAlertStatus(item, "active")}>Re-open</Button>
+                      </div>
+                    </div>
+                  ))
+                ) : <EmptyNote text="Нет активных алертов" />}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Incident Timeline</CardTitle></CardHeader>
+              <CardContent className="max-h-[420px] space-y-2 overflow-auto text-sm">
+                {(operations.data?.incident_timeline ?? []).length ? (
+                  (operations.data.incident_timeline ?? []).map((x: any) => (
+                    <div key={x.id} className="rounded-xl border border-border bg-surface2/70 p-3">
+                      <p className="font-medium">{x.action}</p>
+                      <p className="text-xs text-muted">{x.target_type}:{x.target_id ?? "—"} · {new Date(x.created_at).toLocaleString("ru-RU")}</p>
+                    </div>
+                  ))
+                ) : <EmptyNote text="Инцидентов пока нет" />}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button variant="secondary" className="active:scale-[0.98]" onClick={onTrafficStop}><Square className="mr-1 h-4 w-4" />Pause Traffic Generator</Button>
+              <Button variant="secondary" className="active:scale-[0.98]" onClick={() => setSection("flags")}><Gauge className="mr-1 h-4 w-4" />Disable feature flag</Button>
+              <Button variant="secondary" className="active:scale-[0.98]" onClick={() => api("/api/admin/system/settings", { method: "PUT", body: JSON.stringify({ key: "safe_mode", value: { enabled: true } }) }).then(() => settings.refetch())}><AlertTriangle className="mr-1 h-4 w-4" />Enable safe mode</Button>
+              <Button variant="secondary" className="active:scale-[0.98]" onClick={downloadSnapshot}><Download className="mr-1 h-4 w-4" />Export last 24h snapshot</Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       {healthOk && section === "metrics_lab" ? (
         <div className="col-span-12 space-y-4">
           <Card>
@@ -446,7 +766,6 @@ export default function AdminPage() {
                   </Button>
                 ))}
               </div>
-
               {summary.isLoading ? <p className="text-sm text-muted">Загрузка метрик…</p> : <KpiGrid kpis={kpis} keys={metricsKeys} />}
             </CardContent>
           </Card>
@@ -497,7 +816,28 @@ export default function AdminPage() {
                     <span className="text-right">{(r.dropoff * 100).toFixed(1)}%</span>
                   </p>
                 ))
-              ) : <EmptyNote text="Нет событий funnel за период. Проверь Events Stream или запусти Traffic." />}
+              ) : <EmptyNote text="Нет событий funnel за период. Открой Events Stream и проверь трекинг." />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "retention" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Cohorts / Retention</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(retention.data?.cohorts ?? []).length ? (
+                retention.data.cohorts.map((c: any) => (
+                  <p key={c.cohortWeek} className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-2">
+                    <span>{c.cohortWeek}</span>
+                    <span className="text-right">size {c.cohortSize}</span>
+                    <span className="text-right">D1 {(Number(c.d1Rate ?? 0) * 100).toFixed(1)}%</span>
+                    <span className="text-right">D7 {(Number(c.d7Rate ?? 0) * 100).toFixed(1)}%</span>
+                    <span className="text-right">D30 {(Number(c.d30Rate ?? 0) * 100).toFixed(1)}%</span>
+                  </p>
+                ))
+              ) : <EmptyNote text="Недостаточно данных когорт. Запусти Traffic Generator." />}
             </CardContent>
           </Card>
         </div>
@@ -538,7 +878,7 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Traffic Generator</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
-                <Input type="number" value={trafficForm.users_count} onChange={(e) => setTrafficForm((p) => ({ ...p, users_count: Number(e.target.value || 30) }))} />
+                <Input type="number" value={trafficForm.users_count} onChange={(e) => setTrafficForm((p) => ({ ...p, users_count: Number(e.target.value || 40) }))} />
                 <Input type="number" value={trafficForm.interval_sec} onChange={(e) => setTrafficForm((p) => ({ ...p, interval_sec: Number(e.target.value || 8) }))} />
                 <select className="admin-select" value={trafficForm.intensity} onChange={(e) => setTrafficForm((p) => ({ ...p, intensity: e.target.value as any }))}>
                   <option value="low">low</option>
@@ -549,14 +889,14 @@ export default function AdminPage() {
                   <option value="true">chaos</option>
                   <option value="false">normal</option>
                 </select>
-                <Button onClick={onTrafficStart} disabled={trafficAction !== null}>{trafficAction === "start" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Start</Button>
-                <Button variant="secondary" onClick={onTrafficStop} disabled={trafficAction !== null}>{trafficAction === "stop" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />} Stop</Button>
+                <Button onClick={onTrafficStart} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "start" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Start</Button>
+                <Button variant="secondary" onClick={onTrafficStop} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "stop" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />} Stop</Button>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={onTrafficTick} disabled={trafficAction !== null}>{trafficAction === "tick" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Gauge className="mr-1 h-4 w-4" />} Tick</Button>
-                <Button variant="secondary" onClick={onTrafficReset} disabled={trafficAction !== null}>{trafficAction === "reset" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />} Очистить демо</Button>
-                <Button variant="secondary" onClick={() => Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), liveEvents.refetch()])}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
+                <Button variant="secondary" onClick={onTrafficTick} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "tick" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Gauge className="mr-1 h-4 w-4" />} Tick</Button>
+                <Button variant="secondary" onClick={onTrafficReset} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "reset" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />} Очистить демо</Button>
+                <Button variant="secondary" onClick={() => Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), liveEvents.refetch(), operations.refetch(), trafficCoverageEvents.refetch()])}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
               </div>
 
               <div className="rounded-xl border border-border bg-surface2/70 p-3">
@@ -571,15 +911,21 @@ export default function AdminPage() {
                 <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-danger">RUNNING (NO DB EVENTS). Проверь tick/status и diagnostics.</div>
               ) : null}
               {trafficError ? <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-danger">{trafficError}</div> : null}
+            </CardContent>
+          </Card>
 
-              <div className="rounded-xl border border-border bg-surface2/70 p-3">
-                <p className="mb-1 font-medium">Recent events</p>
-                {(trafficStatus.data?.sample_events ?? []).length ? (
-                  (trafficStatus.data?.sample_events ?? []).map((r: any, idx: number) => (
-                    <p key={`${r.event_name}-${idx}`} className="text-xs text-muted">• {r.event_name} · {r.user_id ?? "—"} · {new Date(r.created_at).toLocaleString("ru-RU")}</p>
-                  ))
-                ) : <p className="text-xs text-muted">Событий пока нет.</p>}
-              </div>
+          <Card>
+            <CardHeader><CardTitle>Button Coverage (last 15 min)</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {coverage.map((item) => (
+                <div key={item.key} className="flex items-center justify-between rounded-xl border border-border bg-surface2/70 p-2">
+                  <span>{item.label}</span>
+                  <span className={`inline-flex items-center gap-1 ${item.ok ? "text-emerald-400" : "text-warning"}`}>
+                    {item.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                    {item.ok ? "OK" : "MISSING"}
+                  </span>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>
@@ -621,9 +967,9 @@ export default function AdminPage() {
                         <p>status: {u.status}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
-                        <Button size="sm" variant="secondary" onClick={() => runActions(u.id, u.message_limited ? "unlimit_messaging" : "limit_messaging")}>{u.message_limited ? "unlimit" : "limit"}</Button>
-                        <Button size="sm" variant="secondary" onClick={() => runActions(u.id, u.shadow_banned ? "unshadowban" : "shadowban")}>{u.shadow_banned ? "unshadow" : "shadow"}</Button>
-                        <Button size="sm" variant={u.is_blocked ? "secondary" : "danger"} onClick={() => runActions(u.id, u.is_blocked ? "unblock" : "block")}>{u.is_blocked ? "unblock" : "block"}</Button>
+                        <Button size="sm" variant="secondary" onClick={() => runUserAction(u.id, u.message_limited ? "unlimit_messaging" : "limit_messaging")}>{u.message_limited ? "unlimit" : "limit"}</Button>
+                        <Button size="sm" variant="secondary" onClick={() => runUserAction(u.id, u.shadow_banned ? "unshadowban" : "shadowban")}>{u.shadow_banned ? "unshadow" : "shadow"}</Button>
+                        <Button size="sm" variant={u.is_blocked ? "secondary" : "danger"} onClick={() => runUserAction(u.id, u.is_blocked ? "unblock" : "block")}>{u.is_blocked ? "unblock" : "block"}</Button>
                       </div>
                     </div>
                   ))
@@ -634,32 +980,518 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {healthOk && section === "risk" ? (
+      {healthOk && section === "support" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Support Desk</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_220px_auto]">
+                <Input placeholder="Поиск user (id/username/email/phone masked)" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <Input placeholder="user_id (optional)" value={supportUserId} onChange={(e) => setSupportUserId(e.target.value)} />
+                <Button variant="secondary" onClick={() => supportDesk.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
+              </div>
+
+              <div className="max-h-[260px] overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
+                {(supportDesk.data?.users ?? []).length ? (
+                  supportDesk.data.users.map((u: any) => (
+                    <div key={u.id} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/30 p-2 text-xs last:border-b-0">
+                      <div>
+                        <p className="font-medium">{u.name ?? u.username ?? u.id}</p>
+                        <p className="text-muted">{u.id} · {u.phone_masked ?? "—"} · {u.city ?? "—"}</p>
+                        <p className="text-muted">profile:{String(u.profile_completed)} · shadow:{String(u.shadow_banned)} · limited:{String(u.message_limited)} · last:{u.last_active_at ? new Date(u.last_active_at).toLocaleString("ru-RU") : "—"}</p>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => setSupportUserId(u.id)}>Выбрать</Button>
+                    </div>
+                  ))
+                ) : <EmptyNote text="Пользователи не найдены" />}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Internal Notes</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex gap-2">
+                  <Input placeholder="Комментарий саппорта" value={supportNote} onChange={(e) => setSupportNote(e.target.value)} />
+                  <Button onClick={addSupportNote} disabled={!supportUserId || supportNote.trim().length < 2}><Save className="mr-1 h-4 w-4" />Add note</Button>
+                </div>
+                <div className="max-h-[300px] overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
+                  {(supportDesk.data?.notes ?? []).length ? (
+                    supportDesk.data.notes.map((n: any) => (
+                      <div key={n.id} className="border-b border-border/30 p-2 text-xs last:border-b-0">
+                        <p className="font-medium">{n.text}</p>
+                        <p className="text-muted">{n.author_role} · {new Date(n.created_at).toLocaleString("ru-RU")} · status: {n.status}</p>
+                      </div>
+                    ))
+                  ) : <EmptyNote text="Заметок нет" />}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Tickets-lite</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
+                  <Input placeholder="category" value={supportTicketCategory} onChange={(e) => setSupportTicketCategory(e.target.value)} />
+                  <Input placeholder="internal note" value={supportTicketNote} onChange={(e) => setSupportTicketNote(e.target.value)} />
+                  <Button onClick={createSupportTicket} disabled={!supportUserId}><Save className="mr-1 h-4 w-4" />Create ticket</Button>
+                </div>
+
+                <div className="max-h-[300px] overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
+                  {(supportDesk.data?.tickets ?? []).length ? (
+                    supportDesk.data.tickets.map((t: any) => (
+                      <div key={t.id} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/30 p-2 text-xs last:border-b-0">
+                        <div>
+                          <p className="font-medium">{t.category}</p>
+                          <p className="text-muted">user:{t.user_id} · status:{t.status} · assignee:{t.assignee ?? "—"}</p>
+                          <p className="text-muted">updated: {new Date(t.updated_at).toLocaleString("ru-RU")}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="secondary" onClick={() => updateTicket(t.id, "in_progress")}>Assign</Button>
+                          <Button size="sm" variant="secondary" onClick={() => updateTicket(t.id, "resolved")}>Resolve</Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : <EmptyNote text="Тикетов нет" />}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : null}
+
+      {healthOk && section === "audit" ? (
         <div className="col-span-12">
           <Card>
-            <CardHeader><CardTitle>Risk Center</CardTitle></CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {(summary.data?.tables.risk_top ?? []).length ? (
-                summary.data?.tables.risk_top.map((r) => (
-                  <p key={r.user_id} className="grid grid-cols-[140px_80px_1fr] gap-2">
-                    <span className="font-mono text-xs">{r.user_id.slice(0, 8)}</span>
-                    <span>{r.risk_score}</span>
-                    <span className="text-muted">{r.signals.join(", ") || "—"}</span>
-                  </p>
+            <CardHeader><CardTitle>Admin Audit Log</CardTitle></CardHeader>
+            <CardContent className="max-h-[700px] space-y-2 overflow-auto text-sm">
+              {(auditLog.data?.items ?? []).length ? (
+                auditLog.data.items.map((x: any) => (
+                  <div key={x.id} className="rounded-xl border border-border bg-surface2/70 p-3">
+                    <p className="font-medium">{x.action_type}</p>
+                    <p className="text-xs text-muted">actor:{x.actor_name ?? x.admin_id} ({x.actor_role ?? "—"}) · target:{x.target_type}:{x.target_id ?? "—"}</p>
+                    <p className="text-xs text-muted">{new Date(x.created_at).toLocaleString("ru-RU")}</p>
+                  </div>
                 ))
-              ) : <EmptyNote text="Risk signals не найдены за период" />}
+              ) : <EmptyNote text="Аудит-лог пуст" />}
             </CardContent>
           </Card>
         </div>
       ) : null}
 
-      {healthOk && ["reports", "moderation", "alerts", "experiments", "flags", "retention", "assistant", "system", "integrations", "security", "backup"].includes(section) ? (
+      {healthOk && section === "config" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Config Center · Feature Flags</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(flags.data?.flags ?? []).length ? (
+                flags.data.flags.map((f: any) => (
+                  <div key={f.id} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl border border-border bg-surface2/70 p-3">
+                    <div>
+                      <p className="font-medium">{f.key}</p>
+                      <p className="text-xs text-muted">enabled:{String(f.enabled)} · rollout:{f.rollout}% · updated:{f.updated_at ? new Date(f.updated_at).toLocaleString("ru-RU") : "—"}</p>
+                    </div>
+                    <Button size="sm" variant={f.enabled ? "secondary" : "default"} onClick={() => toggleFlag(f)}>{f.enabled ? "Disable" : "Enable"}</Button>
+                  </div>
+                ))
+              ) : <EmptyNote text="Feature flags не найдены" />}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Limits & Rules</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {limitsDraft ? (
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+                  <Input type="number" value={limitsDraft.connect_daily_limit ?? 10} onChange={(e) => setLimitsDraft((p: any) => ({ ...p, connect_daily_limit: Number(e.target.value || 0) }))} />
+                  <Input type="number" value={limitsDraft.message_rate_limit ?? 30} onChange={(e) => setLimitsDraft((p: any) => ({ ...p, message_rate_limit: Number(e.target.value || 0) }))} />
+                  <Input type="number" value={limitsDraft.event_join_limit ?? 20} onChange={(e) => setLimitsDraft((p: any) => ({ ...p, event_join_limit: Number(e.target.value || 0) }))} />
+                  <Input type="number" value={limitsDraft.spam_connect_threshold ?? 30} onChange={(e) => setLimitsDraft((p: any) => ({ ...p, spam_connect_threshold: Number(e.target.value || 0) }))} />
+                  <Input type="number" value={limitsDraft.spam_message_threshold ?? 40} onChange={(e) => setLimitsDraft((p: any) => ({ ...p, spam_message_threshold: Number(e.target.value || 0) }))} />
+                </div>
+              ) : <p className="text-muted">Загрузка лимитов...</p>}
+              <Button onClick={saveLimits}><Save className="mr-1 h-4 w-4" />Apply limits</Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "data_quality" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Data Quality</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">events_last_5min</p><p className="text-xl font-semibold">{quality.data?.volume?.events_last_5min ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">events_last_1h</p><p className="text-xl font-semibold">{quality.data?.volume?.events_last_1h ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">events_last_24h</p><p className="text-xl font-semibold">{quality.data?.volume?.events_last_24h ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="text-muted">unique_users_24h</p><p className="text-xl font-semibold">{quality.data?.volume?.unique_users_24h ?? 0}</p></CardContent></Card>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader><CardTitle>Top Event Names (24h)</CardTitle></CardHeader>
+                  <CardContent className="max-h-[320px] overflow-auto text-sm">
+                    {(quality.data?.top_event_names_24h ?? []).length ? (
+                      quality.data.top_event_names_24h.map((r: any) => <p key={r.event_name} className="flex justify-between"><span>{r.event_name}</span><strong>{r.count}</strong></p>)
+                    ) : <EmptyNote text="Нет событий" />}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Unknown / Unmapped Events</CardTitle></CardHeader>
+                  <CardContent className="max-h-[320px] overflow-auto text-sm">
+                    {(quality.data?.unknown_unmapped_events ?? []).length ? (
+                      quality.data.unknown_unmapped_events.map((r: any) => <p key={r.event_name} className="flex justify-between"><span>{r.event_name}</span><strong>{r.count}</strong></p>)
+                    ) : <EmptyNote text="Все события сопоставлены" />}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px_1fr_auto]">
+                <Input placeholder="event_name" value={qualityMapDraft.event_name} onChange={(e) => setQualityMapDraft((p) => ({ ...p, event_name: e.target.value }))} />
+                <select className="admin-select" value={qualityMapDraft.family} onChange={(e) => setQualityMapDraft((p) => ({ ...p, family: e.target.value }))}>
+                  <option value="auth">auth</option>
+                  <option value="profile">profile</option>
+                  <option value="feed">feed</option>
+                  <option value="events">events</option>
+                  <option value="social">social</option>
+                  <option value="safety">safety</option>
+                  <option value="ai">ai</option>
+                  <option value="admin">admin</option>
+                </select>
+                <Input placeholder="display_ru" value={qualityMapDraft.display_ru} onChange={(e) => setQualityMapDraft((p) => ({ ...p, display_ru: e.target.value }))} />
+                <Button onClick={addToDictionary}><Save className="mr-1 h-4 w-4" />Add to dictionary</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "exports" ? (
         <div className="col-span-12">
           <Card>
-            <CardHeader><CardTitle>Раздел: {section}</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Exports & Snapshots</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p className="text-muted">Этот раздел подключен к новой модели KPI/таблиц. Основные данные доступны в Overview / Metrics Lab / Users / Events Stream / Traffic.</p>
-              <Button variant="secondary" onClick={() => setSection("overview")}><Activity className="mr-1 h-4 w-4" />Перейти в обзор</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => downloadCSV("users")}><Download className="mr-1 h-4 w-4" />Export users CSV</Button>
+                <Button variant="secondary" onClick={() => downloadCSV("events")}><Download className="mr-1 h-4 w-4" />Export events CSV</Button>
+                <Button variant="secondary" onClick={() => downloadCSV("reports")}><Download className="mr-1 h-4 w-4" />Export reports CSV</Button>
+                <Button variant="secondary" onClick={() => downloadCSV("feature_flags")}><Download className="mr-1 h-4 w-4" />Export flags CSV</Button>
+                <Button variant="secondary" onClick={downloadSnapshot}><Download className="mr-1 h-4 w-4" />Investor snapshot JSON</Button>
+              </div>
+              <p className="text-muted">PII masked by default. Support/Analyst — only aggregate exports. Admin — extended exports.</p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "rbac" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>RBAC & Admins</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(rbac.data?.admins ?? []).length ? (
+                rbac.data.admins.map((u: any) => (
+                  <div key={u.id} className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-surface2/70 p-3 md:grid-cols-[1fr_auto_auto]">
+                    <div>
+                      <p className="font-medium">{u.name ?? u.username ?? u.email ?? u.id}</p>
+                      <p className="text-xs text-muted">{u.id} · role:{u.role}</p>
+                    </div>
+                    <select className="admin-select" value={roleDraft[u.id] ?? u.role} onChange={(e) => setRoleDraft((p) => ({ ...p, [u.id]: e.target.value }))}>
+                      {(rbac.data?.roles ?? ["user", "support", "moderator", "analyst", "admin"]).map((r: string) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <Button size="sm" onClick={() => updateRole(u.id)}>Apply</Button>
+                  </div>
+                ))
+              ) : <EmptyNote text="Администраторы не найдены" />}
+
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
+                <Input placeholder="Причина изменения роли" value={roleReason} onChange={(e) => setRoleReason(e.target.value)} />
+                <Button variant="secondary" onClick={() => rbac.refetch()}>Refresh</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>История изменений ролей</CardTitle></CardHeader>
+            <CardContent className="max-h-[320px] overflow-auto text-sm">
+              {(rbac.data?.history ?? []).length ? (
+                rbac.data.history.map((h: any) => (
+                  <p key={h.id} className="border-b border-border/30 py-2 last:border-b-0">{new Date(h.created_at).toLocaleString("ru-RU")} · {h.action} · target:{h.target_id} · {h.meta?.after_role ?? "—"}</p>
+                ))
+              ) : <EmptyNote text="История ролей пуста" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "risk" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Risk Center</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("limit_messaging")} disabled={!riskSelected.length}>Bulk limit (max 10)</Button>
+                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("shadowban")} disabled={!riskSelected.length}>Bulk shadowban</Button>
+                <Button size="sm" variant="danger" onClick={() => runBulkRiskAction("block")} disabled={!riskSelected.length}>Bulk block</Button>
+                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("mark_safe")} disabled={!riskSelected.length}>Mark safe</Button>
+              </div>
+
+              {(risk.data?.items ?? []).length ? (
+                risk.data.items.map((r: any) => (
+                  <div key={r.id} className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-surface2/70 p-3 md:grid-cols-[auto_1fr_auto]">
+                    <label className="inline-flex items-center gap-2">
+                      <input type="checkbox" checked={riskSelected.includes(r.id)} onChange={(e) => setRiskSelected((prev) => {
+                        if (e.target.checked) return [...prev, r.id].slice(0, 10);
+                        return prev.filter((x) => x !== r.id);
+                      })} />
+                      <span className="font-mono text-xs">{r.id.slice(0, 8)}</span>
+                    </label>
+                    <div>
+                      <p className="font-medium">score: {r.risk_score}</p>
+                      <p className="text-xs text-muted">{(r.signals ?? []).join(", ") || "—"}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="secondary" onClick={() => runUserAction(r.id, "limit_messaging")}>limit</Button>
+                      <Button size="sm" variant="secondary" onClick={() => runUserAction(r.id, "shadowban")}>shadow</Button>
+                      <Button size="sm" variant="danger" onClick={() => runUserAction(r.id, "block")}>block</Button>
+                    </div>
+                  </div>
+                ))
+              ) : <EmptyNote text="Risk signals не найдены" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "reports" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Reports Inbox</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(reports.data?.items ?? []).length ? (
+                reports.data.items.map((r: any) => (
+                  <div key={r.id} className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-surface2/70 p-3 md:grid-cols-[1fr_auto]">
+                    <div>
+                      <p className="font-medium">{r.content_type} · {r.reason}</p>
+                      <p className="text-xs text-muted">status:{r.status} · created:{new Date(r.created_at).toLocaleString("ru-RU")}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="secondary" onClick={() => updateReportStatus(r.id, "in_review")}>In review</Button>
+                      <Button size="sm" variant="secondary" onClick={() => updateReportStatus(r.id, "resolved")}>Resolve</Button>
+                    </div>
+                  </div>
+                ))
+              ) : <EmptyNote text="Жалоб нет" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "moderation" ? (
+        <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle>Moderation Queue · Reports</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>Open reports: {(reports.data?.items ?? []).filter((x: any) => x.status === "open").length}</p>
+              <p>In review: {(reports.data?.items ?? []).filter((x: any) => x.status === "in_review").length}</p>
+              <p>Resolved: {(reports.data?.items ?? []).filter((x: any) => x.status === "resolved").length}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Moderation Queue · Risk</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>High risk users: {(risk.data?.items ?? []).filter((x: any) => Number(x.risk_score ?? 0) >= 70).length}</p>
+              <p>Medium risk users: {(risk.data?.items ?? []).filter((x: any) => Number(x.risk_score ?? 0) >= 40 && Number(x.risk_score ?? 0) < 70).length}</p>
+              <Button variant="secondary" onClick={() => setSection("risk")}>Open Risk Center</Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "alerts" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Alerts</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(alerts.data?.items ?? []).length ? (
+                alerts.data.items.map((a: any) => (
+                  <div key={a.id} className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-surface2/70 p-3 md:grid-cols-[1fr_auto]">
+                    <div>
+                      <p className="font-medium">{a.type} · {a.metric}</p>
+                      <p className="text-xs text-muted">status:{a.status} · threshold:{a.threshold} · window:{a.window}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="secondary" onClick={() => updateAlertStatus(a, "active")}>Active</Button>
+                      <Button size="sm" variant="secondary" onClick={() => updateAlertStatus(a, "paused")}>Paused</Button>
+                    </div>
+                  </div>
+                ))
+              ) : <EmptyNote text="Alerts не настроены" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "flags" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Feature Flags</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(flags.data?.flags ?? []).length ? (
+                flags.data.flags.map((f: any) => (
+                  <div key={f.id} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl border border-border bg-surface2/70 p-3">
+                    <div>
+                      <p className="font-medium">{f.key}</p>
+                      <p className="text-xs text-muted">enabled:{String(f.enabled)} · rollout:{f.rollout}% · scope:{f.scope}</p>
+                    </div>
+                    <Button size="sm" onClick={() => toggleFlag(f)}>{f.enabled ? "Disable" : "Enable"}</Button>
+                  </div>
+                ))
+              ) : <EmptyNote text="Feature flags не найдены" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "experiments" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>A/B Experiments</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(experiments.data?.items ?? []).length ? (
+                experiments.data.items.map((e: any) => (
+                  <div key={e.id} className="rounded-xl border border-border bg-surface2/70 p-3">
+                    <p className="font-medium">{e.key}</p>
+                    <p className="text-xs text-muted">status:{e.status} · rollout:{e.rollout_percent}% · metric:{e.primary_metric ?? "—"}</p>
+                  </div>
+                ))
+              ) : <EmptyNote text="Экспериментов пока нет" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "assistant" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>AI Admin Assistant</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <Textarea rows={4} value={assistantQuestion} onChange={(e) => setAssistantQuestion(e.target.value)} />
+              <Button onClick={askAssistant} disabled={assistantLoading}>
+                {assistantLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Bot className="mr-1 h-4 w-4" />}Ask AI
+              </Button>
+              {assistantAnswer ? (
+                <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                  <p className="font-medium">{assistantAnswer.summary ?? "—"}</p>
+                  {(assistantAnswer.risks ?? []).length ? <p className="mt-2 text-xs text-muted">Risks: {(assistantAnswer.risks ?? []).join("; ")}</p> : null}
+                  {(assistantAnswer.actions ?? []).length ? <p className="mt-2 text-xs text-muted">Actions: {(assistantAnswer.actions ?? []).join("; ")}</p> : null}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "system" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>System Settings</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(settings.data?.items ?? []).length ? (
+                settings.data.items.map((s: any) => (
+                  <div key={s.key} className="rounded-xl border border-border bg-surface2/70 p-3">
+                    <p className="font-medium">{s.key}</p>
+                    <p className="mt-1 text-xs text-muted break-all">{JSON.stringify(s.value)}</p>
+                  </div>
+                ))
+              ) : <EmptyNote text="Системные настройки не найдены" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "integrations" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Integrations</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(integrations.data?.items ?? []).length ? (
+                integrations.data.items.map((i: any) => (
+                  <div key={i.key} className="rounded-xl border border-border bg-surface2/70 p-3">
+                    <p className="font-medium">{i.key}</p>
+                    <p className="text-xs text-muted">status:{i.status} · configured:{String(i.configured)} · errors7d:{i.errors7d ?? 0}</p>
+                  </div>
+                ))
+              ) : <EmptyNote text="Интеграции не найдены" />}
+              <p className="text-xs text-muted">API errors 7d: {integrations.data?.apiErrors7d ?? 0}</p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "security" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Security Center</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p>Rate limiting: {String(security.data?.apiProtection?.rateLimitingEnabled ?? false)}</p>
+              <p>Zod validation coverage: {String(security.data?.apiProtection?.zodValidationCoverage ?? false)}</p>
+              <p>Server-only secrets: {String(security.data?.apiProtection?.serverOnlySecrets ?? false)}</p>
+              <p>PII masked in UI: {String(security.data?.dataSecurity?.piiMaskedInUi ?? true)}</p>
+              <p>RLS enabled (assumed): {String(security.data?.dataSecurity?.rlsEnabledAssumed ?? true)}</p>
+              <div className="rounded-xl border border-border bg-surface2/70 p-3">
+                <p className="font-medium">Incident runbook</p>
+                <p className="text-xs text-muted">1) DDOS: усилить rate limits, отключить тяжёлые endpoints.</p>
+                <p className="text-xs text-muted">2) TG verify падение: проверить webhook и TELEGRAM_BOT_TOKEN.</p>
+                <p className="text-xs text-muted">3) Spike reports: переключить safe mode, усилить spam thresholds.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Threat Monitoring</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(security.data?.threatMonitoring?.triggers ?? []).length ? (
+                security.data.threatMonitoring.triggers.map((t: any) => (
+                  <p key={t.key} className="rounded-xl border border-warning/40 bg-warning/10 p-2">{t.level}: {t.message}</p>
+                ))
+              ) : <EmptyNote text="Активных триггеров нет" />}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "backup" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Backup / Restore</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>Последний backup: {security.data?.auditLog?.[0]?.created_at ? new Date(security.data.auditLog[0].created_at).toLocaleString("ru-RU") : "N/A"}</p>
+              <p>Disaster checklist:</p>
+              <p className="text-muted">1. Экспортируй users/reports/events CSV</p>
+              <p className="text-muted">2. Зафиксируй incident note в audit</p>
+              <p className="text-muted">3. Включи safe mode и ограничь connect/message rate</p>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => downloadCSV("users")}><Download className="mr-1 h-4 w-4" />Export users</Button>
+                <Button variant="secondary" onClick={() => downloadCSV("reports")}><Download className="mr-1 h-4 w-4" />Export reports</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {healthOk && section === "campaigns" ? (
+        <div className="col-span-12">
+          <Card>
+            <CardHeader><CardTitle>Campaigns (read-only)</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>Режим: Read-only / подготовка к запуску.</p>
+              <p>Активные пользователи 7d: {summary.data?.kpis?.active_users_7d ?? 0}</p>
+              <p>Connect reply rate 30d: {formatKpi("reply_rate", Number(summary.data?.kpis?.reply_rate ?? 0))}</p>
+              <p>Top city 30d: {summary.data?.tables?.cities_30d?.[0]?.city ?? "—"}</p>
             </CardContent>
           </Card>
         </div>

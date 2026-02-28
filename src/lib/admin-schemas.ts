@@ -335,6 +335,8 @@ export const liveEventsResponseSchema = z.object({
 
 export const adminHealthResponseSchema = z.object({
   ok: z.boolean(),
+  code: z.string().optional(),
+  mode: z.enum(["normal", "degraded"]).optional(),
   user_id: z.string().optional(),
   env: z.object({
     NEXT_PUBLIC_SUPABASE_URL: z.boolean(),
@@ -342,6 +344,14 @@ export const adminHealthResponseSchema = z.object({
     SUPABASE_SERVICE_ROLE_KEY: z.boolean(),
   }),
   db: z.object({ connected: z.boolean(), error: z.string().nullable() }),
+  checks: z
+    .object({
+      service_role_probe: z.boolean(),
+      users_probe: z.boolean(),
+      analytics_table_exists: z.boolean(),
+      analytics_last_event_at: z.string().nullable(),
+    })
+    .optional(),
   tables: z.array(
     z.object({
       name: z.string(),
@@ -354,6 +364,7 @@ export const adminHealthResponseSchema = z.object({
   ),
   issues: z.array(z.string()),
   steps: z.array(z.string()),
+  last_error: z.string().nullable().optional(),
 });
 
 export const metricsSummaryResponseSchema = z.object({
