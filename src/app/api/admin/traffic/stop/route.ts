@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { logAdminAction } from "@/server/admin-audit";
 import { trackEvent } from "@/server/analytics";
@@ -37,8 +38,6 @@ export async function POST(req: Request) {
 
     return ok({ ok: true, ...result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to stop traffic";
-    if (message === "Forbidden") return fail("Forbidden", 403);
-    return fail(message, 400);
+    return adminRouteError("/api/admin/traffic/stop", error);
   }
 }

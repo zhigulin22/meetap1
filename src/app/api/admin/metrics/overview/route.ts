@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow, getSegmentUserIds, filterCountByUsers } from "@/server/admin-metrics";
@@ -311,7 +312,7 @@ export async function GET(req: Request) {
         lastAdminActions: actions,
       },
     });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/metrics/overview", error);
   }
 }

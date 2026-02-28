@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { fail, ok } from "@/lib/http";
+import { ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
 import { computeSeries } from "@/server/metrics-series";
@@ -255,6 +256,6 @@ export async function GET() {
       recommended_fixes,
     });
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Forbidden", 403);
+    return adminRouteError("/api/admin/diagnostics", error);
   }
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
 import { computeSeries } from "@/server/metrics-series";
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
     });
 
     return ok(series);
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/metrics/series", error);
   }
 }

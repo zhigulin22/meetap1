@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
 
@@ -42,8 +43,6 @@ export async function GET(req: Request) {
       last_event_at: lastRes.data?.[0]?.created_at ?? null,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Forbidden";
-    if (message === "Forbidden") return fail("Forbidden", 403);
-    return fail(message, 400);
+    return adminRouteError("/api/admin/traffic/proof", error);
   }
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { getTrafficStatus } from "@/server/traffic";
 
@@ -19,8 +20,6 @@ export async function GET(req: Request) {
     const status = await getTrafficStatus(parsed.data.run_id ?? null);
     return ok(status);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Forbidden";
-    if (message === "Forbidden") return fail("Forbidden", 403);
-    return fail(message, 400);
+    return adminRouteError("/api/admin/traffic/status", error);
   }
 }

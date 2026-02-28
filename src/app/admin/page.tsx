@@ -137,7 +137,6 @@ function TrendChart({
   emptyReason?: string;
   onRunDiagnostics?: () => void;
 }) {
-  const max = Math.max(1, ...points.map((p) => p.value));
   const sum = points.reduce((acc, p) => acc + p.value, 0);
   const avg = points.length ? sum / points.length : 0;
   const last = points[points.length - 1]?.value ?? 0;
@@ -165,30 +164,21 @@ function TrendChart({
           <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm">
             <p>Нет данных. Причина: {emptyReason ?? "нет событий за период"}</p>
             <div className="flex flex-wrap gap-2">
-               {onRunDiagnostics ? <Button size="sm" variant="secondary" onClick={onRunDiagnostics}>Run Diagnostics</Button> : null}
+              {onRunDiagnostics ? <Button size="sm" variant="secondary" onClick={onRunDiagnostics}>Run Diagnostics</Button> : null}
               <Link href="/admin/events-stream"><Button size="sm" variant="secondary">Open Events Stream</Button></Link>
             </div>
           </div>
-        ) : (
-          <div className="grid h-28 grid-cols-12 items-end gap-1">
-            {points.slice(-24).map((p) => (
-              <div key={p.date} className="flex flex-col items-center gap-1">
-                <div className="w-2 rounded-t bg-cyan/70" style={{ height: `${Math.max(4, (p.value / max) * 84)}px` }} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {points.length ? (
-          <div className="max-h-32 overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
-            {points.slice(-8).map((p) => (
-              <div key={p.date} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/40 py-1 text-sm last:border-b-0">
-                <span>{p.date}</span>
-                <span className="font-semibold">{p.value.toLocaleString("ru-RU")}</span>
-              </div>
-            ))}
-          </div>
         ) : null}
+
+        <div className="max-h-48 overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
+          {points.slice(-14).map((p) => (
+            <div key={p.date} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/40 py-1 text-sm last:border-b-0">
+              <span>{p.date}</span>
+              <span className="font-semibold">{p.value.toLocaleString("ru-RU")}</span>
+            </div>
+          ))}
+          {!points.length ? <p className="text-xs text-muted">Нет числовых точек за выбранный период.</p> : null}
+        </div>
       </CardContent>
     </Card>
   );
@@ -384,7 +374,7 @@ export default function AdminPage() {
     queryKey: ["admin-live-events", liveEventName, liveUserId, liveDemoGroup],
     queryFn: () =>
       adminApi(
-        "/api/admin/events/live?event_name=" + encodeURIComponent(liveEventName) + "&user_id=" + encodeURIComponent(liveUserId) + "&demo_group=" + encodeURIComponent(liveDemoGroup) + "&limit=200",
+        "/api/admin/events/live?event_name=" + encodeURIComponent(liveEventName) + "&user_id=" + encodeURIComponent(liveUserId) + "&demo_group=" + encodeURIComponent(liveDemoGroup) + "&limit=500",
         liveEventsResponseSchema,
       ),
     refetchInterval: section === "events_live" ? 3000 : false,
@@ -875,7 +865,7 @@ export default function AdminPage() {
   const diagnosticsRootCause = useMemo(() => {
     const reasons: string[] = [];
     if ((diagnostics.data?.event_counts_24h?.total ?? 0) > 0 && (diagnostics.data?.metrics_endpoints?.sample_points_count ?? 0) === 0) {
-      reasons.push("Есть события, но series вернула 0 точек");
+      reasons.push("Есть события, но series вернула пустой набор");
     }
     if (diagnostics.data?.metrics_endpoints?.errors) reasons.push("Series endpoint error: " + diagnostics.data.metrics_endpoints.errors);
     if ((diagnostics.data?.top_event_names?.length ?? 0) > 0 && (diagnostics.data?.issues ?? []).some((x) => x.toLowerCase().includes("event names mismatch"))) {
@@ -1002,9 +992,9 @@ export default function AdminPage() {
           )}
 
           <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <TrendChart title="DAU trend" points={overview.data?.trends?.dau ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
-            <TrendChart title="Posts trend" points={overview.data?.trends?.posts ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
-            <TrendChart title="Connect replied trend" points={overview.data?.trends?.connectReplied ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+            <TrendChart title="DAU по дням" points={overview.data?.trends?.dau ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+            <TrendChart title="Посты по дням" points={overview.data?.trends?.posts ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+            <TrendChart title="Connect replied по дням" points={overview.data?.trends?.connectReplied ?? []} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
           </div>
 
           <div className="col-span-12 grid grid-cols-1 gap-4 xl:grid-cols-4">
@@ -1080,7 +1070,7 @@ export default function AdminPage() {
                   <p className="text-xs">connect sent/replied: {(diagnostics.data?.event_counts_24h?.connect_sent ?? 0)}/{diagnostics.data?.event_counts_24h?.connect_replied ?? 0}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-surface2/70 p-3">
-                  <p className="mb-2 text-xs text-muted">Почему графики могут быть пустыми</p>
+                  <p className="mb-2 text-xs text-muted">Почему таблицы могут быть пустыми</p>
                   {diagnosticsRootCause.length ? (
                     diagnosticsRootCause.map((reason) => <p key={reason} className="text-xs">• {reason}</p>)
                   ) : (
@@ -1678,9 +1668,9 @@ export default function AdminPage() {
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {(metricsLab.data?.trends ?? []).slice(0, 2).map((t) => (
-                  <TrendChart key={t.key} title={"Тренд: " + t.key} points={t.points} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+                  <TrendChart key={t.key} title={"Таблица по дням: " + t.key} points={t.points} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
                 ))}
-                <TrendChart title={"Серия: " + seriesMetric} points={normalizedSeriesPoints.map((p) => ({ date: p.ts, value: p.value }))} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
+                <TrendChart title={"Серия значений: " + seriesMetric} points={normalizedSeriesPoints.map((p) => ({ date: p.ts, value: p.value }))} emptyReason={diagnosticsRootCause[0]} onRunDiagnostics={runDiagnostics} />
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

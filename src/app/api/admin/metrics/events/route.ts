@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
     const userIds = await getSegmentUserIds(parsed.data.segment, fromISO, toISO);
     const block = await getMetricsBlock("events", fromISO, toISO, userIds);
     return ok({ kind: "events", range: { from: fromISO, to: toISO, segment: parsed.data.segment }, ...block });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/metrics/events", error);
   }
 }

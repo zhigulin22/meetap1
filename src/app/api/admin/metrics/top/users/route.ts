@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { parseWindow } from "@/server/admin-metrics";
 import { aliasesForCanonicals, canonicalizeEventName } from "@/server/event-dictionary";
@@ -125,7 +126,7 @@ export async function GET(req: Request) {
       .slice(0, parsed.data.limit);
 
     return ok({ metric: parsed.data.metric, items });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/metrics/top/users", error);
   }
 }

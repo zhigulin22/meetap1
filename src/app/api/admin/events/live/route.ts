@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { requireAdminUserId } from "@/server/admin";
 import { supabaseAdmin } from "@/supabase/admin";
 
@@ -59,7 +60,7 @@ export async function GET(req: Request) {
         summary: summarizeProperties(row.properties as Record<string, unknown> | null),
       })),
     });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/events/live", error);
   }
 }

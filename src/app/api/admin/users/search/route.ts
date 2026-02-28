@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { userSearchSchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { canonicalizeEventName } from "@/server/event-dictionary";
@@ -219,7 +220,7 @@ export async function GET(req: Request) {
         };
       }),
     });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/users/search", error);
   }
 }

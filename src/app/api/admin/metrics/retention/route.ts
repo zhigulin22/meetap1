@@ -1,4 +1,5 @@
 import { fail, ok } from "@/lib/http";
+import { adminRouteError } from "@/server/admin-error";
 import { metricsQuerySchema } from "@/lib/admin-schemas";
 import { requireAdminUserId } from "@/server/admin";
 import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
@@ -109,7 +110,7 @@ export async function GET(req: Request) {
       });
 
     return ok({ range: { from: fromISO, to: toISO, segment: parsed.data.segment }, cohorts: rows });
-  } catch {
-    return fail("Forbidden", 403);
+  } catch (error) {
+    return adminRouteError("/api/admin/metrics/retention", error);
   }
 }
