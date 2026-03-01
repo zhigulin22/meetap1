@@ -60,6 +60,76 @@ const KPI_GROUPS: Record<string, string[]> = {
   health: ["events_total_24h", "events_total_7d", "events_total_30d", "active_users_24h", "users_total"],
 };
 
+type SectionGuide = {
+  title: string;
+  value: string;
+  how: string;
+};
+
+const DEFAULT_SECTION_GUIDE: SectionGuide = {
+  title: "Как использовать раздел",
+  value: "Раздел показывает операционные данные и действия для управления продуктом.",
+  how: "Сначала проверь KPI, затем таблицу ниже, после этого применяй action-кнопки справа.",
+};
+
+const SECTION_GUIDES: Partial<Record<AdminSection, SectionGuide>> = {
+  overview: {
+    title: "Обзор",
+    value: "Быстрый срез состояния продукта: основные KPI, топ-события, воронка.",
+    how: "Кликни на KPI для детализации в отдельном окне и перехода в Events Stream.",
+  },
+  operations: {
+    title: "Operations Center",
+    value: "Показывает состояние pipeline, алертов и инцидентов в реальном времени.",
+    how: "Иди сверху вниз: health strip -> alerts -> incident timeline -> quick actions.",
+  },
+  metrics_lab: {
+    title: "Metrics Lab",
+    value: "Детальные продуктовые метрики по направлениям: рост, контент, safety, AI.",
+    how: "Выбери вкладку, нажми KPI, посмотри breakdown по дням/неделям/месяцам.",
+  },
+  events_live: {
+    title: "События (Live)",
+    value: "Живая лента событий из analytics_events для проверки трекинга.",
+    how: "Фильтруй по event_name/user_id и сверяй, что события доходят в систему.",
+  },
+  users: {
+    title: "Users 360",
+    value: "Профиль пользователя, активность, риск-сигналы и действия модерации.",
+    how: "Найди пользователя -> открой карточку -> проверь timeline -> применяй действие.",
+  },
+  support: {
+    title: "Support Desk",
+    value: "Интерфейс саппорта: поиск, заметки, тикеты и эскалация кейсов.",
+    how: "Ищи пользователя, фиксируй note, меняй статус тикета и при риске эскалируй.",
+  },
+  risk: {
+    title: "Risk Center",
+    value: "Очередь подозрительных аккаунтов и объяснение причин риска.",
+    how: "Сортируй по score, проверяй сигналы и применяй bulk/single actions.",
+  },
+  reports: {
+    title: "Жалобы",
+    value: "Очередь пользовательских жалоб с контекстом и статусом обработки.",
+    how: "Открывай кейс, принимай решение, меняй статус и записывай причину.",
+  },
+  config: {
+    title: "Config Center",
+    value: "Управление фичами и лимитами без релиза.",
+    how: "Изменяй параметр в safe range, проверяй эффект в KPI и audit log.",
+  },
+  data_quality: {
+    title: "Data Quality",
+    value: "Проверка качества событий и корректности словаря метрик.",
+    how: "Смотри unknown events, устраняй mismatch и добавляй mapping при необходимости.",
+  },
+  security: {
+    title: "Security Center",
+    value: "Статус защиты: роли, ограничения, runbook и инциденты.",
+    how: "Проверь baseline checklist, затем active threats и план реакции.",
+  },
+};
+
 const REQUIRED_COVERAGE: Array<{ key: string; label: string; aliases: string[] }> = [
   { key: "open_feed", label: "open_feed", aliases: ["open_feed", "app.session_start"] },
   { key: "open_event", label: "open_event", aliases: ["open_event", "events.viewed", "event_viewed"] },
@@ -192,6 +262,28 @@ function KpiGrid({
     </div>
   );
 }
+
+
+function SectionGuideCard({ section, helpMode }: { section: AdminSection; helpMode: boolean }) {
+  const guide = SECTION_GUIDES[section] ?? DEFAULT_SECTION_GUIDE;
+  const sectionHelp = DEFAULT_HELP_TEXTS[`section.${section}` as keyof typeof DEFAULT_HELP_TEXTS];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="inline-flex items-center gap-2">
+          {guide.title}
+          {helpMode && sectionHelp ? <HelpTip compact {...sectionHelp} /> : null}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm text-muted">
+        <p><strong className="text-text">Что дает:</strong> {guide.value}</p>
+        <p><strong className="text-text">Как пользоваться:</strong> {guide.how}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 
 export default function AdminPage() {
@@ -771,6 +863,7 @@ export default function AdminPage() {
 
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
   const kpis = summary.data?.kpis ?? {};
+  const showSectionGuide = healthOk && section !== "guide";
 
   return (
     <AdminShell
@@ -856,6 +949,12 @@ export default function AdminPage() {
       {healthOk && updatedBadge ? (
         <div className="col-span-12">
           <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2 text-xs text-emerald-200">Updated: {updatedBadge}</div>
+        </div>
+      ) : null}
+
+      {showSectionGuide ? (
+        <div className="col-span-12">
+          <SectionGuideCard section={section} helpMode={helpMode} />
         </div>
       ) : null}
 
