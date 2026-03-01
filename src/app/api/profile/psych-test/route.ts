@@ -1,6 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { requireUserId } from "@/server/auth";
 import { supabaseAdmin } from "@/supabase/admin";
+import { trackEvent } from "@/server/analytics";
 
 type Answer = {
   id: string;
@@ -68,9 +69,7 @@ function buildProfile(answers: Answer[], openAnswers: OpenAnswers) {
     traits.openness > 60
       ? "Используй новые темы и нестандартные вопросы"
       : "Используй понятные бытовые темы для первого контакта",
-    traits.neuroticism > 60
-      ? "Снижать темп: мягкие формулировки, меньше давления"
-      : "Можно быстрее предлагать конкретную встречу",
+    traits.neuroticism > 60 ? "Снижать темп: мягкие формулировки, меньше давления" : "Можно быстрее предлагать конкретную встречу",
   ];
 
   return {
@@ -85,6 +84,30 @@ function buildProfile(answers: Answer[], openAnswers: OpenAnswers) {
     },
     recommendations,
   };
+}
+
+export async function GET() {
+  try {
+    const userId = requireUserId();
+
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("personality_profile,personality_updated_at")
+      .eq("id", userId)
+      .single();
+
+    if (error) return fail(error.message, 500);
+
+    const profile = data?.personality_profile as Record<string, unknown> | null;
+
+    return ok({
+      completed: Boolean(profile),
+      updated_at: data?.personality_updated_at ?? null,
+      style: typeof profile?.style === "string" ? profile.style : null,
+    });
+  } catch {
+    return fail("Unauthorized", 401);
+  }
 }
 
 export async function POST(req: Request) {
@@ -126,6 +149,13 @@ export async function POST(req: Request) {
       }
       return fail(error.message, 500);
     }
+
+    await trackEvent({
+      eventName: "profile.psychotest_completed",
+      userId,
+      path: "/profile/psych-test",
+      properties: { style: profile.style },
+    });
 
     return ok({ profile });
   } catch {
