@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 
 export type AdminSection =
   | "overview"
+  | "guide"
   | "operations"
   | "metrics_lab"
   | "events_live"
@@ -66,6 +67,7 @@ export type AdminSegment = "all" | "demo" | "real" | "verified" | "new" | "activ
 
 const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", title: "Обзор", icon: Gauge },
+  { id: "guide", title: "Как пользоваться", icon: LifeBuoy },
   { id: "operations", title: "Operations Center", icon: Workflow },
   { id: "metrics_lab", title: "Метрики (Lab)", icon: ChartColumnIncreasing },
   { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
@@ -104,6 +106,8 @@ export function AdminShell({
   onAskAI,
   search,
   onSearch,
+  helpMode,
+  onHelpModeChange,
 }: {
   children: React.ReactNode;
   section: AdminSection;
@@ -115,6 +119,8 @@ export function AdminShell({
   onAskAI: () => void;
   search: string;
   onSearch: (v: string) => void;
+  helpMode: boolean;
+  onHelpModeChange: (v: boolean) => void;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -171,7 +177,7 @@ export function AdminShell({
 
         <div className="min-w-0 space-y-4">
           <header className="sticky top-2 z-30 rounded-3xl border border-border bg-surface px-3 py-3 shadow-soft backdrop-blur-xl md:px-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto_auto_auto] md:items-center">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto_auto_auto_auto] md:items-center">
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="icon" className="lg:hidden" onClick={() => setOpen(true)}>
                   <Menu className="h-4 w-4" />
@@ -207,6 +213,17 @@ export function AdminShell({
 
               <Button onClick={onAskAI} className="active:scale-[0.98] transition-transform">
                 <Bot className="mr-1 h-4 w-4" /> AI
+              </Button>
+
+              <Button
+                variant={helpMode ? "default" : "secondary"}
+                onClick={() => onHelpModeChange(!helpMode)}
+                className="active:scale-[0.98] transition-transform"
+                aria-pressed={helpMode}
+                title="Показывает встроенные подсказки по метрикам и разделам"
+              >
+                <Sparkles className="mr-1 h-4 w-4" />
+                {helpMode ? "Help ON" : "Help OFF"}
               </Button>
             </div>
           </header>

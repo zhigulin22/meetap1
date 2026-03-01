@@ -31,6 +31,10 @@ import {
   userSearchResponseSchema,
 } from "@/lib/admin-schemas";
 import { api, ApiClientError } from "@/lib/api-client";
+import { HelpTip } from "@/components/help-tip";
+import { AdminEmptyState } from "@/components/admin-empty-state";
+import { KpiDrilldownDrawer } from "@/components/kpi-drilldown-drawer";
+import { DEFAULT_HELP_TEXTS, kpiSource } from "@/lib/admin-help-texts";
 
 const TAB_LABELS: Record<string, string> = {
   growth: "Рост",
@@ -90,25 +94,105 @@ function parseError(error: unknown) {
   return error instanceof Error ? error.message : "Request failed";
 }
 
-function EmptyNote({ text }: { text: string }) {
-  return <p className="rounded-xl border border-border bg-surface2/70 p-3 text-sm text-muted">{text}</p>;
+function EmptyNote({ text, onOpenStream }: { text: string; onOpenStream?: () => void }) {
+  return (
+    <AdminEmptyState
+      why={text}
+      action="Проверь входящий поток событий и фильтры периода/сегмента"
+      where="Events Stream / Diagnostics"
+      actionLabel={onOpenStream ? "Открыть Events Stream" : undefined}
+      onAction={onOpenStream}
+    />
+  );
 }
 
-function KpiGrid({ kpis, keys }: { kpis: Record<string, number>; keys?: string[] }) {
+function deriveDelta(kpis: Record<string, number>, key: string) {
+  const current = Number(kpis[key] ?? 0);
+  if (!Number.isFinite(current)) return null;
+
+  if (key.endsWith("_24h")) {
+    const base = key.replace(/_24h$/, "_7d");
+    const weekly = Number(kpis[base] ?? 0);
+    if (weekly > current) {
+      const prev = (weekly - current) / 6;
+      return prev > 0 ? Number(((current - prev) / prev).toFixed(4)) : null;
+    }
+  }
+
+  if (key.endsWith("_7d")) {
+    const base = key.replace(/_7d$/, "_30d");
+    const monthly = Number(kpis[base] ?? 0);
+    if (monthly > current) {
+      const prev = ((monthly - current) / 23) * 7;
+      return prev > 0 ? Number(((current - prev) / prev).toFixed(4)) : null;
+    }
+  }
+
+  return null;
+}
+
+function kpiStatus(key: string, value: number): "OK" | "Low" | "No data" {
+  if (!Number.isFinite(value)) return "No data";
+  if (value === 0) return "No data";
+  if (key.includes("rate")) {
+    if (value < 0.05) return "Low";
+    return "OK";
+  }
+  if (value < 1) return "Low";
+  return "OK";
+}
+
+function KpiGrid({
+  kpis,
+  keys,
+  onSelect,
+  helpMode,
+  helpTexts,
+}: {
+  kpis: Record<string, number>;
+  keys?: string[];
+  onSelect?: (metric: string) => void;
+  helpMode?: boolean;
+  helpTexts?: Record<string, any>;
+}) {
   const entries = (keys?.length ? keys.map((k) => [k, kpis[k] ?? 0] as const) : Object.entries(kpis)).filter(([, v]) => typeof v === "number");
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {entries.map(([k, v]) => (
-        <Card key={k}>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted">{k}</p>
-            <p className="mt-1 text-xl font-semibold text-text">{formatKpi(k, Number(v))}</p>
-          </CardContent>
-        </Card>
-      ))}
+      {entries.map(([k, v]) => {
+        const value = Number(v);
+        const delta = deriveDelta(kpis, k);
+        const source = kpiSource(k);
+        const status = kpiStatus(k, value);
+        const help = helpTexts?.[`metric.${k}`] ?? DEFAULT_HELP_TEXTS[`metric.${k}` as keyof typeof DEFAULT_HELP_TEXTS] ?? null;
+
+        return (
+          <Card
+            key={k}
+            className={`transition ${onSelect ? "cursor-pointer active:scale-[0.99]" : ""} ${status === "No data" ? "border-warning/30" : ""}`}
+            onClick={() => onSelect?.(k)}
+          >
+            <CardContent className="space-y-2 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-muted">{k}</p>
+                {helpMode && help ? <HelpTip compact {...help} /> : null}
+              </div>
+
+              <p className="text-xl font-semibold text-text">{formatKpi(k, value)}</p>
+
+              <div className="flex flex-wrap gap-1 text-[11px]">
+                <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-muted">Источник: {source}</span>
+                <span className={`rounded-full border px-2 py-0.5 ${status === "OK" ? "border-emerald-500/40 text-emerald-300" : status === "Low" ? "border-warning/40 text-warning" : "border-danger/40 text-danger"}`}>{status}</span>
+                <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-muted">Δ {delta === null ? "n/a" : `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)}%`}</span>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
+
 
 export default function AdminPage() {
   const [section, setSection] = useState<AdminSection>("overview");
@@ -150,6 +234,11 @@ export default function AdminPage() {
 
   const [riskSelected, setRiskSelected] = useState<string[]>([]);
 
+  const [helpMode, setHelpMode] = useState(false);
+  const [helpTexts, setHelpTexts] = useState<Record<string, any>>(DEFAULT_HELP_TEXTS);
+  const [drillMetric, setDrillMetric] = useState<string | null>(null);
+  const [updatedBadge, setUpdatedBadge] = useState<string | null>(null);
+
   const days = dateRange === "7d" ? 7 : dateRange === "14d" ? 14 : dateRange === "30d" ? 30 : 90;
   const summarySegment = ["all", "verified", "new", "active"].includes(segment) ? segment : "all";
 
@@ -162,11 +251,39 @@ export default function AdminPage() {
 
   const healthOk = health.data?.ok === true;
 
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("admin_help_mode") : null;
+    setHelpMode(saved === "1");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("admin_help_mode", helpMode ? "1" : "0");
+  }, [helpMode]);
+
+  const markUpdated = (key: string) => {
+    setUpdatedBadge(key);
+    window.setTimeout(() => setUpdatedBadge((prev) => (prev === key ? null : prev)), 2200);
+  };
+
   const summary = useQuery({
     queryKey: ["admin-summary-v2", days, summarySegment],
     queryFn: () => adminApi(`/api/admin/metrics/summary?days=${days}&segment=${summarySegment}`, metricsSummaryResponseSchema),
     enabled: healthOk,
     refetchInterval: section === "traffic" || section === "overview" || section === "operations" ? 7000 : 15000,
+  });
+
+  const helpTextsQuery = useQuery({
+    queryKey: ["admin-help-texts"],
+    queryFn: () => api<any>("/api/admin/help-texts"),
+    enabled: healthOk,
+    staleTime: 60_000,
+  });
+
+  const drilldown = useQuery({
+    queryKey: ["admin-metric-drilldown", drillMetric, days, summarySegment],
+    queryFn: () => api<any>("/api/admin/metrics/drilldown?metric=" + encodeURIComponent(drillMetric || "") + "&days=" + days + "&segment=" + summarySegment),
+    enabled: healthOk && Boolean(drillMetric),
   });
 
   const users = useQuery({
@@ -310,9 +427,17 @@ export default function AdminPage() {
     }
   }, [limits.data]);
 
+  useEffect(() => {
+    if (helpTextsQuery.data?.texts) {
+      setHelpTexts({ ...DEFAULT_HELP_TEXTS, ...helpTextsQuery.data.texts });
+    }
+  }, [helpTextsQuery.data]);
+
   const activeErrors = [
     health.error,
     summary.error,
+    helpTextsQuery.error,
+    drilldown.error,
     users.error,
     liveEvents.error,
     trafficStatus.error,
@@ -452,6 +577,7 @@ export default function AdminPage() {
       }),
     });
     await Promise.all([alerts.refetch(), operations.refetch(), auditLog.refetch()]);
+    markUpdated("alert");
   };
 
   const updateReportStatus = async (id: string, status: "open" | "in_review" | "resolved" | "rejected") => {
@@ -460,6 +586,7 @@ export default function AdminPage() {
       body: JSON.stringify({ id, status }),
     });
     await Promise.all([reports.refetch(), summary.refetch(), operations.refetch(), auditLog.refetch()]);
+    markUpdated("report");
   };
 
   const addSupportNote = async () => {
@@ -467,6 +594,7 @@ export default function AdminPage() {
     await api("/api/admin/support/notes", { method: "POST", body: JSON.stringify({ user_id: supportUserId, text: supportNote.trim() }) });
     setSupportNote("");
     await Promise.all([supportDesk.refetch(), auditLog.refetch()]);
+    markUpdated("support-note");
   };
 
   const createSupportTicket = async () => {
@@ -481,11 +609,13 @@ export default function AdminPage() {
     });
     setSupportTicketNote("");
     await Promise.all([supportDesk.refetch(), auditLog.refetch()]);
+    markUpdated("support-ticket");
   };
 
   const updateTicket = async (id: string, status: "open" | "in_progress" | "resolved") => {
     await api("/api/admin/support/tickets", { method: "PUT", body: JSON.stringify({ id, status }) });
     await Promise.all([supportDesk.refetch(), auditLog.refetch()]);
+    markUpdated("support-ticket");
   };
 
   const updateRole = async (userId: string) => {
@@ -493,6 +623,7 @@ export default function AdminPage() {
     if (!role) return;
     await api("/api/admin/rbac/admins", { method: "PUT", body: JSON.stringify({ user_id: userId, role, reason: roleReason }) });
     await Promise.all([rbac.refetch(), auditLog.refetch()]);
+    markUpdated("rbac-role");
   };
 
   const toggleFlag = async (flag: any) => {
@@ -509,6 +640,7 @@ export default function AdminPage() {
       }),
     });
     await Promise.all([flags.refetch(), auditLog.refetch(), operations.refetch()]);
+    markUpdated("feature-flag");
   };
 
   const saveLimits = async () => {
@@ -518,6 +650,7 @@ export default function AdminPage() {
       body: JSON.stringify({ ...limitsDraft, reason: "manual_update_from_config_center" }),
     });
     await Promise.all([limits.refetch(), auditLog.refetch()]);
+    markUpdated("limits");
   };
 
   const addToDictionary = async () => {
@@ -528,6 +661,7 @@ export default function AdminPage() {
     });
     setQualityMapDraft({ event_name: "", family: "events", display_ru: "" });
     await Promise.all([quality.refetch(), auditLog.refetch()]);
+    markUpdated("event-dictionary");
   };
 
   const askAssistant = async () => {
@@ -563,6 +697,38 @@ export default function AdminPage() {
     URL.revokeObjectURL(url);
   };
 
+  const metricEventAlias = (metric: string | null) => {
+    if (!metric) return "";
+    if (metric.includes("duo")) return "post_published_daily_duo";
+    if (metric.includes("video")) return "post_published_video";
+    if (metric.includes("event_join")) return "event_joined";
+    if (metric.includes("event_view")) return "event_viewed";
+    if (metric.includes("connect_replied") || metric === "reply_rate") return "connect_replied";
+    if (metric.includes("connect_sent")) return "connect_sent";
+    if (metric.includes("message")) return "chat_message_sent";
+    if (metric.includes("report")) return "report_created";
+    if (metric.includes("tg_verify") || metric.includes("registration")) return "auth.telegram_verified";
+    return "";
+  };
+
+  const openEventsFromDrilldown = () => {
+    const eventName = metricEventAlias(drillMetric);
+    setEventsFilter((prev) => ({ ...prev, eventName }));
+    setSection("events_live");
+  };
+
+  const createAlertFromDrilldown = async () => {
+    if (!drillMetric || !drilldown.data) return;
+    const base = Number(drilldown.data.current_value ?? 0);
+    const threshold = Number.isFinite(base) && base > 0 ? Number((base * 1.15).toFixed(2)) : 1;
+    await api("/api/admin/alerts", {
+      method: "POST",
+      body: JSON.stringify({ type: "kpi_watch", metric: drillMetric, threshold, window_days: days, status: "active" }),
+    });
+    markUpdated("alert-" + drillMetric);
+    await Promise.all([alerts.refetch(), auditLog.refetch()]);
+  };
+
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
   const kpis = summary.data?.kpis ?? {};
 
@@ -580,6 +746,8 @@ export default function AdminPage() {
         setSearch(v);
         setUserFilter((prev) => ({ ...prev, q: v }));
       }}
+      helpMode={helpMode}
+      onHelpModeChange={setHelpMode}
     >
       {!healthOk ? (
         <div className="col-span-12">
@@ -634,6 +802,7 @@ export default function AdminPage() {
       ) : null}
 
       {healthOk && activeErrors.length ? (
+
         <div className="col-span-12">
           <Card className="border-warning/30 bg-warning/10">
             <CardHeader><CardTitle>Проблемы загрузки данных</CardTitle></CardHeader>
@@ -644,13 +813,19 @@ export default function AdminPage() {
         </div>
       ) : null}
 
+      {healthOk && updatedBadge ? (
+        <div className="col-span-12">
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2 text-xs text-emerald-200">Updated: {updatedBadge}</div>
+        </div>
+      ) : null}
+
       {healthOk && section === "overview" ? (
         <>
           <div className="col-span-12">
             <Card>
               <CardHeader><CardTitle>Overview · KPI в цифрах</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                {summary.isLoading ? <p className="text-sm text-muted">Загрузка метрик…</p> : <KpiGrid kpis={kpis} />}
+                {summary.isLoading ? <p className="text-sm text-muted">Загрузка метрик…</p> : <KpiGrid kpis={kpis} onSelect={setDrillMetric} helpMode={helpMode} helpTexts={helpTexts} />}
                 {summary.data?.warnings?.length ? (
                   <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
                     {summary.data.warnings.map((w) => <p key={w}>• {w}</p>)}
@@ -666,7 +841,7 @@ export default function AdminPage() {
               <CardContent className="space-y-1 text-sm">
                 {(summary.data?.tables.top_events_24h ?? []).length ? (
                   summary.data?.tables.top_events_24h.map((r) => <p key={r.event_name} className="flex justify-between"><span>{r.event_name}</span><strong>{r.count}</strong></p>)
-                ) : <EmptyNote text="За 24ч нет событий из выбранной категории" />}
+                ) : <EmptyNote text="За 24ч нет событий из выбранной категории" onOpenStream={() => setSection("events_live")} />}
               </CardContent>
             </Card>
 
@@ -677,17 +852,86 @@ export default function AdminPage() {
                   summary.data?.funnel.steps.map((r) => (
                     <p key={r.step} className="flex justify-between"><span>{r.step}</span><strong>{r.users} · {(r.conversion * 100).toFixed(1)}%</strong></p>
                   ))
-                ) : <EmptyNote text="Нет данных funnel за период" />}
+                ) : <EmptyNote text="Нет данных funnel за период" onOpenStream={() => setSection("events_live")} />}
               </CardContent>
             </Card>
           </div>
         </>
       ) : null}
+      {healthOk && section === "guide" ? (
+        <div className="col-span-12 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-2">Как пользоваться (Guide)
+                {helpMode ? (
+                  <HelpTip compact {...(helpTexts["section.guide"] ?? DEFAULT_HELP_TEXTS["section.guide"])} />
+                ) : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="rounded-2xl border border-border bg-surface2/70 p-3">
+                <p className="mb-2 font-medium">5-минутный чеклист запуска</p>
+                <p>1. Открой Operations и проверь health strip (events_last_5min &gt; 0).</p>
+                <p>2. Нажми Start Traffic Generator, если тестируешь стенд.</p>
+                <p>3. Открой Events Stream и убедись, что события идут в реальном времени.</p>
+                <p>4. Перейди в Metrics Lab, кликни KPI и проверь Drilldown.</p>
+                <p>5. Открой Users 360 и проверь timeline demo user.</p>
+                <p>6. Открой Risk и проверь high-risk queue в chaos mode.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader><CardTitle>Плейбук: падает регистрация</CardTitle></CardHeader>
+                  <CardContent className="space-y-1 text-xs text-muted">
+                    <p>Смотри: Funnels → auth.* steps, затем Events Stream по auth.telegram_verified.</p>
+                    <p>Тревога: verify rate резко ниже обычного уровня.</p>
+                    <p>Действия: Integrations, webhook TG, fallback login path.</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Плейбук: мало ответов на коннекты</CardTitle></CardHeader>
+                  <CardContent className="space-y-1 text-xs text-muted">
+                    <p>Смотри: Social KPI (reply_rate), top connectors, Risk Center.</p>
+                    <p>Тревога: connect_sent растёт, connect_replied падает.</p>
+                    <p>Действия: tighten limits, антиспам, подсказки в connect flow.</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Плейбук: всплеск жалоб</CardTitle></CardHeader>
+                  <CardContent className="space-y-1 text-xs text-muted">
+                    <p>Смотри: Safety KPI, Reports Inbox, Risk signals.</p>
+                    <p>Тревога: reports_count_24h выше базы в 2-3 раза.</p>
+                    <p>Действия: bulk limit/shadowban/block + incident note.</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Плейбук: дорогой AI</CardTitle></CardHeader>
+                  <CardContent className="space-y-1 text-xs text-muted">
+                    <p>Смотри: AI tab, ai_cost_total_24h, ai_error_rate, endpoint usage.</p>
+                    <p>Тревога: cost растёт, а продуктовые KPI не улучшаются.</p>
+                    <p>Действия: rate limits, retries policy, отключение дорогих путей.</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setSection("operations")}>Открыть Operations</Button>
+                <Button variant="secondary" onClick={() => setSection("events_live")}>Открыть Events Stream</Button>
+                <Button variant="secondary" onClick={() => setSection("metrics_lab")}>Открыть Metrics Lab</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
 
       {healthOk && section === "operations" ? (
         <div className="col-span-12 space-y-4">
           <Card>
-            <CardHeader><CardTitle className="inline-flex items-center gap-2"><Workflow className="h-5 w-5" />Operations Center</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="inline-flex items-center gap-2"><Workflow className="h-5 w-5" />Operations Center {helpMode ? <HelpTip compact {...(helpTexts["section.operations"] ?? DEFAULT_HELP_TEXTS["section.operations"])} /> : null}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">Events last 5m</p><p className="text-xl font-semibold">{operations.data?.status_strip?.events_last_5min ?? 0}</p></CardContent></Card>
@@ -699,6 +943,18 @@ export default function AdminPage() {
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">AI cost today</p><p className="text-xl font-semibold">${Number(operations.data?.status_strip?.ai_cost_today ?? 0).toFixed(4)}</p></CardContent></Card>
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">Last event</p><p className="text-sm font-semibold">{operations.data?.status_strip?.last_event_at ? new Date(operations.data.status_strip.last_event_at).toLocaleString("ru-RU") : "—"}</p></CardContent></Card>
               </div>
+
+              {helpMode ? (
+                <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs">
+                  <p className="mb-2 font-medium">Что это значит?</p>
+                  <div className="flex flex-wrap gap-2">
+                    <HelpTip compact title="Data pipeline" body="Поток событий в аналитике" why="Без него метрики не считаются" influence="Проверяйте Events Stream" normal="events_last_5min > 0" next="Если 0, проверь tracking" />
+                    <HelpTip compact title="Auth/TG verify" body="Стабильность шага верификации" why="Влияет на конверсию регистрации" influence="Чинится через Integrations" normal="без резких провалов" next="Проверь auth.telegram_verified" />
+                    <HelpTip compact title="AI health" body="Ошибки и стоимость AI" why="Контроль качества и затрат" influence="Лимиты и retry policy" normal="низкий error rate" next="Открой AI tab" />
+                    <HelpTip compact title="Safety" body="Жалобы и риск" why="Показывает токсичность системы" influence="Risk actions и limits" normal="без spike" next="Открой Reports/Risk" />
+                  </div>
+                </div>
+              ) : null}
 
               {(operations.data?.warnings ?? []).length ? (
                 <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
@@ -717,9 +973,10 @@ export default function AdminPage() {
                     <div key={item.id} className="rounded-xl border border-border bg-surface2/70 p-3">
                       <p className="font-medium">{item.type} · {item.metric}</p>
                       <p className="text-xs text-muted">status: {item.status} · threshold: {item.threshold}</p>
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <Button size="sm" variant="secondary" className="active:scale-[0.98]" onClick={() => updateAlertStatus(item, "paused")}>Ack</Button>
                         <Button size="sm" variant="secondary" className="active:scale-[0.98]" onClick={() => updateAlertStatus(item, "active")}>Re-open</Button>
+                        <Button size="sm" variant="secondary" className="active:scale-[0.98]" onClick={() => setSection("guide")}>Как исправить</Button>
                       </div>
                     </div>
                   ))
@@ -766,7 +1023,7 @@ export default function AdminPage() {
                   </Button>
                 ))}
               </div>
-              {summary.isLoading ? <p className="text-sm text-muted">Загрузка метрик…</p> : <KpiGrid kpis={kpis} keys={metricsKeys} />}
+              {summary.isLoading ? <p className="text-sm text-muted">Загрузка метрик…</p> : <KpiGrid kpis={kpis} keys={metricsKeys} onSelect={setDrillMetric} helpMode={helpMode} helpTexts={helpTexts} />}
             </CardContent>
           </Card>
 
@@ -781,7 +1038,7 @@ export default function AdminPage() {
                       <span className="text-muted">events:{r.events} · users:{r.active_users} · posts:{r.posts} · joins:{r.joins} · connect:{r.connect_sent}/{r.connect_replied}</span>
                     </p>
                   ))
-                ) : <EmptyNote text="Недостаточно данных за период" />}
+                ) : <EmptyNote text="Недостаточно данных за период" onOpenStream={() => setSection("events_live")} />}
               </CardContent>
             </Card>
 
@@ -816,7 +1073,7 @@ export default function AdminPage() {
                     <span className="text-right">{(r.dropoff * 100).toFixed(1)}%</span>
                   </p>
                 ))
-              ) : <EmptyNote text="Нет событий funnel за период. Открой Events Stream и проверь трекинг." />}
+              ) : <EmptyNote text="Нет событий funnel за период. Открой Events Stream и проверь трекинг." onOpenStream={() => setSection("events_live")} />}
             </CardContent>
           </Card>
         </div>
@@ -865,7 +1122,7 @@ export default function AdminPage() {
                       <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(JSON.stringify(item.properties ?? {}, null, 2))}>Copy JSON</Button>
                     </div>
                   ))
-                ) : <EmptyNote text="Событий нет по текущим фильтрам" />}
+                ) : <EmptyNote text="Событий нет по текущим фильтрам" onOpenStream={() => setSection("events_live")} />}
               </div>
             </CardContent>
           </Card>
@@ -983,7 +1240,7 @@ export default function AdminPage() {
       {healthOk && section === "support" ? (
         <div className="col-span-12 space-y-4">
           <Card>
-            <CardHeader><CardTitle>Support Desk</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="inline-flex items-center gap-2">Support Desk {helpMode ? <HelpTip compact {...(helpTexts["section.support"] ?? DEFAULT_HELP_TEXTS["section.support"])} /> : null}</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_220px_auto]">
                 <Input placeholder="Поиск user (id/username/email/phone masked)" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -992,6 +1249,15 @@ export default function AdminPage() {
               </div>
 
               <div className="max-h-[260px] overflow-auto rounded-xl border border-border bg-surface2/70 p-2">
+              {helpMode ? (
+                <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs text-muted">
+                  <p className="font-medium text-text">PII правила для саппорта</p>
+                  <p>• Не копируй полный телефон и email в заметки.</p>
+                  <p>• Используй только masked значения и internal ticket id.</p>
+                  <p>• При риске эскалируй модератору, не выдавай чувствительные данные.</p>
+                </div>
+              ) : null}
+
                 {(supportDesk.data?.users ?? []).length ? (
                   supportDesk.data.users.map((u: any) => (
                     <div key={u.id} className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/30 p-2 text-xs last:border-b-0">
@@ -1083,7 +1349,7 @@ export default function AdminPage() {
       {healthOk && section === "config" ? (
         <div className="col-span-12 space-y-4">
           <Card>
-            <CardHeader><CardTitle>Config Center · Feature Flags</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="inline-flex items-center gap-2">Config Center · Feature Flags {helpMode ? <HelpTip compact {...(helpTexts["section.config"] ?? DEFAULT_HELP_TEXTS["section.config"])} /> : null}</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               {(flags.data?.flags ?? []).length ? (
                 flags.data.flags.map((f: any) => (
@@ -1102,6 +1368,10 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Limits & Rules</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs text-muted">
+                <p><span className="text-text">Safe ranges:</span> connect_daily_limit: 5-20, message_rate_limit: 20-60, event_join_limit: 5-30.</p>
+                <p>Изменения влияют на антиспам, скорость общения и воронку social.</p>
+              </div>
               {limitsDraft ? (
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
                   <Input type="number" value={limitsDraft.connect_daily_limit ?? 10} onChange={(e) => setLimitsDraft((p: any) => ({ ...p, connect_daily_limit: Number(e.target.value || 0) }))} />
@@ -1120,8 +1390,13 @@ export default function AdminPage() {
       {healthOk && section === "data_quality" ? (
         <div className="col-span-12 space-y-4">
           <Card>
-            <CardHeader><CardTitle>Data Quality</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="inline-flex items-center gap-2">Data Quality {helpMode ? <HelpTip compact {...(helpTexts["section.data_quality"] ?? DEFAULT_HELP_TEXTS["section.data_quality"])} /> : null}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs text-muted">
+                <p><span className="text-text">Unknown events</span> — это event_name, которых нет в словаре.</p>
+                <p>Если их много, метрики и воронки считаются некорректно.</p>
+                <p>Решение: добавить маппинг через форму Add to dictionary.</p>
+              </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">events_last_5min</p><p className="text-xl font-semibold">{quality.data?.volume?.events_last_5min ?? 0}</p></CardContent></Card>
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">events_last_1h</p><p className="text-xl font-semibold">{quality.data?.volume?.events_last_1h ?? 0}</p></CardContent></Card>
@@ -1435,13 +1710,20 @@ export default function AdminPage() {
       {healthOk && section === "security" ? (
         <div className="col-span-12 space-y-4">
           <Card>
-            <CardHeader><CardTitle>Security Center</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="inline-flex items-center gap-2">Security Center {helpMode ? <HelpTip compact {...(helpTexts["section.security"] ?? DEFAULT_HELP_TEXTS["section.security"])} /> : null}</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <p>Rate limiting: {String(security.data?.apiProtection?.rateLimitingEnabled ?? false)}</p>
               <p>Zod validation coverage: {String(security.data?.apiProtection?.zodValidationCoverage ?? false)}</p>
               <p>Server-only secrets: {String(security.data?.apiProtection?.serverOnlySecrets ?? false)}</p>
               <p>PII masked in UI: {String(security.data?.dataSecurity?.piiMaskedInUi ?? true)}</p>
               <p>RLS enabled (assumed): {String(security.data?.dataSecurity?.rlsEnabledAssumed ?? true)}</p>
+              <div className="rounded-xl border border-border bg-surface2/70 p-3 text-xs text-muted">
+                <p className="font-medium text-text">Baseline безопасности</p>
+                <p>• RBAC включен и роли ограничены по принципу least privilege.</p>
+                <p>• Admin API работает только server-side с service role.</p>
+                <p>• Rate limits и anti-spam thresholds не ниже safe range.</p>
+                <p>• Аудит действий обязателен для block/limit/config/export.</p>
+              </div>
               <div className="rounded-xl border border-border bg-surface2/70 p-3">
                 <p className="font-medium">Incident runbook</p>
                 <p className="text-xs text-muted">1) DDOS: усилить rate limits, отключить тяжёлые endpoints.</p>
@@ -1496,6 +1778,16 @@ export default function AdminPage() {
           </Card>
         </div>
       ) : null}
+      <KpiDrilldownDrawer
+        open={Boolean(drillMetric)}
+        metric={drillMetric}
+        loading={drilldown.isLoading}
+        data={drilldown.data ?? null}
+        error={drilldown.error ? parseError(drilldown.error) : null}
+        onClose={() => setDrillMetric(null)}
+        onOpenEvents={openEventsFromDrilldown}
+        onCreateAlert={createAlertFromDrilldown}
+      />
     </AdminShell>
   );
 }
