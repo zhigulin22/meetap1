@@ -40,12 +40,11 @@ export default function MyProfileHubPage() {
   const [showPsychCard, setShowPsychCard] = useState(false);
 
   const meQuery = useQuery({
-    queryKey: ["profile-me-hub-v2"],
+    queryKey: ["profile-me-hub-v3"],
     queryFn: () => api<{ profile: any; activity: { posts: number; eventJoins: number; connections: number; reactions: number } }>("/api/profile/me"),
   });
 
   const profile = meQuery.data?.profile;
-
   const psychCompleted = Boolean(profile?.personality_profile);
 
   useEffect(() => {
@@ -70,7 +69,8 @@ export default function MyProfileHubPage() {
     if (profile.avatar_url) c += 20;
     if (profile.bio) c += 15;
     if (profile.country && profile.city) c += 15;
-    if (profile.university && profile.work) c += 20;
+    const hasProfessionalContext = Boolean(profile.university || profile.work || profile.preferences?.activity || profile.preferences?.specialty);
+    if (hasProfessionalContext) c += 20;
     if ((profile.interests ?? []).length >= 3) c += 15;
     if ((profile.facts ?? []).length >= 2) c += 15;
     return c;
@@ -99,28 +99,31 @@ export default function MyProfileHubPage() {
       </div>
 
       <Card className="mb-3 overflow-hidden">
-        <div className="h-28 bg-[linear-gradient(120deg,rgba(7,15,38,0.98),rgba(82,204,131,0.25),rgba(96,170,255,0.35))]" />
-        <CardContent className="-mt-12 p-4">
-          <div className="flex items-end gap-3">
+        <div className="relative h-48 overflow-hidden border-b border-border/60 bg-[linear-gradient(130deg,#08142F,#10244A)]">
+          <div className="absolute -left-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(119,149,255,0.30),transparent_70%)]" />
+          <div className="absolute -right-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(109,208,255,0.26),transparent_70%)]" />
+          <div className="absolute left-0 top-0 h-full w-24 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_1px,transparent_1px,transparent_8px)] opacity-35" />
+          <div className="absolute right-0 top-0 h-full w-24 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_1px,transparent_1px,transparent_8px)] opacity-35" />
+
+          <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-center">
             <Image
               src={profile?.avatar_url || "https://placehold.co/320x320"}
               alt="avatar"
               width={160}
               height={160}
               unoptimized
-              className="h-24 w-24 rounded-3xl border-2 border-white/70 object-cover"
+              className="mx-auto h-28 w-28 rounded-[28px] border-2 border-white/70 object-cover shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
             />
-            <div className="pb-1">
-              <p className="text-lg font-semibold text-text">{profile?.name || "Пользователь"}</p>
-              <p className="text-xs text-muted">{maskPhone(profile?.phone)}</p>
-              <p className="text-xs text-muted">{profile?.city || "Город не указан"}</p>
-            </div>
+            <p className="mt-2 text-sm font-semibold text-text">{profile?.name || "Пользователь"}</p>
+            <p className="text-xs text-muted">{maskPhone(profile?.phone)} · {profile?.city || "Город не указан"}</p>
           </div>
+        </div>
 
-          <div className="mt-3 rounded-xl border border-border bg-surface2/75 p-3">
+        <CardContent className="p-4">
+          <div className="rounded-xl border border-border bg-surface2/75 p-3">
             <p className="text-xs text-muted">Заполненность профиля</p>
             <div className="mt-2 h-2 rounded-full bg-white/10">
-              <motion.div initial={false} animate={{ width: `${completion}%` }} className="h-2 rounded-full bg-[linear-gradient(90deg,#52CC83,#7ec4ff)]" />
+              <motion.div initial={false} animate={{ width: `${completion}%` }} className="h-2 rounded-full bg-[linear-gradient(90deg,#6f9fff,#8ad0ff)]" />
             </div>
             <p className="mt-1 text-xs text-text">{completion}%</p>
           </div>
@@ -137,19 +140,13 @@ export default function MyProfileHubPage() {
       </Card>
 
       {!psychCompleted && showPsychCard ? (
-        <Card className="mb-3 border-action/30 bg-action/10">
+        <Card className="mb-3 border-[#6f9fff]/40 bg-[#6f9fff]/10">
           <CardContent className="space-y-3 p-4">
             <p className="text-sm font-semibold text-text">Психотест не пройден</p>
-            <p className="text-xs text-muted">
-              Это улучшит рекомендации знакомств, подбор людей и персональные подсказки для первого шага. Прохождение 4-6 минут.
-            </p>
+            <p className="text-xs text-muted">Улучшит рекомендации знакомств, подбор людей и персональные подсказки для первого шага. 4–6 минут.</p>
             <div className="grid grid-cols-2 gap-2">
-              <Link href="/profile/me/psych-test" className="block">
-                <Button className="w-full">Пройти сейчас</Button>
-              </Link>
-              <Button variant="secondary" className="w-full" onClick={remindLater}>
-                Напомнить позже
-              </Button>
+              <Link href="/profile/me/psych-test" className="block"><Button className="w-full">Пройти сейчас</Button></Link>
+              <Button variant="secondary" className="w-full" onClick={remindLater}>Напомнить позже</Button>
             </div>
           </CardContent>
         </Card>

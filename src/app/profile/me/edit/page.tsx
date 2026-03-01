@@ -35,13 +35,16 @@ const popularTags = [
 
 const schema = z.object({
   bio: z.string().trim().max(320, "Слишком длинное bio"),
-  country: z.string().trim().min(2, "Укажи страну"),
-  city: z.string().trim().min(2, "Укажи город"),
-  university: z.string().trim().min(2, "Укажи ВУЗ"),
-  work: z.string().trim().min(2, "Укажи работу"),
+  country: z.string().trim().max(80).optional(),
+  city: z.string().trim().max(80).optional(),
+  university: z.string().trim().max(120).optional(),
+  work: z.string().trim().max(120).optional(),
+  activity: z.string().trim().max(120).optional(),
+  specialty: z.string().trim().max(120).optional(),
   facts: z.array(z.string().trim().min(2, "Факт слишком короткий").max(120)).min(2).max(3),
   interests: z.array(z.string().trim().min(2).max(40)).min(3, "Минимум 3 интереса").max(20),
   hobbies: z.array(z.string().trim().max(40)).max(20),
+  avatar_url: z.string().url().optional(),
 });
 
 export default function ProfileEditPage() {
@@ -52,6 +55,8 @@ export default function ProfileEditPage() {
   const [city, setCity] = useState("");
   const [university, setUniversity] = useState("");
   const [work, setWork] = useState("");
+  const [activity, setActivity] = useState("");
+  const [specialty, setSpecialty] = useState("");
   const [facts, setFacts] = useState<string[]>(["", "", ""]);
   const [interests, setInterests] = useState<string[]>([]);
   const [hobbies, setHobbies] = useState<string[]>([]);
@@ -73,6 +78,9 @@ export default function ProfileEditPage() {
     setCity(p.city ?? "");
     setUniversity(p.university ?? "");
     setWork(p.work ?? "");
+    setActivity(p.preferences?.activity ?? "");
+    setSpecialty(p.preferences?.specialty ?? "");
+
     const nextFacts = (Array.isArray(p.facts) ? p.facts : []).slice(0, 3);
     while (nextFacts.length < 3) nextFacts.push("");
     setFacts(nextFacts);
@@ -105,10 +113,12 @@ export default function ProfileEditPage() {
     const normalizedFacts = facts.map((x) => x.trim()).filter(Boolean).slice(0, 3);
     const payload = {
       bio,
-      country,
-      city,
-      university,
-      work,
+      country: country || undefined,
+      city: city || undefined,
+      university: university || undefined,
+      work: work || undefined,
+      activity: activity || undefined,
+      specialty: specialty || undefined,
       facts: normalizedFacts,
       interests,
       hobbies,
@@ -124,7 +134,25 @@ export default function ProfileEditPage() {
     try {
       setSaving(true);
       setError("");
-      await api("/api/profile/me", { method: "PUT", body: JSON.stringify(parsed.data) });
+      await api("/api/profile/me", {
+        method: "PUT",
+        body: JSON.stringify({
+          bio: parsed.data.bio,
+          country: parsed.data.country,
+          city: parsed.data.city,
+          university: parsed.data.university,
+          work: parsed.data.work,
+          facts: parsed.data.facts,
+          interests: parsed.data.interests,
+          hobbies: parsed.data.hobbies,
+          avatar_url: parsed.data.avatar_url,
+          preferences: {
+            ...(meQuery.data?.profile?.preferences ?? {}),
+            activity: parsed.data.activity,
+            specialty: parsed.data.specialty,
+          },
+        }),
+      });
       toast.success("Профиль сохранён");
       await meQuery.refetch();
     } catch (e) {
@@ -135,12 +163,16 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <ProfileSettingsLayout title="Профиль" subtitle="Фото, био, факты, интересы — это влияет на match">
-      <Card className="mb-3">
-        <CardContent className="p-4">
-          <div className="flex items-end gap-3">
+    <ProfileSettingsLayout title="Профиль" subtitle="Фото, био, факты, интересы и контекст для точных match">
+      <Card className="mb-3 overflow-hidden">
+        <div className="relative h-44 overflow-hidden rounded-[22px] border border-border bg-[linear-gradient(120deg,#0A1633,#0D2246)]">
+          <div className="absolute -left-16 top-1/2 h-44 w-44 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(125,154,255,0.28),transparent_68%)]" />
+          <div className="absolute -right-16 top-1/2 h-44 w-44 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(121,214,255,0.24),transparent_68%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.05)_50%,transparent_100%)]" />
+
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-3xl border-2 border-white/70">
-              <Image src={avatar || "https://placehold.co/300x300"} alt="avatar" width={128} height={128} className="h-24 w-24 rounded-3xl object-cover" unoptimized />
+              <Image src={avatar || "https://placehold.co/300x300"} alt="avatar" width={128} height={128} className="h-28 w-28 rounded-3xl object-cover" unoptimized />
               <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/70 p-1.5 text-white"><Camera className="h-4 w-4" /></span>
             </button>
             <input
@@ -153,8 +185,10 @@ export default function ProfileEditPage() {
                 if (file) uploadAvatar(file);
               }}
             />
-            <p className="text-xs text-muted">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
           </div>
+        </div>
+        <CardContent className="p-3">
+          <p className="text-xs text-muted">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
         </CardContent>
       </Card>
 
@@ -166,8 +200,15 @@ export default function ProfileEditPage() {
           <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" />
         </div>
 
-        <Input value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="ВУЗ" />
-        <Input value={work} onChange={(e) => setWork(e.target.value)} placeholder="Работа" />
+        <Card>
+          <CardContent className="space-y-2 p-3">
+            <p className="text-xs text-muted">Профессиональный контекст (необязательно)</p>
+            <Input value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="ВУЗ (опционально)" />
+            <Input value={work} onChange={(e) => setWork(e.target.value)} placeholder="Работа (опционально)" />
+            <Input value={activity} onChange={(e) => setActivity(e.target.value)} placeholder="Деятельность (например: стартап, фриланс)" />
+            <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Специальность (например: product manager)" />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="space-y-2 p-3">

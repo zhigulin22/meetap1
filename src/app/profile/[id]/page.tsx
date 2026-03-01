@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Briefcase, GraduationCap, Handshake, MapPin, Phone, Sparkles } from "lucide-react";
+import { Briefcase, GraduationCap, Handshake, MapPin, Phone, Sparkles, UserRoundSearch } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ export default function ProfilePage() {
   const [connectData, setConnectData] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["profile-v4", params.id],
+    queryKey: ["profile-v5", params.id],
     queryFn: () =>
       api<{
         profile: any;
@@ -84,29 +84,37 @@ export default function ProfilePage() {
   return (
     <PageShell>
       <Card className="mb-3 overflow-hidden border-white/15 bg-surface/95 backdrop-blur-xl">
-        <div className="h-28 bg-[linear-gradient(118deg,rgba(7,16,46,1),rgba(82,204,131,0.2),rgba(122,170,255,0.35))]" />
-        <CardContent className="space-y-4 p-4">
-          <div className="-mt-12 flex items-end gap-3">
+        <div className="relative h-48 overflow-hidden border-b border-border/60 bg-[linear-gradient(130deg,#08142F,#10244A)]">
+          <div className="absolute -left-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(119,149,255,0.30),transparent_70%)]" />
+          <div className="absolute -right-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(109,208,255,0.26),transparent_70%)]" />
+          <div className="absolute left-0 top-0 h-full w-24 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_1px,transparent_1px,transparent_8px)] opacity-35" />
+          <div className="absolute right-0 top-0 h-full w-24 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_1px,transparent_1px,transparent_8px)] opacity-35" />
+
+          <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-center">
             <Image
               src={p.avatar_url || "https://placehold.co/420x420"}
               alt={p.name}
               width={160}
               height={160}
-              className="h-24 w-24 rounded-3xl border-2 border-white/70 object-cover"
+              className="mx-auto h-28 w-28 rounded-[28px] border-2 border-white/70 object-cover shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
               unoptimized
             />
-            <div className="pb-1">
-              <h1 className="font-display text-2xl font-semibold text-text">{p.name}</h1>
-              {p.lastActiveLabel ? <p className="text-xs text-muted">{p.lastActiveLabel}</p> : null}
-              {p.phone_masked ? (
-                <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted">
-                  <Phone className="h-3.5 w-3.5" /> {p.phone_masked}
-                </p>
-              ) : null}
-            </div>
+            <h1 className="mt-2 font-display text-2xl font-semibold text-text">{p.name}</h1>
+            {p.lastActiveLabel ? <p className="text-xs text-muted">{p.lastActiveLabel}</p> : null}
+            {p.phone_masked ? (
+              <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted">
+                <Phone className="h-3.5 w-3.5" /> {p.phone_masked}
+              </p>
+            ) : null}
           </div>
+        </div>
 
+        <CardContent className="space-y-4 p-4">
           {p.bio ? <p className="text-sm leading-6 text-text">{p.bio}</p> : null}
+
+          {p.vibeTag ? (
+            <div className="inline-flex rounded-full border border-[#6f9fff]/40 bg-[#6f9fff]/12 px-3 py-1 text-xs text-[#dfe8ff]">{p.vibeTag}</div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2 text-xs text-muted">
             {p.city ? (
@@ -125,6 +133,8 @@ export default function ProfilePage() {
                 <GraduationCap className="h-3.5 w-3.5" /> {p.university}
               </span>
             ) : null}
+            {p.activity ? <span className="rounded-full border border-border bg-surface2/70 px-3 py-1">Деятельность: {p.activity}</span> : null}
+            {p.specialty ? <span className="rounded-full border border-border bg-surface2/70 px-3 py-1">Специальность: {p.specialty}</span> : null}
           </div>
 
           {!!p.interests?.length ? (
@@ -147,6 +157,26 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
+          {!!p.starterPrompts?.length ? (
+            <div className="rounded-xl border border-[#7ad2ff]/35 bg-[#7ad2ff]/10 p-3">
+              <p className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-[#def6ff]"><UserRoundSearch className="h-4 w-4" /> Супер-фишка: умные стартовые темы</p>
+              <div className="space-y-1 text-xs text-[#d4eeff]">
+                {p.starterPrompts.map((prompt: string) => (
+                  <button
+                    key={prompt}
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(prompt);
+                      toast.success("Тема скопирована");
+                    }}
+                    className="block w-full rounded-lg border border-white/10 bg-black/15 px-2 py-2 text-left hover:bg-black/25"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {!!p.topBadges?.length ? (
             <div className="flex flex-wrap gap-2">
               {p.topBadges.map((b: any) => (
@@ -157,8 +187,8 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-[#52CC83]/35 bg-[#52CC83]/10 p-3 text-sm text-[#d3ffe6]">
-            <p className="inline-flex items-center gap-1 font-medium text-[#e5ffef]">
+          <div className="rounded-xl border border-[#6f9fff]/35 bg-[#6f9fff]/12 p-3 text-sm text-[#dbe6ff]">
+            <p className="inline-flex items-center gap-1 font-medium text-[#edf3ff]">
               <Sparkles className="h-4 w-4" /> Позитивный факт
             </p>
             <p className="mt-1">{data.positiveFact}</p>
@@ -253,30 +283,22 @@ export default function ProfilePage() {
             <div className="rounded-xl border border-border bg-surface2/70 p-3">
               <p className="text-xs text-muted">О чём начать</p>
               {(connectData.messages ?? []).slice(0, 2).map((m: string) => (
-                <p key={m} className="text-text">
-                  • {m}
-                </p>
+                <p key={m} className="text-text">• {m}</p>
               ))}
             </div>
             <div className="rounded-xl border border-border bg-surface2/70 p-3">
               <p className="text-xs text-muted">Готовые первые сообщения</p>
               {(connectData.firstMessages ?? []).slice(0, 3).map((m: string) => (
-                <p key={m} className="text-text">
-                  • {m}
-                </p>
+                <p key={m} className="text-text">• {m}</p>
               ))}
             </div>
-            <Button className="w-full" onClick={() => setConnectOpen(false)}>
-              Понял, написать самому
-            </Button>
+            <Button className="w-full" onClick={() => setConnectOpen(false)}>Понял, написать самому</Button>
           </div>
         )}
       </Dialog>
 
       <div className="pb-20 text-center text-xs text-muted">
-        <Link href="/profile/me" className="underline">
-          Открыть настройки своего профиля
-        </Link>
+        <Link href="/profile/me" className="underline">Открыть настройки своего профиля</Link>
       </div>
     </PageShell>
   );

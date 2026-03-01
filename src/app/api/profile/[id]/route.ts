@@ -40,6 +40,33 @@ function maskPhone(phone: string | null | undefined) {
   return `${clean.slice(0, 3)}***${clean.slice(-2)}`;
 }
 
+function buildStarterPrompts(input: {
+  interests: string[];
+  style: string | null;
+  activity: string | null;
+  specialty: string | null;
+}) {
+  const prompts: string[] = [];
+  const firstInterest = input.interests[0];
+  const secondInterest = input.interests[1];
+
+  if (firstInterest) prompts.push(`Вижу, тебе близка тема «${firstInterest}». Что тебя в ней сильнее всего вдохновляет сейчас?`);
+  if (secondInterest) prompts.push(`Если бы мы встретились на ивенте, с какой темы по «${secondInterest}» начал(а) бы разговор?`);
+  if (input.activity || input.specialty) {
+    prompts.push(`Расскажи, как ты пришел(а) в ${input.activity || input.specialty}. Что сейчас самое интересное в этой сфере?`);
+  }
+  if (input.style) prompts.push(`Твой стиль общения: ${input.style}. Как тебе комфортнее знакомиться — сразу офлайн или сначала чат?`);
+
+  return prompts.slice(0, 3);
+}
+
+function buildVibeTag(style: string | null, mode: string | null) {
+  if (style) return style;
+  if (mode === "dating") return "Открыт(а) к личным знакомствам";
+  if (mode === "networking") return "Фокус на нетворкинге";
+  return "Гибкий формат знакомств";
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const viewerId = getCurrentUserId();
 
@@ -76,6 +103,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const privacyRow = (privacyRes.data as Record<string, any> | null) ?? defaultPrivacy;
   const privacyJson = toObject(profile.privacy_settings);
+  const preferences = toObject(profile.preferences);
+  const personality = toObject(profile.personality_profile);
 
   const isOwner = viewerId === params.id;
   const showInterests = isOwner || privacyJson.showInterests !== false;
@@ -94,10 +123,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         ? "everyone"
         : "nobody";
 
-  const canShowPhone =
-    isOwner ||
-    phoneVisibility === "everyone" ||
-    (phoneVisibility === "contacts" && Boolean(viewerId));
+  const canShowPhone = isOwner || phoneVisibility === "everyone" || (phoneVisibility === "contacts" && Boolean(viewerId));
 
   const photoMap = new Map<string, Array<{ kind: string; url: string }>>();
   for (const p of photosRes.data ?? []) {
@@ -126,6 +152,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const lastActiveLabel = !showLastActive ? null : recentActive ? "был(а) недавно" : "был(а) на этой неделе";
 
+  const activity = showWork ? (preferences.activity ?? null) : null;
+  const specialty = showWork ? (preferences.specialty ?? null) : null;
+  const interests = showInterests ? (profile.interests ?? []) : [];
+
+  const starterPrompts = buildStarterPrompts({
+    interests,
+    style: typeof personality.style === "string" ? personality.style : null,
+    activity: typeof activity === "string" ? activity : null,
+    specialty: typeof specialty === "string" ? specialty : null,
+  });
+
   return ok({
     profile: {
       id: profile.id,
@@ -136,7 +173,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       country: showCity ? profile.country ?? null : null,
       university: showUniversity ? profile.university ?? null : null,
       work: showWork ? profile.work ?? null : null,
-      interests: showInterests ? profile.interests ?? [] : [],
+      activity,
+      specialty,
+      interests,
       facts: showFacts ? profile.facts ?? [] : [],
       phone_masked: canShowPhone ? maskPhone(profile.phone) : null,
       level: profile.level,
@@ -147,6 +186,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       eventHistory: showEventHistory ? (eventsRes.data ?? []) : [],
       eventHistoryCount: eventsCount,
       messagePolicy: privacyRow.who_can_message ?? defaultPrivacy.who_can_message,
+      vibeTag: buildVibeTag(typeof personality.style === "string" ? personality.style : null, typeof preferences.mode === "string" ? preferences.mode : null),
+      starterPrompts,
     },
     positiveFact,
     content: { all: feed, videos, photos },

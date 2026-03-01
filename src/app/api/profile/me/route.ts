@@ -10,6 +10,8 @@ const preferencesSchema = z
     intent: z.string().trim().max(120).optional(),
     meetupFrequency: z.enum(["low", "medium", "high"]).optional(),
     lookingFor: z.array(z.string().trim().max(40)).max(6).optional(),
+    activity: z.string().trim().max(120).optional(),
+    specialty: z.string().trim().max(120).optional(),
   })
   .partial();
 
