@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
-import { requireAdminUserId } from "@/server/admin";
-import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
-import { canonicalizeEventName, isActivityEventName } from "@/server/event-dictionary";
-import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
-import { supabaseAdmin } from "@/supabase/admin";
 import { DEFAULT_HELP_TEXTS, kpiSource } from "@/lib/admin-help-texts";
+import { requireAdminUserId } from "@/server/admin";
+import { logAdminAction } from "@/server/admin-audit";
+import { getSegmentUserIds, parseWindow } from "@/server/admin-metrics";
+import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
+import { isActivityEventName } from "@/server/event-dictionary";
+import { supabaseAdmin } from "@/supabase/admin";
 
 type EventRow = {
   event_name: string;
@@ -19,100 +20,461 @@ type UserRow = {
   city?: string | null;
   is_demo?: boolean | null;
   demo_group?: string | null;
-  created_at?: string | null;
+};
+
+type MetricFamily = "auth" | "profile" | "feed" | "events" | "social" | "safety" | "ai" | "admin";
+
+type MetricConfig = {
+  family: MetricFamily;
+  mode: "count" | "distinct" | "ratio";
+  variants: string[];
+  numerator?: string[];
+  denominator?: string[];
+};
+
+type DictionaryRow = {
+  event_name: string;
+  family: string;
+  aliases: string[] | null;
+  metric_tags: string[] | null;
 };
 
 const querySchema = z.object({
   metric: z.string().min(1),
   days: z.coerce.number().int().min(1).max(180).default(30),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
   segment: z.enum(["all", "verified", "new", "active"]).default("all"),
 });
 
-const METRIC_MAP: Record<string, { mode: "count" | "distinct" | "ratio"; events?: string[]; numerator?: string[]; denominator?: string[] }> = {
-  dau_proxy: { mode: "distinct" },
-  wau_proxy: { mode: "distinct" },
-  sessions_24h: { mode: "count", events: ["app.session_start"] },
-  posts_duo_24h: { mode: "count", events: ["post_published_daily_duo"] },
-  posts_duo_7d: { mode: "count", events: ["post_published_daily_duo"] },
-  posts_duo_30d: { mode: "count", events: ["post_published_daily_duo"] },
-  posts_video_24h: { mode: "count", events: ["post_published_video"] },
-  posts_video_7d: { mode: "count", events: ["post_published_video"] },
-  posts_video_30d: { mode: "count", events: ["post_published_video"] },
-  event_viewed_24h: { mode: "count", events: ["event_viewed"] },
-  event_viewed_7d: { mode: "count", events: ["event_viewed"] },
-  event_viewed_30d: { mode: "count", events: ["event_viewed"] },
-  event_joined_24h: { mode: "count", events: ["event_joined"] },
-  event_joined_7d: { mode: "count", events: ["event_joined"] },
-  event_joined_30d: { mode: "count", events: ["event_joined"] },
-  connect_sent_24h: { mode: "count", events: ["connect_sent"] },
-  connect_sent_7d: { mode: "count", events: ["connect_sent"] },
-  connect_sent_30d: { mode: "count", events: ["connect_sent"] },
-  connect_replied_24h: { mode: "count", events: ["connect_replied"] },
-  connect_replied_7d: { mode: "count", events: ["connect_replied"] },
-  connect_replied_30d: { mode: "count", events: ["connect_replied"] },
-  messages_sent_24h: { mode: "count", events: ["message_sent"] },
-  messages_sent_7d: { mode: "count", events: ["message_sent"] },
-  messages_sent_30d: { mode: "count", events: ["message_sent"] },
-  reports_count_24h: { mode: "count", events: ["report_created"] },
-  reports_count_7d: { mode: "count", events: ["report_created"] },
-  reports_count_30d: { mode: "count", events: ["report_created"] },
-  ai_calls_24h: { mode: "count", events: ["ai_request"] },
-  tg_verify_rate: { mode: "ratio", numerator: ["telegram_verified"], denominator: ["register_started"] },
-  registration_completion_rate: { mode: "ratio", numerator: ["registration_completed"], denominator: ["register_started"] },
-  reply_rate: { mode: "ratio", numerator: ["connect_replied"], denominator: ["connect_sent"] },
-  join_rate: { mode: "ratio", numerator: ["event_joined"], denominator: ["event_viewed"] },
-};
+const autoMapSchema = z.object({
+  metric: z.string().min(1),
+  days: z.coerce.number().int().min(1).max(180).default(30),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  segment: z.enum(["all", "verified", "new", "active"]).default("all"),
+});
+
+function uniq(values: string[]) {
+  return [...new Set(values.map((x) => x.trim()).filter(Boolean))];
+}
+
+function normalizeEventName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 function dayKey(iso: string) {
   return iso.slice(0, 10);
 }
 
-function getCanonicals(metric: string) {
-  const preset = METRIC_MAP[metric];
-  if (preset?.events?.length) return preset.events;
-  if (metric.startsWith("posts_duo")) return ["post_published_daily_duo"];
-  if (metric.startsWith("posts_video")) return ["post_published_video"];
-  if (metric.startsWith("event_viewed")) return ["event_viewed"];
-  if (metric.startsWith("event_joined")) return ["event_joined"];
-  if (metric.startsWith("connect_sent")) return ["connect_sent"];
-  if (metric.startsWith("connect_replied")) return ["connect_replied"];
-  if (metric.startsWith("messages_sent")) return ["message_sent"];
-  if (metric.startsWith("reports_count")) return ["report_created"];
-  if (metric.includes("ai_cost")) return ["ai_cost"];
-  if (metric.startsWith("events_total") || metric.startsWith("active_users") || metric === "dau_proxy" || metric === "wau_proxy") return ["*"];
-  return [];
+function weekKey(iso: string) {
+  const d = new Date(iso);
+  const day = d.getUTCDay();
+  const diff = (day + 6) % 7;
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff));
+  return monday.toISOString().slice(0, 10);
 }
 
-function countForMode(rows: Array<{ canonical: string; user_id: string | null; properties: Record<string, unknown> | null }>, metric: string) {
-  const preset = METRIC_MAP[metric];
+function monthKey(iso: string) {
+  return iso.slice(0, 7);
+}
 
-  if (preset?.mode === "ratio") {
-    const numeratorSet = new Set(preset.numerator ?? []);
-    const denominatorSet = new Set(preset.denominator ?? []);
-    const num = rows.reduce((acc, r) => acc + (numeratorSet.has(r.canonical) ? 1 : 0), 0);
-    const den = rows.reduce((acc, r) => acc + (denominatorSet.has(r.canonical) ? 1 : 0), 0);
-    return { value: den > 0 ? Number((num / den).toFixed(4)) : 0, numerator: num, denominator: den };
+function findExtremum(points: Array<{ ts: string; value: number }>, kind: "max" | "min") {
+  if (!points.length) return null;
+  let best = points[0];
+  for (const point of points) {
+    if (kind === "max" ? point.value > best.value : point.value < best.value) best = point;
+  }
+  return best;
+}
+
+function metricKeyword(metric: string) {
+  const m = metric.toLowerCase();
+  if (m.includes("connect") || m.includes("reply") || m.includes("message")) return "connect";
+  if (m.includes("post") || m.includes("duo") || m.includes("video") || m.includes("comment")) return "post";
+  if (m.includes("event") || m.includes("join")) return "event";
+  if (m.includes("report") || m.includes("safety")) return "report";
+  if (m.includes("verify") || m.includes("registration") || m.includes("auth")) return "auth";
+  if (m.includes("ai")) return "ai";
+  return "";
+}
+
+function resolveMetricConfig(metric: string): MetricConfig {
+  const m = metric.toLowerCase();
+
+  if (m === "reply_rate" || m.includes("connect_replied")) {
+    return {
+      family: "social",
+      mode: m === "reply_rate" ? "ratio" : "count",
+      variants: ["connect_replied", "chat.connect_replied"],
+      numerator: ["connect_replied", "chat.connect_replied"],
+      denominator: ["connect_sent", "chat.connect_sent"],
+    };
   }
 
-  if (metric.includes("ai_cost")) {
-    const sum = rows.reduce((acc, r) => {
-      if (r.canonical !== "ai_cost") return acc;
-      const usd = Number((r.properties?.usd as number | undefined) ?? 0);
-      return Number.isFinite(usd) ? acc + usd : acc;
-    }, 0);
-    return { value: Number(sum.toFixed(4)) };
+  if (m.includes("connect_sent")) {
+    return {
+      family: "social",
+      mode: "count",
+      variants: ["connect_sent", "chat.connect_sent"],
+    };
   }
 
-  if (preset?.mode === "distinct" || metric.includes("active_users") || metric === "dau_proxy" || metric === "wau_proxy") {
-    return { value: new Set(rows.map((r) => r.user_id).filter(Boolean) as string[]).size };
+  if (m.includes("message") || m.includes("wmc") || m.includes("continued")) {
+    return {
+      family: "social",
+      mode: "count",
+      variants: ["message_sent", "chat.message_sent", "chat_message_sent"],
+    };
   }
 
-  const canonicals = getCanonicals(metric);
-  if (canonicals.includes("*")) return { value: rows.length };
-  if (!canonicals.length) return { value: 0 };
+  if (m.includes("posts_duo")) {
+    return {
+      family: "feed",
+      mode: "count",
+      variants: ["post_published_daily_duo", "feed.post_published_daily_duo"],
+    };
+  }
 
-  const set = new Set(canonicals);
-  return { value: rows.reduce((acc, r) => acc + (set.has(r.canonical) ? 1 : 0), 0) };
+  if (m.includes("posts_video")) {
+    return {
+      family: "feed",
+      mode: "count",
+      variants: ["post_published_video", "feed.post_published_video"],
+    };
+  }
+
+  if (m === "posts" || m.includes("posters") || m.includes("posts_per") || m.includes("content")) {
+    return {
+      family: "feed",
+      mode: "count",
+      variants: [
+        "post_published_daily_duo",
+        "feed.post_published_daily_duo",
+        "post_published_video",
+        "feed.post_published_video",
+      ],
+    };
+  }
+
+  if (m.includes("comment")) {
+    return {
+      family: "feed",
+      mode: "count",
+      variants: ["comment_created", "comment.created"],
+    };
+  }
+
+  if (m === "join_rate") {
+    return {
+      family: "events",
+      mode: "ratio",
+      variants: ["event_joined", "events.joined", "event_viewed", "events.viewed"],
+      numerator: ["event_joined", "events.joined"],
+      denominator: ["event_viewed", "events.viewed"],
+    };
+  }
+
+  if (m.includes("event_join") || m.includes("joined")) {
+    return {
+      family: "events",
+      mode: "count",
+      variants: ["event_joined", "events.joined"],
+    };
+  }
+
+  if (m.includes("event_view") || m.includes("events.viewed")) {
+    return {
+      family: "events",
+      mode: "count",
+      variants: ["event_viewed", "events.viewed"],
+    };
+  }
+
+  if (m.includes("report") || m.includes("risk") || m.includes("safety")) {
+    return {
+      family: "safety",
+      mode: "count",
+      variants: ["report_created", "safety.report_created", "ai_flagged_content"],
+    };
+  }
+
+  if (m.includes("tg_verify") || m === "registration_completion_rate") {
+    if (m.includes("tg_verify")) {
+      return {
+        family: "auth",
+        mode: "ratio",
+        variants: ["auth.telegram_verified", "telegram_verified", "auth.register_started", "register_started"],
+        numerator: ["auth.telegram_verified", "telegram_verified"],
+        denominator: ["auth.register_started", "register_started"],
+      };
+    }
+
+    return {
+      family: "auth",
+      mode: "ratio",
+      variants: [
+        "auth.registration_completed",
+        "registration_completed",
+        "auth.register_started",
+        "register_started",
+      ],
+      numerator: ["auth.registration_completed", "registration_completed"],
+      denominator: ["auth.register_started", "register_started"],
+    };
+  }
+
+  if (m.includes("profile_completed") || m.includes("activation")) {
+    return {
+      family: "profile",
+      mode: "count",
+      variants: ["profile_completed", "profile.completed"],
+    };
+  }
+
+  if (m.includes("ai_cost")) {
+    return {
+      family: "ai",
+      mode: "count",
+      variants: ["ai_cost", "ai.request_cost"],
+    };
+  }
+
+  if (m.includes("ai_calls") || m.includes("ai_requests")) {
+    return {
+      family: "ai",
+      mode: "count",
+      variants: ["ai_request", "ai.request", "ai_call"],
+    };
+  }
+
+  if (m.includes("dau") || m.includes("wau") || m.includes("active_users") || m.includes("events_total") || m.includes("session")) {
+    return {
+      family: "admin",
+      mode: "distinct",
+      variants: ["*"],
+    };
+  }
+
+  return {
+    family: "admin",
+    mode: "count",
+    variants: ["*"],
+  };
+}
+
+async function getDynamicAliasesForFamily(family: MetricFamily, metric: string) {
+  const schema = await getSchemaSnapshot(["event_dictionary"]);
+  const cols = asSet(schema, "event_dictionary");
+  if (!cols.has("event_name") || !cols.has("family")) return [] as string[];
+
+  const q = await supabaseAdmin
+    .from("event_dictionary")
+    .select("event_name,family,aliases,metric_tags")
+    .eq("family", family)
+    .limit(400);
+
+  if (q.error) return [] as string[];
+
+  const metricTag = `auto:${metric}`;
+  const rows = (q.data ?? []) as DictionaryRow[];
+  const aliases: string[] = [];
+
+  for (const row of rows) {
+    const tags = Array.isArray(row.metric_tags) ? row.metric_tags : [];
+    if (row.family !== family && !tags.includes(metricTag)) continue;
+    aliases.push(row.event_name);
+    if (Array.isArray(row.aliases)) aliases.push(...row.aliases);
+  }
+
+  return uniq(aliases);
+}
+
+function buildTopEventNames(rows: EventRow[], limit = 10) {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(row.event_name, (map.get(row.event_name) ?? 0) + 1);
+  }
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([event_name, count]) => ({ event_name, count }));
+}
+
+function buildNoDataReasons(metric: string, expected: string[], topPeriod: Array<{ event_name: string; count: number }>) {
+  const reasons: string[] = [];
+  reasons.push("За выбранный период нет событий, подходящих под текущую метрику.");
+
+  if (!expected.length) {
+    reasons.push("Для метрики не найден mapping событий.");
+    return reasons;
+  }
+
+  reasons.push(`Ищем event_name: ${expected.join(", ")}.`);
+
+  const expectedNorm = new Set(expected.map(normalizeEventName));
+  const keyword = metricKeyword(metric);
+  const mismatches: string[] = [];
+
+  for (const row of topPeriod) {
+    const raw = row.event_name;
+    const norm = normalizeEventName(raw);
+    const keywordMatch = keyword ? norm.includes(keyword) : false;
+    if (expectedNorm.has(norm)) continue;
+    if (!keywordMatch && mismatches.length > 0) continue;
+    mismatches.push(raw);
+    if (mismatches.length >= 3) break;
+  }
+
+  if (mismatches.length) {
+    for (const value of mismatches) {
+      reasons.push(`Mismatch: в базе есть ${value}, но метрика считает ${expected[0]}.`);
+    }
+  }
+
+  return reasons;
+}
+
+function toSorted<T extends string>(map: Map<string, number>, key: T, valueKey: string, limit = 10) {
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([k, v]) => ({ [key]: k, [valueKey]: v }));
+}
+
+async function loadEvents(windowFrom: string, windowTo: string, segmentUserIds: string[] | null) {
+  let q = supabaseAdmin
+    .from("analytics_events")
+    .select("event_name,user_id,created_at,properties")
+    .gte("created_at", windowFrom)
+    .lte("created_at", windowTo)
+    .order("created_at", { ascending: true })
+    .limit(200000);
+
+  if (segmentUserIds && segmentUserIds.length) {
+    q = q.in("user_id", segmentUserIds);
+  }
+
+  const res = await q;
+  if (res.error) throw new Error(res.error.message);
+
+  return ((res.data ?? []) as EventRow[]).filter((r) => isActivityEventName(r.event_name));
+}
+
+async function loadMetricEvents(windowFrom: string, windowTo: string, segmentUserIds: string[] | null, variants: string[]) {
+  let q = supabaseAdmin
+    .from("analytics_events")
+    .select("event_name,user_id,created_at,properties")
+    .gte("created_at", windowFrom)
+    .lte("created_at", windowTo)
+    .order("created_at", { ascending: true })
+    .limit(200000);
+
+  if (segmentUserIds && segmentUserIds.length) {
+    q = q.in("user_id", segmentUserIds);
+  }
+
+  if (!variants.includes("*") && variants.length) {
+    q = q.in("event_name", variants);
+  }
+
+  const res = await q;
+  if (res.error) throw new Error(res.error.message);
+
+  return ((res.data ?? []) as EventRow[]).filter((r) => isActivityEventName(r.event_name));
+}
+
+function countMetricValue(rows: EventRow[], config: MetricConfig) {
+  if (config.mode === "distinct") {
+    return new Set(rows.map((r) => r.user_id).filter(Boolean) as string[]).size;
+  }
+
+  if (config.mode === "ratio") {
+    const num = new Set(config.numerator ?? []);
+    const den = new Set(config.denominator ?? []);
+    const numerator = rows.reduce((acc, r) => acc + (num.has(r.event_name) ? 1 : 0), 0);
+    const denominator = rows.reduce((acc, r) => acc + (den.has(r.event_name) ? 1 : 0), 0);
+    if (denominator <= 0) return 0;
+    return Number((numerator / denominator).toFixed(4));
+  }
+
+  return rows.length;
+}
+
+async function loadUsersById(userIds: string[]) {
+  if (!userIds.length) return new Map<string, UserRow>();
+
+  const schema = await getSchemaSnapshot(["users"]);
+  const usersCols = asSet(schema, "users");
+  const selectCols = ["id", "city", "is_demo", "demo_group"].filter((col) => usersCols.has(col));
+  if (!selectCols.includes("id")) selectCols.unshift("id");
+
+  const usersRes = await supabaseAdmin.from("users").select(selectCols.join(",")).in("id", userIds.slice(0, 5000));
+  if (usersRes.error) return new Map<string, UserRow>();
+
+  const map = new Map<string, UserRow>();
+  for (const row of (usersRes.data ?? []) as UserRow[]) {
+    map.set(row.id, row);
+  }
+
+  return map;
+}
+
+function buildMetricBreakdowns(rows: EventRow[], usersById: Map<string, UserRow>) {
+  const byDay = new Map<string, number>();
+  const byWeek = new Map<string, number>();
+  const byMonth = new Map<string, number>();
+  const byDemoGroup = new Map<string, number>();
+  const byCity = new Map<string, number>();
+  const byUser = new Map<string, number>();
+  const byEventId = new Map<string, number>();
+
+  for (const row of rows) {
+    const dKey = dayKey(row.created_at);
+    const wKey = weekKey(row.created_at);
+    const mKey = monthKey(row.created_at);
+
+    byDay.set(dKey, (byDay.get(dKey) ?? 0) + 1);
+    byWeek.set(wKey, (byWeek.get(wKey) ?? 0) + 1);
+    byMonth.set(mKey, (byMonth.get(mKey) ?? 0) + 1);
+
+    const userId = row.user_id ?? "—";
+    byUser.set(userId, (byUser.get(userId) ?? 0) + 1);
+
+    const user = row.user_id ? usersById.get(row.user_id) : undefined;
+    const demoGroup = String((row.properties?.demo_group as string | undefined) ?? user?.demo_group ?? (user?.is_demo ? "demo" : "real"));
+    byDemoGroup.set(demoGroup, (byDemoGroup.get(demoGroup) ?? 0) + 1);
+
+    const city = String((row.properties?.city as string | undefined) ?? user?.city ?? "—");
+    byCity.set(city, (byCity.get(city) ?? 0) + 1);
+
+    const eventId = String((row.properties?.event_id as string | undefined) ?? "").trim();
+    if (eventId) byEventId.set(eventId, (byEventId.get(eventId) ?? 0) + 1);
+  }
+
+  const dayRows = toSorted(byDay, "day", "value", 31) as Array<{ day: string; value: number }>;
+  const weekRows = toSorted(byWeek, "week_start", "value", 26) as Array<{ week_start: string; value: number }>;
+  const monthRows = toSorted(byMonth, "month", "value", 24) as Array<{ month: string; value: number }>;
+
+  const daySeries = dayRows.map((x) => ({ ts: x.day, value: Number(x.value) }));
+  const weekSeries = weekRows.map((x) => ({ ts: x.week_start, value: Number(x.value) }));
+  const monthSeries = monthRows.map((x) => ({ ts: x.month, value: Number(x.value) }));
+
+  return {
+    breakdown_by_day: dayRows,
+    breakdown_by_week: weekRows,
+    breakdown_by_month: monthRows,
+    best_day: findExtremum(daySeries, "max"),
+    worst_day: findExtremum(daySeries, "min"),
+    best_week: findExtremum(weekSeries, "max"),
+    worst_week: findExtremum(weekSeries, "min"),
+    best_month: findExtremum(monthSeries, "max"),
+    worst_month: findExtremum(monthSeries, "min"),
+    breakdown_by_demo_group: toSorted(byDemoGroup, "demo_group", "value", 10),
+    breakdown_by_city: toSorted(byCity, "city", "value", 20),
+    top_users: toSorted(byUser, "user_id", "value", 20),
+    top_events: toSorted(byEventId, "event_id", "value", 20),
+  };
 }
 
 export async function GET(req: Request) {
@@ -123,169 +485,158 @@ export async function GET(req: Request) {
     const parsed = querySchema.safeParse({
       metric: searchParams.get("metric") ?? "",
       days: searchParams.get("days") ?? 30,
+      from: searchParams.get("from") ?? undefined,
+      to: searchParams.get("to") ?? undefined,
       segment: searchParams.get("segment") ?? "all",
     });
-    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
+
+    if (!parsed.success) {
+      return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
+    }
 
     const now = Date.now();
-    const toISO = new Date(now).toISOString();
-    const fromISO = new Date(now - parsed.data.days * 24 * 60 * 60 * 1000).toISOString();
-    const prevFromISO = new Date(now - parsed.data.days * 2 * 24 * 60 * 60 * 1000).toISOString();
-    const prevToISO = fromISO;
+    const toISO = parsed.data.to ?? new Date(now).toISOString();
+    const fromISO = parsed.data.from ?? new Date(new Date(toISO).getTime() - parsed.data.days * 24 * 60 * 60 * 1000).toISOString();
 
-    const window = parseWindow(fromISO, toISO, parsed.data.days);
-    const prevWindow = parseWindow(prevFromISO, prevToISO, parsed.data.days);
+    const currentWindow = parseWindow(fromISO, toISO, parsed.data.days);
+    const periodMs = Math.max(1, currentWindow.to.getTime() - currentWindow.from.getTime());
+    const prevToISO = new Date(currentWindow.from.getTime()).toISOString();
+    const prevFromISO = new Date(currentWindow.from.getTime() - periodMs).toISOString();
+    const previousWindow = parseWindow(prevFromISO, prevToISO, parsed.data.days);
 
-    const [segmentUserIds, schema] = await Promise.all([
-      getSegmentUserIds(parsed.data.segment, window.fromISO, window.toISO),
-      getSchemaSnapshot(["analytics_events", "users"]),
+    const segmentUserIds = await getSegmentUserIds(parsed.data.segment, currentWindow.fromISO, currentWindow.toISO);
+
+    const config = resolveMetricConfig(parsed.data.metric);
+    const dynamicAliases = await getDynamicAliasesForFamily(config.family, parsed.data.metric);
+    const expectedVariants = config.variants.includes("*") ? uniq(dynamicAliases) : uniq([...config.variants, ...dynamicAliases]);
+
+    const [currentRowsForMetric, prevRowsForMetric, currentRowsSegmented] = await Promise.all([
+      loadMetricEvents(currentWindow.fromISO, currentWindow.toISO, segmentUserIds, expectedVariants),
+      loadMetricEvents(previousWindow.fromISO, previousWindow.toISO, segmentUserIds, expectedVariants),
+      loadEvents(currentWindow.fromISO, currentWindow.toISO, segmentUserIds),
     ]);
 
-    const analyticsCols = asSet(schema, "analytics_events");
-    const usersCols = asSet(schema, "users");
-    if (!analyticsCols.has("event_name") || !analyticsCols.has("created_at")) {
-      return ok({
-        metric: parsed.data.metric,
-        definition: DEFAULT_HELP_TEXTS[`metric.${parsed.data.metric}` as keyof typeof DEFAULT_HELP_TEXTS] ?? null,
-        source: kpiSource(parsed.data.metric),
-        period: { from: window.fromISO, to: window.toISO, days: parsed.data.days, segment: parsed.data.segment },
-        current_value: 0,
-        previous_value: 0,
-        delta: 0,
-        status: "No data",
-        reasons: ["analytics_events не содержит нужных колонок"],
-        top_event_names_24h: [],
-        breakdown_by_day: [],
-        breakdown_by_demo_group: [],
-        breakdown_by_city: [],
-        top_users: [],
-        top_events: [],
-      });
-    }
+    const currentValue = countMetricValue(currentRowsForMetric, config);
+    const previousValue = countMetricValue(prevRowsForMetric, config);
+    const delta = previousValue > 0 ? Number((((currentValue as number) - (previousValue as number)) / (previousValue as number)).toFixed(4)) : ((currentValue as number) > 0 ? 1 : 0);
 
-    let currentQuery = supabaseAdmin
-      .from("analytics_events")
-      .select("event_name,user_id,created_at,properties")
-      .gte("created_at", window.fromISO)
-      .lte("created_at", window.toISO)
-      .order("created_at", { ascending: true })
-      .limit(200000);
-    let prevQuery = supabaseAdmin
-      .from("analytics_events")
-      .select("event_name,user_id,created_at,properties")
-      .gte("created_at", prevWindow.fromISO)
-      .lte("created_at", prevWindow.toISO)
-      .order("created_at", { ascending: true })
-      .limit(200000);
+    const totalCount = currentRowsForMetric.length;
+    const uniqueUsers = new Set(currentRowsForMetric.map((r) => r.user_id).filter(Boolean) as string[]).size;
 
-    if (segmentUserIds && segmentUserIds.length) {
-      currentQuery = currentQuery.in("user_id", segmentUserIds);
-      prevQuery = prevQuery.in("user_id", segmentUserIds);
-    }
+    const usersById = await loadUsersById([...new Set(currentRowsForMetric.map((r) => r.user_id).filter(Boolean) as string[])]);
+    const breakdowns = buildMetricBreakdowns(currentRowsForMetric, usersById);
 
-    const [currentRes, prevRes] = await Promise.all([currentQuery, prevQuery]);
-    if (currentRes.error) return fail(currentRes.error.message, 500);
-    if (prevRes.error) return fail(prevRes.error.message, 500);
+    const topEventNamesPeriod = buildTopEventNames(currentRowsSegmented, 10);
+    const topEventNames24h = buildTopEventNames(
+      currentRowsSegmented.filter((row) => new Date(row.created_at).getTime() >= now - 24 * 60 * 60 * 1000),
+      10,
+    );
 
-    const currentRows = ((currentRes.data ?? []) as EventRow[])
-      .filter((r) => isActivityEventName(r.event_name))
-      .map((r) => ({ ...r, canonical: canonicalizeEventName(r.event_name) }));
-    const prevRows = ((prevRes.data ?? []) as EventRow[])
-      .filter((r) => isActivityEventName(r.event_name))
-      .map((r) => ({ ...r, canonical: canonicalizeEventName(r.event_name) }));
-
-    const metricCanonicals = getCanonicals(parsed.data.metric);
-    const isAllActivity = metricCanonicals.includes("*");
-    const metricSet = new Set(metricCanonicals);
-
-    const rowsForMetric = isAllActivity
-      ? currentRows
-      : currentRows.filter((r) => metricSet.has(r.canonical) || METRIC_MAP[parsed.data.metric]?.mode === "ratio");
-    const prevRowsForMetric = isAllActivity
-      ? prevRows
-      : prevRows.filter((r) => metricSet.has(r.canonical) || METRIC_MAP[parsed.data.metric]?.mode === "ratio");
-
-    const current = countForMode(rowsForMetric, parsed.data.metric);
-    const previous = countForMode(prevRowsForMetric, parsed.data.metric);
-    const currentValue = Number(current.value ?? 0);
-    const previousValue = Number(previous.value ?? 0);
-    const delta = previousValue > 0 ? Number(((currentValue - previousValue) / previousValue).toFixed(4)) : (currentValue > 0 ? 1 : 0);
-
-    const topEventMap = new Map<string, number>();
-    for (const row of currentRows.filter((x) => new Date(x.created_at).getTime() >= now - 24 * 60 * 60 * 1000)) {
-      topEventMap.set(row.canonical, (topEventMap.get(row.canonical) ?? 0) + 1);
-    }
-
-    const dayMap = new Map<string, number>();
-    const demoMap = new Map<string, number>();
-    const cityMap = new Map<string, number>();
-    const userMap = new Map<string, number>();
-    const eventMap = new Map<string, number>();
-
-    const usersById = new Map<string, UserRow>();
-    const userIds = [...new Set(rowsForMetric.map((r) => r.user_id).filter(Boolean) as string[])].slice(0, 5000);
-    if (usersCols.has("id") && userIds.length) {
-      const selectCols = ["id", "city", "is_demo", "demo_group", "created_at"].filter((c) => usersCols.has(c));
-      if (!selectCols.includes("id")) selectCols.unshift("id");
-      const usersRes = await supabaseAdmin.from("users").select(selectCols.join(",")).in("id", userIds);
-      if (!usersRes.error) {
-        for (const row of (usersRes.data ?? []) as UserRow[]) usersById.set(row.id, row);
-      }
-    }
-
-    for (const row of rowsForMetric) {
-      const d = dayKey(row.created_at);
-      dayMap.set(d, (dayMap.get(d) ?? 0) + 1);
-
-      const uid = row.user_id ?? "—";
-      userMap.set(uid, (userMap.get(uid) ?? 0) + 1);
-
-      const eventId = String((row.properties?.event_id as string | undefined) ?? "").trim();
-      if (eventId) eventMap.set(eventId, (eventMap.get(eventId) ?? 0) + 1);
-
-      const user = row.user_id ? usersById.get(row.user_id) : undefined;
-      const demoGroup = String((row.properties?.demo_group as string | undefined) ?? user?.demo_group ?? (user?.is_demo ? "demo" : "real"));
-      demoMap.set(demoGroup, (demoMap.get(demoGroup) ?? 0) + 1);
-
-      const city = String((row.properties?.city as string | undefined) ?? user?.city ?? "—");
-      cityMap.set(city, (cityMap.get(city) ?? 0) + 1);
-    }
-
-    const toSorted = (map: Map<string, number>, key: string, value: string, limit = 10) =>
-      [...map.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, limit)
-        .map(([k, v]) => ({ [key]: k, [value]: v }));
-
-    const status = rowsForMetric.length === 0 ? "No data" : currentValue > 0 ? "OK" : "Low";
-    const reasons: string[] = [];
-
-    if (rowsForMetric.length === 0) {
-      if (!metricCanonicals.length && !METRIC_MAP[parsed.data.metric]) {
-        reasons.push("Для метрики нет маппинга событий. Добавьте ключ в drilldown mapping.");
-      }
-      reasons.push("За выбранный период не найдено событий нужной категории.");
-      if (!currentRows.length) reasons.push("В analytics_events нет activity событий за период.");
-    }
+    const noDataReasons = totalCount === 0 ? buildNoDataReasons(parsed.data.metric, expectedVariants, topEventNamesPeriod) : [];
 
     return ok({
       metric: parsed.data.metric,
       definition: DEFAULT_HELP_TEXTS[`metric.${parsed.data.metric}` as keyof typeof DEFAULT_HELP_TEXTS] ?? null,
       source: kpiSource(parsed.data.metric),
-      period: { from: window.fromISO, to: window.toISO, days: parsed.data.days, segment: parsed.data.segment },
-      current_value: currentValue,
-      previous_value: previousValue,
+      period: {
+        from: currentWindow.fromISO,
+        to: currentWindow.toISO,
+        days: parsed.data.days,
+        segment: parsed.data.segment,
+      },
+      current_value: Number(currentValue ?? 0),
+      previous_value: Number(previousValue ?? 0),
       delta,
-      status,
-      reasons,
-      top_event_names_24h: toSorted(topEventMap, "event_name", "count", 5),
-      breakdown_by_day: toSorted(dayMap, "day", "value", 31),
-      breakdown_by_demo_group: toSorted(demoMap, "demo_group", "value", 10),
-      breakdown_by_city: toSorted(cityMap, "city", "value", 20),
-      top_users: toSorted(userMap, "user_id", "value", 12),
-      top_events: toSorted(eventMap, "event_id", "value", 12),
+      status: totalCount === 0 ? "No data" : Number(currentValue ?? 0) > 0 ? "OK" : "Low",
+      total_count: totalCount,
+      unique_users: uniqueUsers,
+      expected_event_names: expectedVariants,
+      reasons: noDataReasons,
+      top_event_names_period: topEventNamesPeriod,
+      top_event_names_24h: topEventNames24h,
+      ...breakdowns,
     });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Failed to build metric drilldown", 500);
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const adminId = await requireAdminUserId(["admin"]);
+    const body = await req.json().catch(() => ({}));
+    const parsed = autoMapSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
+    }
+
+    const now = Date.now();
+    const toISO = parsed.data.to ?? new Date(now).toISOString();
+    const fromISO =
+      parsed.data.from ?? new Date(new Date(toISO).getTime() - parsed.data.days * 24 * 60 * 60 * 1000).toISOString();
+    const window = parseWindow(fromISO, toISO, parsed.data.days);
+
+    const segmentUserIds = await getSegmentUserIds(parsed.data.segment, window.fromISO, window.toISO);
+    const rows = await loadEvents(window.fromISO, window.toISO, segmentUserIds);
+
+    const config = resolveMetricConfig(parsed.data.metric);
+    const dynamicAliases = await getDynamicAliasesForFamily(config.family, parsed.data.metric);
+    const expectedVariants = uniq(config.variants.includes("*") ? dynamicAliases : [...config.variants, ...dynamicAliases]);
+
+    const expectedNorm = new Set(expectedVariants.map(normalizeEventName));
+    const topEvents = buildTopEventNames(rows, 10);
+    const keyword = metricKeyword(parsed.data.metric);
+
+    const candidates = topEvents
+      .map((x) => x.event_name)
+      .filter((eventName) => {
+        if (!isActivityEventName(eventName)) return false;
+        if (expectedNorm.has(normalizeEventName(eventName))) return false;
+        if (!keyword) return true;
+        return normalizeEventName(eventName).includes(keyword);
+      })
+      .slice(0, 10);
+
+    if (!candidates.length) {
+      return ok({ ok: true, mapped_count: 0, mapped: [], hint: "Нет подходящих event_name для auto-map" });
+    }
+
+    const payload = candidates.map((eventName) => ({
+      event_name: eventName,
+      family: config.family,
+      display_ru: `Auto-map: ${eventName}`,
+      metric_tags: ["auto", `auto:${parsed.data.metric}`],
+      is_key: false,
+      aliases: [eventName],
+      updated_at: new Date().toISOString(),
+    }));
+
+    const ins = await supabaseAdmin.from("event_dictionary").upsert(payload, { onConflict: "event_name" });
+    if (ins.error) {
+      return fail(ins.error.message, 500, {
+        code: "DB",
+        hint: "Проверь таблицу event_dictionary и ее колонки",
+      });
+    }
+
+    await logAdminAction({
+      adminId,
+      action: "drilldown_auto_map",
+      targetType: "event_dictionary",
+      targetId: parsed.data.metric,
+      meta: {
+        metric: parsed.data.metric,
+        mapped: candidates,
+        days: parsed.data.days,
+        from: window.fromISO,
+        to: window.toISO,
+        segment: parsed.data.segment,
+      },
+    });
+
+    return ok({ ok: true, mapped_count: candidates.length, mapped: candidates });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Failed to auto-map event names", 500);
   }
 }

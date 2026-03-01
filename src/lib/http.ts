@@ -8,7 +8,9 @@ export type ApiErrorCode =
   | "DB"
   | "VALIDATION"
   | "RATE_LIMIT"
-  | "UNKNOWN";
+  | "UNKNOWN"
+  | "SERVICE_ROLE_FAILED"
+  | "TIMEOUT";
 
 type FailMeta = {
   code?: ApiErrorCode;

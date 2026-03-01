@@ -1,3 +1,5 @@
+import { metricHelpItem, metricMeta } from "@/lib/metric-dictionary";
+
 export type HelpItem = {
   title: string;
   body: string;
@@ -134,4 +136,17 @@ export function kpiSource(key: string): "events" | "users" | "mixed" {
   if (key.includes("users") || key.includes("profile") || key.includes("avatar") || key.includes("facts")) return "users";
   if (key.includes("rate") && (key.includes("reply") || key.includes("verify") || key.includes("registration"))) return "events";
   return "events";
+}
+
+export function getMetricHelp(key: string): HelpItem | null {
+  return (DEFAULT_HELP_TEXTS[("metric." + key) as keyof typeof DEFAULT_HELP_TEXTS] ?? metricHelpItem(key)) as HelpItem | null;
+}
+
+export function getMetricLabel(key: string) {
+  const meta = metricMeta(key);
+  return meta ? (meta.name_ru + " (" + meta.abbr + ")") : key;
+}
+
+export function getMetricMeta(key: string) {
+  return metricMeta(key);
 }

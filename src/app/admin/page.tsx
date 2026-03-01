@@ -34,7 +34,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { HelpTip } from "@/components/help-tip";
 import { AdminEmptyState } from "@/components/admin-empty-state";
 import { KpiDrilldownDrawer } from "@/components/kpi-drilldown-drawer";
-import { DEFAULT_HELP_TEXTS, kpiSource } from "@/lib/admin-help-texts";
+import { DEFAULT_HELP_TEXTS, getMetricHelp, getMetricLabel, kpiSource } from "@/lib/admin-help-texts";
 
 const TAB_LABELS: Record<string, string> = {
   growth: "Рост",
@@ -164,7 +164,7 @@ function KpiGrid({
         const delta = deriveDelta(kpis, k);
         const source = kpiSource(k);
         const status = kpiStatus(k, value);
-        const help = helpTexts?.[`metric.${k}`] ?? DEFAULT_HELP_TEXTS[`metric.${k}` as keyof typeof DEFAULT_HELP_TEXTS] ?? null;
+        const help = helpTexts?.["metric." + k] ?? getMetricHelp(k) ?? DEFAULT_HELP_TEXTS[("metric." + k) as keyof typeof DEFAULT_HELP_TEXTS] ?? null;
 
         return (
           <Card
@@ -174,7 +174,7 @@ function KpiGrid({
           >
             <CardContent className="space-y-2 p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xs text-muted">{k}</p>
+                <p className="text-xs text-muted">{getMetricLabel(k)}</p>
                 {helpMode && help ? <HelpTip compact {...help} /> : null}
               </div>
 
@@ -237,6 +237,8 @@ export default function AdminPage() {
   const [helpMode, setHelpMode] = useState(false);
   const [helpTexts, setHelpTexts] = useState<Record<string, any>>(DEFAULT_HELP_TEXTS);
   const [drillMetric, setDrillMetric] = useState<string | null>(null);
+  const [drilldownAutoMapLoading, setDrilldownAutoMapLoading] = useState(false);
+  const [drilldownExperimentLoading, setDrilldownExperimentLoading] = useState(false);
   const [updatedBadge, setUpdatedBadge] = useState<string | null>(null);
 
   const days = dateRange === "7d" ? 7 : dateRange === "14d" ? 14 : dateRange === "30d" ? 30 : 90;
@@ -727,6 +729,44 @@ export default function AdminPage() {
     });
     markUpdated("alert-" + drillMetric);
     await Promise.all([alerts.refetch(), auditLog.refetch()]);
+  };
+
+  const createExperimentFromDrilldown = async () => {
+    if (!drillMetric || !drilldown.data) return;
+    try {
+      setDrilldownExperimentLoading(true);
+      const key = ("auto_" + String(drillMetric).replace(/[^a-zA-Z0-9_]+/g, "_") + "_" + String(Date.now()).slice(-6)).toLowerCase();
+      await api("/api/admin/experiments", {
+        method: "POST",
+        body: JSON.stringify({
+          key,
+          variants: { A: { label: "control" }, B: { label: "treatment" } },
+          rollout_percent: 30,
+          status: "draft",
+          primary_metric: drillMetric,
+        }),
+      });
+      markUpdated("experiment-" + drillMetric);
+      await Promise.all([experiments.refetch(), auditLog.refetch()]);
+      setSection("experiments");
+    } finally {
+      setDrilldownExperimentLoading(false);
+    }
+  };
+
+  const autoMapMetricFromDrilldown = async () => {
+    if (!drillMetric) return;
+    try {
+      setDrilldownAutoMapLoading(true);
+      const res = await api<any>("/api/admin/metrics/drilldown", {
+        method: "POST",
+        body: JSON.stringify({ metric: drillMetric, days, segment: summarySegment }),
+      });
+      markUpdated("auto-map:" + String(res && res.mapped_count ? res.mapped_count : 0));
+      await Promise.all([drilldown.refetch(), quality.refetch(), auditLog.refetch()]);
+    } finally {
+      setDrilldownAutoMapLoading(false);
+    }
   };
 
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
@@ -1787,6 +1827,10 @@ export default function AdminPage() {
         onClose={() => setDrillMetric(null)}
         onOpenEvents={openEventsFromDrilldown}
         onCreateAlert={createAlertFromDrilldown}
+        onCreateExperiment={createExperimentFromDrilldown}
+        onAutoMap={autoMapMetricFromDrilldown}
+        autoMapLoading={drilldownAutoMapLoading}
+        experimentLoading={drilldownExperimentLoading}
       />
     </AdminShell>
   );
