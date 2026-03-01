@@ -7,14 +7,14 @@ import { DEFAULT_HELP_TEXTS, type HelpTexts } from "@/lib/admin-help-texts";
 import { supabaseAdmin } from "@/supabase/admin";
 
 export async function GET() {
-  await requireAdminUserId(["admin", "moderator", "analyst", "support"]);
+  await requireAdminUserId(["super_admin", "admin", "moderator", "analyst", "support"]);
 
   try {
     const { data, error } = await supabaseAdmin
       .from("system_settings")
       .select("key,value")
-      .eq("key", "admin_help_texts_v1")
-      .maybeSingle();
+      .in("key", ["help_texts", "admin_help_texts_v1"])
+      .limit(2);
 
     if (error) {
       if (String(error.message).toLowerCase().includes("system_settings")) {
@@ -23,12 +23,15 @@ export async function GET() {
       return ok({ source: "fallback", warning: error.message, texts: DEFAULT_HELP_TEXTS });
     }
 
-    const dynamic = (data?.value ?? {}) as HelpTexts;
+    const fromSettings = ((data ?? []).find((x: any) => x.key === "help_texts")?.value ??
+      (data ?? []).find((x: any) => x.key === "admin_help_texts_v1")?.value ??
+      {}) as HelpTexts;
+
     return ok({
-      source: data ? "system_settings" : "fallback",
+      source: Object.keys(fromSettings).length ? "system_settings" : "fallback",
       texts: {
         ...DEFAULT_HELP_TEXTS,
-        ...dynamic,
+        ...fromSettings,
       },
     });
   } catch (error) {

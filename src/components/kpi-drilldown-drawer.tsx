@@ -109,12 +109,12 @@ export function KpiDrilldownDrawer({
         }`}
       >
         <div
-          className={`w-full max-w-5xl rounded-2xl border border-border bg-surface shadow-[0_0_80px_rgba(0,0,0,0.55)] transition-transform ${
+          className={`flex h-[100dvh] w-full flex-col border border-border bg-surface shadow-[0_0_80px_rgba(0,0,0,0.55)] transition-transform md:h-[calc(100dvh-3rem)] md:max-w-5xl md:rounded-2xl ${
             open ? "scale-100" : "scale-[0.98]"
           }`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-surface p-4">
             <div>
               <p className="text-xs uppercase tracking-[0.14em] text-muted">Drilldown</p>
               <p className="font-display text-lg font-semibold text-text">{metric ?? "Метрика"}</p>
@@ -124,7 +124,7 @@ export function KpiDrilldownDrawer({
             </Button>
           </div>
 
-          <div className="max-h-[78vh] overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {loading ? (
               <div className="inline-flex items-center gap-2 text-sm text-muted">
                 <Loader2 className="h-4 w-4 animate-spin" /> Загрузка детализации...

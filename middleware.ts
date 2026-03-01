@@ -161,7 +161,7 @@ export async function middleware(request: NextRequest) {
       hit.count += 1;
     }
   }
-  if (request.nextUrl.pathname.startsWith("/admin") && !access.degraded && !["admin","moderator","analyst","content_manager","support"].includes(access.role)) {
+  if (request.nextUrl.pathname.startsWith("/admin") && !access.degraded && !["super_admin","admin","moderator","analyst","support"].includes(access.role)) {
     const url = request.nextUrl.clone();
     url.pathname = "/feed";
     return NextResponse.redirect(url);

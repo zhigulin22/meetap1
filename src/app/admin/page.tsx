@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { adminApi } from "@/lib/admin-client";
 import {
   adminHealthResponseSchema,
@@ -35,6 +36,7 @@ import { HelpTip } from "@/components/help-tip";
 import { AdminEmptyState } from "@/components/admin-empty-state";
 import { KpiDrilldownDrawer } from "@/components/kpi-drilldown-drawer";
 import { DEFAULT_HELP_TEXTS, getMetricHelp, getMetricLabel, kpiSource } from "@/lib/admin-help-texts";
+import { roleHasPermission } from "@/lib/admin-rbac";
 
 const TAB_LABELS: Record<string, string> = {
   growth: "Рост",
@@ -64,12 +66,20 @@ type SectionGuide = {
   title: string;
   value: string;
   how: string;
+  firstSteps: string[];
+  scenarios: string[];
+  actions: string[];
+  roles: string;
 };
 
 const DEFAULT_SECTION_GUIDE: SectionGuide = {
   title: "Как использовать раздел",
   value: "Раздел показывает операционные данные и действия для управления продуктом.",
   how: "Сначала проверь KPI, затем таблицу ниже, после этого применяй action-кнопки справа.",
+  firstSteps: ["Оцени KPI", "Проверь таблицу ниже", "Зафиксируй действие в audit"],
+  scenarios: ["Если пусто — открой Events Stream", "Если ошибка — запусти Diagnostics"],
+  actions: ["Фильтры периода/сегмента", "Кнопки управления в карточках"],
+  roles: "support/moderator/analyst/admin/super_admin",
 };
 
 const SECTION_GUIDES: Partial<Record<AdminSection, SectionGuide>> = {
@@ -77,56 +87,100 @@ const SECTION_GUIDES: Partial<Record<AdminSection, SectionGuide>> = {
     title: "Обзор",
     value: "Быстрый срез состояния продукта: основные KPI, топ-события, воронка.",
     how: "Кликни на KPI для детализации в отдельном окне и перехода в Events Stream.",
+    firstSteps: ["Проверь DAU/WAU/MAU", "Открой top_events_24h", "Проверь funnel"],
+    scenarios: ["0 событий за 24ч — проверь tracking", "Падает verify rate — открой Operations"],
+    actions: ["Открыть Drilldown", "Создать Alert", "Перейти в Events Stream"],
+    roles: "analyst/admin/super_admin",
   },
   operations: {
     title: "Operations Center",
     value: "Показывает состояние pipeline, алертов и инцидентов в реальном времени.",
     how: "Иди сверху вниз: health strip -> alerts -> incident timeline -> quick actions.",
+    firstSteps: ["Проверь status strip", "Разбери open alerts", "Поставь owner"],
+    scenarios: ["Spike reports", "AI timeout", "TG verify degradation"],
+    actions: ["Ack/Resolve alert", "Disable flag", "Export snapshot"],
+    roles: "moderator/admin/super_admin",
   },
   metrics_lab: {
     title: "Metrics Lab",
     value: "Детальные продуктовые метрики по направлениям: рост, контент, safety, AI.",
     how: "Выбери вкладку, нажми KPI, посмотри breakdown по дням/неделям/месяцам.",
+    firstSteps: ["Выбери вкладку", "Кликни KPI", "Сверь с previous period"],
+    scenarios: ["No data — проверить event mapping", "Low status — смотреть top users/events"],
+    actions: ["Drilldown", "Create alert", "Create experiment"],
+    roles: "analyst/admin/super_admin",
   },
   events_live: {
     title: "События (Live)",
     value: "Живая лента событий из analytics_events для проверки трекинга.",
     how: "Фильтруй по event_name/user_id и сверяй, что события доходят в систему.",
+    firstSteps: ["Поставь фильтр event_name", "Сверь время события", "Проверь свойства"],
+    scenarios: ["Нет событий — проблема трекинга", "Mismatch event_name — авто-маппинг"],
+    actions: ["Copy JSON", "Write test event", "Переход в Data Quality"],
+    roles: "support/moderator/analyst/admin/super_admin",
   },
   users: {
     title: "Users 360",
     value: "Профиль пользователя, активность, риск-сигналы и действия модерации.",
     how: "Найди пользователя -> открой карточку -> проверь timeline -> применяй действие.",
+    firstSteps: ["Поиск пользователя", "Проверка risk/status chips", "Открыть User 360"],
+    scenarios: ["Спамер по connect", "Низкий reply rate", "Много жалоб"],
+    actions: ["Limit messaging", "Shadowban", "Block/Unblock"],
+    roles: "support(read)/moderator/manage/admin/super_admin",
   },
   support: {
     title: "Support Desk",
     value: "Интерфейс саппорта: поиск, заметки, тикеты и эскалация кейсов.",
     how: "Ищи пользователя, фиксируй note, меняй статус тикета и при риске эскалируй.",
+    firstSteps: ["Найди user", "Добавь internal note", "Поставь ticket status"],
+    scenarios: ["Эскалация в moderation", "Повторный инцидент"],
+    actions: ["Assign", "Resolve", "Escalate"],
+    roles: "support/moderator/admin/super_admin",
   },
   risk: {
     title: "Risk Center",
     value: "Очередь подозрительных аккаунтов и объяснение причин риска.",
     how: "Сортируй по score, проверяй сигналы и применяй bulk/single actions.",
+    firstSteps: ["Проверь high-risk queue", "Оцени top signals", "Открой User 360"],
+    scenarios: ["Burst connect_sent", "Reports spike", "Repeated message"],
+    actions: ["Bulk limit", "Bulk shadowban", "Mark safe"],
+    roles: "moderator/admin/super_admin",
   },
   reports: {
     title: "Жалобы",
     value: "Очередь пользовательских жалоб с контекстом и статусом обработки.",
     how: "Открывай кейс, принимай решение, меняй статус и записывай причину.",
+    firstSteps: ["Отфильтруй open", "Проверь контекст", "Выбери решение"],
+    scenarios: ["False positive", "Повторный нарушитель"],
+    actions: ["In review", "Resolve", "Escalate"],
+    roles: "moderator/admin/super_admin",
   },
   config: {
     title: "Config Center",
     value: "Управление фичами и лимитами без релиза.",
     how: "Изменяй параметр в safe range, проверяй эффект в KPI и audit log.",
+    firstSteps: ["Проверь текущее значение", "Измени в safe range", "Проверь KPI"],
+    scenarios: ["Reply rate падает", "Reports растут"],
+    actions: ["Toggle flag", "Apply limits", "Rollback"],
+    roles: "admin/super_admin",
   },
   data_quality: {
     title: "Data Quality",
     value: "Проверка качества событий и корректности словаря метрик.",
     how: "Смотри unknown events, устраняй mismatch и добавляй mapping при необходимости.",
+    firstSteps: ["Проверь top events", "Проверь unknown", "Добавь mapping"],
+    scenarios: ["Метрики 0 при наличии событий", "Новый event_name без словаря"],
+    actions: ["Add to dictionary", "Run diagnostics"],
+    roles: "analyst/admin/super_admin",
   },
   security: {
     title: "Security Center",
     value: "Статус защиты: роли, ограничения, runbook и инциденты.",
     how: "Проверь baseline checklist, затем active threats и план реакции.",
+    firstSteps: ["Проверь RBAC", "Проверь rate limits", "Проверь runbook"],
+    scenarios: ["DDOS", "TG verify outage", "Reports spike"],
+    actions: ["Enable safe mode", "Adjust limits", "Incident note"],
+    roles: "admin/super_admin",
   },
 };
 
@@ -158,6 +212,9 @@ function parseError(error: unknown) {
     }
     if (error.code === "MISSING_ENV") {
       return `Сервер не настроен: ${error.hint ?? "добавь ключи env и redeploy"}.`;
+    }
+    if (error.code === "TIMEOUT") {
+      return `Сервер занят: ${error.endpoint}. Нажми retry через 1-2 секунды.`;
     }
     return `${error.endpoint}: ${error.message.replace(/\[[A-Z_]+\]\s*/g, "")}`;
   }
@@ -264,17 +321,26 @@ function KpiGrid({
 }
 
 
-function SectionGuideCard({ section, helpMode }: { section: AdminSection; helpMode: boolean }) {
+function SectionGuideCard({
+  section,
+  helpMode,
+  onOpenGuide,
+}: {
+  section: AdminSection;
+  helpMode: boolean;
+  onOpenGuide: () => void;
+}) {
   const guide = SECTION_GUIDES[section] ?? DEFAULT_SECTION_GUIDE;
   const sectionHelp = DEFAULT_HELP_TEXTS[`section.${section}` as keyof typeof DEFAULT_HELP_TEXTS];
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between">
         <CardTitle className="inline-flex items-center gap-2">
           {guide.title}
           {helpMode && sectionHelp ? <HelpTip compact {...sectionHelp} /> : null}
         </CardTitle>
+        <Button variant="secondary" size="sm" onClick={onOpenGuide}>Как пользоваться</Button>
       </CardHeader>
       <CardContent className="space-y-2 text-sm text-muted">
         <p><strong className="text-text">Что дает:</strong> {guide.value}</p>
@@ -284,6 +350,48 @@ function SectionGuideCard({ section, helpMode }: { section: AdminSection; helpMo
   );
 }
 
+function SectionGuideSheet({
+  section,
+  role,
+  open,
+  onOpenChange,
+}: {
+  section: AdminSection;
+  role: string | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const guide = SECTION_GUIDES[section] ?? DEFAULT_SECTION_GUIDE;
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetHeader>
+        <SheetTitle>{guide.title}: как пользоваться</SheetTitle>
+      </SheetHeader>
+      <div className="max-h-[72vh] space-y-3 overflow-y-auto pr-1 text-sm">
+        <div className="rounded-xl border border-border bg-surface2/70 p-3">
+          <p><strong>Что это дает:</strong> {guide.value}</p>
+          <p className="mt-1"><strong>Как использовать:</strong> {guide.how}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-surface2/70 p-3">
+          <p className="mb-1 font-medium">Что смотреть первым делом</p>
+          {guide.firstSteps.map((x) => <p key={x}>• {x}</p>)}
+        </div>
+        <div className="rounded-xl border border-border bg-surface2/70 p-3">
+          <p className="mb-1 font-medium">Типовые сценарии</p>
+          {guide.scenarios.map((x) => <p key={x}>• {x}</p>)}
+        </div>
+        <div className="rounded-xl border border-border bg-surface2/70 p-3">
+          <p className="mb-1 font-medium">Доступные действия</p>
+          {guide.actions.map((x) => <p key={x}>• {x}</p>)}
+        </div>
+        <div className="rounded-xl border border-border bg-surface2/70 p-3">
+          <p><strong>Роли с доступом:</strong> {guide.roles}</p>
+          <p className="mt-1 text-muted">Текущая роль: {role ?? "—"}</p>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
 
 
 export default function AdminPage() {
@@ -328,6 +436,9 @@ export default function AdminPage() {
 
   const [helpMode, setHelpMode] = useState(false);
   const [helpTexts, setHelpTexts] = useState<Record<string, any>>(DEFAULT_HELP_TEXTS);
+  const [helpSheetOpen, setHelpSheetOpen] = useState(false);
+  const [userSort, setUserSort] = useState<"created_desc" | "activity_7d" | "reports_7d" | "connect_sent_7d" | "reply_rate" | "risk_score">("activity_7d");
+  const [riskQuery, setRiskQuery] = useState("");
   const [drillMetric, setDrillMetric] = useState<string | null>(null);
   const [drilldownAutoMapLoading, setDrilldownAutoMapLoading] = useState(false);
   const [drilldownExperimentLoading, setDrilldownExperimentLoading] = useState(false);
@@ -344,6 +455,13 @@ export default function AdminPage() {
   });
 
   const healthOk = health.data?.ok === true;
+
+  const access = useQuery({
+    queryKey: ["admin-access-v1"],
+    queryFn: () => api<any>("/api/admin/access"),
+    enabled: healthOk,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem("admin_help_mode") : null;
@@ -381,10 +499,10 @@ export default function AdminPage() {
   });
 
   const users = useQuery({
-    queryKey: ["admin-users-v7", userFilter],
+    queryKey: ["admin-users-v7", userFilter, userSort],
     queryFn: () =>
       adminApi(
-        `/api/admin/users/search?q=${encodeURIComponent(userFilter.q)}&limit=50&demo=${userFilter.demo}&role=${encodeURIComponent(userFilter.role)}&shadow_banned=${userFilter.shadow_banned}&message_limited=${userFilter.message_limited}&profile_completed=${userFilter.profile_completed}&city=${encodeURIComponent(userFilter.city)}`,
+        `/api/admin/users/search?q=${encodeURIComponent(userFilter.q)}&limit=50&demo=${userFilter.demo}&role=${encodeURIComponent(userFilter.role)}&shadow_banned=${userFilter.shadow_banned}&message_limited=${userFilter.message_limited}&profile_completed=${userFilter.profile_completed}&city=${encodeURIComponent(userFilter.city)}&sort=${encodeURIComponent(userSort)}`,
         userSearchResponseSchema,
       ),
     enabled: healthOk && (section === "users" || section === "support"),
@@ -473,8 +591,8 @@ export default function AdminPage() {
   });
 
   const risk = useQuery({
-    queryKey: ["admin-risk-v2"],
-    queryFn: () => api<any>("/api/admin/risk"),
+    queryKey: ["admin-risk-v2", riskQuery],
+    queryFn: () => api<any>(`/api/admin/risk?q=${encodeURIComponent(riskQuery)}`),
     enabled: healthOk && (section === "risk" || section === "moderation" || section === "operations"),
   });
 
@@ -551,6 +669,7 @@ export default function AdminPage() {
     settings.error,
     experiments.error,
     retention.error,
+    access.error,
   ]
     .filter(Boolean)
     .map(parseError);
@@ -584,6 +703,7 @@ export default function AdminPage() {
   }, [section, trafficStatus.data?.runtime_status, trafficStatus.data?.run?.id, trafficStatus.data?.run?.interval_sec]);
 
   const onTrafficStart = async () => {
+    if (!canManageTraffic) return;
     try {
       setTrafficAction("start");
       setTrafficError(null);
@@ -602,6 +722,7 @@ export default function AdminPage() {
   };
 
   const onTrafficStop = async () => {
+    if (!canManageTraffic) return;
     try {
       setTrafficAction("stop");
       setTrafficError(null);
@@ -615,6 +736,7 @@ export default function AdminPage() {
   };
 
   const onTrafficTick = async () => {
+    if (!canManageTraffic) return;
     try {
       setTrafficAction("tick");
       setTrafficError(null);
@@ -632,6 +754,7 @@ export default function AdminPage() {
   };
 
   const onTrafficReset = async () => {
+    if (!canManageTraffic) return;
     try {
       setTrafficAction("reset");
       setTrafficError(null);
@@ -645,11 +768,13 @@ export default function AdminPage() {
   };
 
   const runUserAction = async (userId: string, action: string) => {
+    if (!canManageUsers) return;
     await api(`/api/admin/users/${userId}/actions`, { method: "POST", body: JSON.stringify({ action, reason: "admin_panel_action" }) });
     await Promise.all([users.refetch(), summary.refetch(), risk.refetch(), reports.refetch(), auditLog.refetch()]);
   };
 
   const runBulkRiskAction = async (action: "limit_messaging" | "shadowban" | "block" | "mark_safe") => {
+    if (!canManageRisk) return;
     const ids = [...riskSelected].slice(0, 10);
     for (const id of ids) {
       await api(`/api/admin/users/${id}/actions`, { method: "POST", body: JSON.stringify({ action, reason: "risk_bulk_action" }) });
@@ -713,6 +838,7 @@ export default function AdminPage() {
   };
 
   const updateRole = async (userId: string) => {
+    if (!canManageRoles) return;
     const role = roleDraft[userId];
     if (!role) return;
     await api("/api/admin/rbac/admins", { method: "PUT", body: JSON.stringify({ user_id: userId, role, reason: roleReason }) });
@@ -864,6 +990,10 @@ export default function AdminPage() {
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
   const kpis = summary.data?.kpis ?? {};
   const showSectionGuide = healthOk && section !== "guide";
+  const canManageUsers = roleHasPermission(access.data?.role ?? "", "users.action");
+  const canManageRisk = roleHasPermission(access.data?.role ?? "", "risk.manage");
+  const canManageRoles = roleHasPermission(access.data?.role ?? "", "rbac.manage");
+  const canManageTraffic = roleHasPermission(access.data?.role ?? "", "traffic.manage");
 
   return (
     <AdminShell
@@ -881,6 +1011,7 @@ export default function AdminPage() {
       }}
       helpMode={helpMode}
       onHelpModeChange={setHelpMode}
+      role={access.data?.role ?? null}
     >
       {!healthOk ? (
         <div className="col-span-12">
@@ -954,7 +1085,7 @@ export default function AdminPage() {
 
       {showSectionGuide ? (
         <div className="col-span-12">
-          <SectionGuideCard section={section} helpMode={helpMode} />
+          <SectionGuideCard section={section} helpMode={helpMode} onOpenGuide={() => setHelpSheetOpen(true)} />
         </div>
       ) : null}
 
@@ -1285,13 +1416,13 @@ export default function AdminPage() {
                   <option value="true">chaos</option>
                   <option value="false">normal</option>
                 </select>
-                <Button onClick={onTrafficStart} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "start" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Start</Button>
-                <Button variant="secondary" onClick={onTrafficStop} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "stop" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />} Stop</Button>
+                <Button onClick={onTrafficStart} disabled={trafficAction !== null || !canManageTraffic} title={!canManageTraffic ? "Недоступно для вашей роли" : undefined} className="active:scale-[0.98] transition-transform">{trafficAction === "start" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Start</Button>
+                <Button variant="secondary" onClick={onTrafficStop} disabled={trafficAction !== null || !canManageTraffic} title={!canManageTraffic ? "Недоступно для вашей роли" : undefined} className="active:scale-[0.98] transition-transform">{trafficAction === "stop" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />} Stop</Button>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={onTrafficTick} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "tick" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Gauge className="mr-1 h-4 w-4" />} Tick</Button>
-                <Button variant="secondary" onClick={onTrafficReset} disabled={trafficAction !== null} className="active:scale-[0.98] transition-transform">{trafficAction === "reset" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />} Очистить демо</Button>
+                <Button variant="secondary" onClick={onTrafficTick} disabled={trafficAction !== null || !canManageTraffic} title={!canManageTraffic ? "Недоступно для вашей роли" : undefined} className="active:scale-[0.98] transition-transform">{trafficAction === "tick" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Gauge className="mr-1 h-4 w-4" />} Tick</Button>
+                <Button variant="secondary" onClick={onTrafficReset} disabled={trafficAction !== null || !canManageTraffic} title={!canManageTraffic ? "Недоступно для вашей роли" : undefined} className="active:scale-[0.98] transition-transform">{trafficAction === "reset" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />} Очистить демо</Button>
                 <Button variant="secondary" onClick={() => Promise.all([trafficStatus.refetch(), trafficProof.refetch(), summary.refetch(), liveEvents.refetch(), operations.refetch(), trafficCoverageEvents.refetch()])}><RefreshCw className="mr-1 h-4 w-4" />Refresh</Button>
               </div>
 
@@ -1332,7 +1463,7 @@ export default function AdminPage() {
           <Card>
             <CardHeader><CardTitle>Users 360</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-7">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-8">
                 <Input placeholder="email/username/телефон" value={userFilter.q} onChange={(e) => setUserFilter((p) => ({ ...p, q: e.target.value }))} />
                 <select className="admin-select" value={userFilter.demo} onChange={(e) => setUserFilter((p) => ({ ...p, demo: e.target.value as any }))}>
                   <option value="all">all</option>
@@ -1342,6 +1473,14 @@ export default function AdminPage() {
                 </select>
                 <Input placeholder="role" value={userFilter.role} onChange={(e) => setUserFilter((p) => ({ ...p, role: e.target.value || "all" }))} />
                 <Input placeholder="city" value={userFilter.city} onChange={(e) => setUserFilter((p) => ({ ...p, city: e.target.value }))} />
+                <select className="admin-select" value={userSort} onChange={(e) => setUserSort(e.target.value as any)}>
+                  <option value="activity_7d">activity_7d</option>
+                  <option value="reports_7d">reports_7d</option>
+                  <option value="connect_sent_7d">connect_sent_7d</option>
+                  <option value="reply_rate">reply_rate</option>
+                  <option value="risk_score">risk_score</option>
+                  <option value="created_desc">created_desc</option>
+                </select>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={userFilter.shadow_banned} onChange={(e) => setUserFilter((p) => ({ ...p, shadow_banned: e.target.checked }))} /> shadow</label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={userFilter.message_limited} onChange={(e) => setUserFilter((p) => ({ ...p, message_limited: e.target.checked }))} /> limited</label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={userFilter.profile_completed} onChange={(e) => setUserFilter((p) => ({ ...p, profile_completed: e.target.checked }))} /> profile done</label>
@@ -1359,13 +1498,15 @@ export default function AdminPage() {
                       </div>
                       <div className="text-muted">
                         <p>posts:{u.posts_30d ?? 0} · joins:{u.joins_30d ?? 0} · sent:{u.connects_sent_30d ?? 0} · reply:{formatKpi("reply_rate", u.reply_rate ?? 0)}</p>
-                        <p>flags:{u.openFlags} · reports:{u.openReports} · risk:{u.risk_score ?? 0}</p>
+                        <p>flags:{u.openFlags} · reports(open):{u.openReports} · reports7d:{(u as any).reports_7d ?? 0} · risk:{u.risk_score ?? 0}</p>
+                        <p>activity7d:{(u as any).activity_7d ?? 0} · connect7d:{(u as any).connect_sent_7d ?? 0}</p>
                         <p>status: {u.status}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
-                        <Button size="sm" variant="secondary" onClick={() => runUserAction(u.id, u.message_limited ? "unlimit_messaging" : "limit_messaging")}>{u.message_limited ? "unlimit" : "limit"}</Button>
-                        <Button size="sm" variant="secondary" onClick={() => runUserAction(u.id, u.shadow_banned ? "unshadowban" : "shadowban")}>{u.shadow_banned ? "unshadow" : "shadow"}</Button>
-                        <Button size="sm" variant={u.is_blocked ? "secondary" : "danger"} onClick={() => runUserAction(u.id, u.is_blocked ? "unblock" : "block")}>{u.is_blocked ? "unblock" : "block"}</Button>
+                        <Button size="sm" variant="secondary" onClick={() => window.location.href = `/admin/users/${u.id}`}>open</Button>
+                        <Button size="sm" variant="secondary" disabled={!canManageUsers} title={!canManageUsers ? "Нет прав" : undefined} onClick={() => runUserAction(u.id, u.message_limited ? "unlimit_messaging" : "limit_messaging")}>{u.message_limited ? "unlimit" : "limit"}</Button>
+                        <Button size="sm" variant="secondary" disabled={!canManageUsers} title={!canManageUsers ? "Нет прав" : undefined} onClick={() => runUserAction(u.id, u.shadow_banned ? "unshadowban" : "shadowban")}>{u.shadow_banned ? "unshadow" : "shadow"}</Button>
+                        <Button size="sm" variant={u.is_blocked ? "secondary" : "danger"} disabled={!canManageUsers} title={!canManageUsers ? "Нет прав" : undefined} onClick={() => runUserAction(u.id, u.is_blocked ? "unblock" : "block")}>{u.is_blocked ? "unblock" : "block"}</Button>
                       </div>
                     </div>
                   ))
@@ -1614,9 +1755,9 @@ export default function AdminPage() {
                       <p className="text-xs text-muted">{u.id} · role:{u.role}</p>
                     </div>
                     <select className="admin-select" value={roleDraft[u.id] ?? u.role} onChange={(e) => setRoleDraft((p) => ({ ...p, [u.id]: e.target.value }))}>
-                      {(rbac.data?.roles ?? ["user", "support", "moderator", "analyst", "admin"]).map((r: string) => <option key={r} value={r}>{r}</option>)}
+                      {(rbac.data?.roles ?? ["user", "support", "moderator", "analyst", "admin", "super_admin"]).map((r: string) => <option key={r} value={r}>{r}</option>)}
                     </select>
-                    <Button size="sm" onClick={() => updateRole(u.id)}>Apply</Button>
+                    <Button size="sm" onClick={() => updateRole(u.id)} disabled={!canManageRoles} title={!canManageRoles ? "Только super_admin" : undefined}>Apply</Button>
                   </div>
                 ))
               ) : <EmptyNote text="Администраторы не найдены" />}
@@ -1647,10 +1788,11 @@ export default function AdminPage() {
             <CardHeader><CardTitle>Risk Center</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("limit_messaging")} disabled={!riskSelected.length}>Bulk limit (max 10)</Button>
-                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("shadowban")} disabled={!riskSelected.length}>Bulk shadowban</Button>
-                <Button size="sm" variant="danger" onClick={() => runBulkRiskAction("block")} disabled={!riskSelected.length}>Bulk block</Button>
-                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("mark_safe")} disabled={!riskSelected.length}>Mark safe</Button>
+                <Input className="w-[220px]" placeholder="поиск user/id" value={riskQuery} onChange={(e) => setRiskQuery(e.target.value)} />
+                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("limit_messaging")} disabled={!riskSelected.length || !canManageRisk}>Bulk limit (max 10)</Button>
+                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("shadowban")} disabled={!riskSelected.length || !canManageRisk}>Bulk shadowban</Button>
+                <Button size="sm" variant="danger" onClick={() => runBulkRiskAction("block")} disabled={!riskSelected.length || !canManageRisk}>Bulk block</Button>
+                <Button size="sm" variant="secondary" onClick={() => runBulkRiskAction("mark_safe")} disabled={!riskSelected.length || !canManageRisk}>Mark safe</Button>
               </div>
 
               {(risk.data?.items ?? []).length ? (
@@ -1666,11 +1808,13 @@ export default function AdminPage() {
                     <div>
                       <p className="font-medium">score: {r.risk_score}</p>
                       <p className="text-xs text-muted">{(r.signals ?? []).join(", ") || "—"}</p>
+                      <p className="text-xs text-muted">violations_7d: {r.violations_7d ?? 0} · last_seen: {r.last_seen_at ? new Date(r.last_seen_at).toLocaleString("ru-RU") : "—"}</p>
                     </div>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="secondary" onClick={() => runUserAction(r.id, "limit_messaging")}>limit</Button>
-                      <Button size="sm" variant="secondary" onClick={() => runUserAction(r.id, "shadowban")}>shadow</Button>
-                      <Button size="sm" variant="danger" onClick={() => runUserAction(r.id, "block")}>block</Button>
+                      <Button size="sm" variant="secondary" onClick={() => window.location.href = `/admin/users/${r.id}`}>history</Button>
+                      <Button size="sm" variant="secondary" disabled={!canManageRisk} onClick={() => runUserAction(r.id, "limit_messaging")}>limit</Button>
+                      <Button size="sm" variant="secondary" disabled={!canManageRisk} onClick={() => runUserAction(r.id, "shadowban")}>shadow</Button>
+                      <Button size="sm" variant="danger" disabled={!canManageRisk} onClick={() => runUserAction(r.id, "block")}>block</Button>
                     </div>
                   </div>
                 ))
@@ -1917,6 +2061,13 @@ export default function AdminPage() {
           </Card>
         </div>
       ) : null}
+      <SectionGuideSheet
+        section={section}
+        role={access.data?.role ?? null}
+        open={helpSheetOpen}
+        onOpenChange={setHelpSheetOpen}
+      />
+
       <KpiDrilldownDrawer
         open={Boolean(drillMetric)}
         metric={drillMetric}

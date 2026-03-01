@@ -8,6 +8,7 @@ import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { supabaseAdmin } from "@/supabase/admin";
 
 type DemoFilter = "all" | "demo" | "real" | "traffic";
+type UserSort = "created_desc" | "activity_7d" | "reports_7d" | "connect_sent_7d" | "reply_rate" | "risk_score";
 
 function applySearch(query: any, q: string, limit: number, cols: Set<string>) {
   let next = query.limit(limit);
@@ -65,6 +66,7 @@ export async function GET(req: Request) {
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
 
     const demoFilter = (searchParams.get("demo") ?? "all") as DemoFilter;
+    const sortBy = (searchParams.get("sort") ?? "created_desc") as UserSort;
     const demoGroup = (searchParams.get("demo_group") ?? "").trim();
     const roleFilter = (searchParams.get("role") ?? "all").trim();
     const cityFilter = (searchParams.get("city") ?? "").trim();
@@ -162,10 +164,11 @@ export async function GET(req: Request) {
     if (!userIds.length) return ok({ items: [] });
 
     const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const [flags, reports, events, riskMap] = await Promise.all([
       supabaseAdmin.from("content_flags").select("user_id,status").in("user_id", userIds),
-      supabaseAdmin.from("reports").select("target_user_id,status").in("target_user_id", userIds),
+      supabaseAdmin.from("reports").select("target_user_id,status,created_at").in("target_user_id", userIds),
       supabaseAdmin
         .from("analytics_events")
         .select("user_id,event_name,created_at")
@@ -182,13 +185,15 @@ export async function GET(req: Request) {
     }
 
     const reportsMap = new Map<string, number>();
+    const reports7dMap = new Map<string, number>();
     for (const row of reports.data ?? []) {
-      if (row.status !== "open" || !row.target_user_id) continue;
-      reportsMap.set(row.target_user_id, (reportsMap.get(row.target_user_id) ?? 0) + 1);
+      if (!row.target_user_id) continue;
+      if (row.status === "open") reportsMap.set(row.target_user_id, (reportsMap.get(row.target_user_id) ?? 0) + 1);
+      if (row.created_at && row.created_at >= since7d) reports7dMap.set(row.target_user_id, (reports7dMap.get(row.target_user_id) ?? 0) + 1);
     }
 
-    const statsMap = new Map<string, { posts: number; joins: number; connectSent: number; connectReplied: number; lastSeenAt: string | null }>();
-    for (const id of userIds) statsMap.set(id, { posts: 0, joins: 0, connectSent: 0, connectReplied: 0, lastSeenAt: null });
+    const statsMap = new Map<string, { posts: number; joins: number; connectSent: number; connectReplied: number; connectSent7d: number; activity7d: number; lastSeenAt: string | null }>();
+    for (const id of userIds) statsMap.set(id, { posts: 0, joins: 0, connectSent: 0, connectReplied: 0, connectSent7d: 0, activity7d: 0, lastSeenAt: null });
 
     for (const ev of events.data ?? []) {
       const stat = statsMap.get(ev.user_id);
@@ -196,15 +201,15 @@ export async function GET(req: Request) {
       if (!stat.lastSeenAt || ev.created_at > stat.lastSeenAt) stat.lastSeenAt = ev.created_at;
 
       const canonical = canonicalizeEventName(ev.event_name);
+      if (ev.created_at >= since7d) stat.activity7d += 1;
       if (canonical === "post_published_daily_duo" || canonical === "post_published_video") stat.posts += 1;
       if (canonical === "event_joined") stat.joins += 1;
-      if (canonical === "connect_sent") stat.connectSent += 1;
+      if (canonical === "connect_sent") { stat.connectSent += 1; if (ev.created_at >= since7d) stat.connectSent7d += 1; }
       if (canonical === "connect_replied") stat.connectReplied += 1;
     }
 
-    return ok({
-      items: (users ?? []).map((u: any) => {
-        const stats = statsMap.get(u.id) ?? { posts: 0, joins: 0, connectSent: 0, connectReplied: 0, lastSeenAt: null };
+    const mapped = (users ?? []).map((u: any) => {
+        const stats = statsMap.get(u.id) ?? { posts: 0, joins: 0, connectSent: 0, connectReplied: 0, connectSent7d: 0, activity7d: 0, lastSeenAt: null };
         const risk = riskMap.get(u.id) ?? { riskScore: 0, riskStatus: "low" as const };
         const replyRate = stats.connectSent > 0 ? Number((stats.connectReplied / stats.connectSent).toFixed(3)) : 0;
         const fallbackName = typeof u.id === "string" ? `User ${u.id.slice(0, 8)}` : "Unknown";
@@ -236,10 +241,23 @@ export async function GET(req: Request) {
           connects_sent_30d: stats.connectSent,
           reply_rate: replyRate,
           risk_score: risk.riskScore,
+          reports_7d: reports7dMap.get(u.id) ?? 0,
+          connect_sent_7d: stats.connectSent7d,
+          activity_7d: stats.activity7d,
           status: u.is_blocked ? "blocked" : u.shadow_banned ? "shadowbanned" : u.message_limited ? "limited" : "active",
         };
-      }),
+      });
+
+    mapped.sort((a: any, b: any) => {
+      if (sortBy === "activity_7d") return Number(b.activity_7d ?? 0) - Number(a.activity_7d ?? 0);
+      if (sortBy === "reports_7d") return Number(b.reports_7d ?? 0) - Number(a.reports_7d ?? 0);
+      if (sortBy === "connect_sent_7d") return Number(b.connect_sent_7d ?? 0) - Number(a.connect_sent_7d ?? 0);
+      if (sortBy === "reply_rate") return Number(b.reply_rate ?? 0) - Number(a.reply_rate ?? 0);
+      if (sortBy === "risk_score") return Number(b.risk_score ?? 0) - Number(a.risk_score ?? 0);
+      return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
     });
+
+    return ok({ items: mapped });
   } catch (error) {
     return adminRouteError("/api/admin/users/search", error);
   }

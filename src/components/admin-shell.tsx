@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { roleHasPermission } from "@/lib/admin-rbac";
 
 export type AdminSection =
   | "overview"
@@ -64,6 +65,32 @@ export type AdminSection =
   | "campaigns";
 
 export type AdminSegment = "all" | "demo" | "real" | "verified" | "new" | "active";
+
+
+function isSectionAllowed(role: string | null, section: AdminSection) {
+  if (!role) return true;
+  if (["guide"].includes(section)) return true;
+  if (["overview", "operations", "metrics_lab", "funnels", "retention", "data_quality", "assistant", "campaigns"].includes(section)) {
+    return roleHasPermission(role, "metrics.read");
+  }
+  if (["events_live", "users", "support"].includes(section)) {
+    return roleHasPermission(role, "users.read");
+  }
+  if (["reports", "risk", "moderation"].includes(section)) {
+    return roleHasPermission(role, "reports.read") || roleHasPermission(role, "risk.read");
+  }
+  if (["config", "flags", "system"].includes(section)) {
+    return roleHasPermission(role, "config.manage");
+  }
+  if (section === "experiments") return roleHasPermission(role, "experiments.manage");
+  if (section === "alerts") return roleHasPermission(role, "config.manage");
+  if (section === "exports") return roleHasPermission(role, "exports.aggregate");
+  if (section === "rbac") return roleHasPermission(role, "rbac.view");
+  if (section === "traffic") return roleHasPermission(role, "traffic.manage");
+  if (section === "integrations") return roleHasPermission(role, "integrations.manage");
+  if (["security", "backup", "audit"].includes(section)) return roleHasPermission(role, "security.manage") || roleHasPermission(role, "rbac.view");
+  return true;
+}
 
 const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", title: "Обзор", icon: Gauge },
@@ -108,6 +135,7 @@ export function AdminShell({
   onSearch,
   helpMode,
   onHelpModeChange,
+  role,
 }: {
   children: React.ReactNode;
   section: AdminSection;
@@ -121,6 +149,7 @@ export function AdminShell({
   onSearch: (v: string) => void;
   helpMode: boolean;
   onHelpModeChange: (v: boolean) => void;
+  role?: string | null;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -133,7 +162,7 @@ export function AdminShell({
         <p className="text-xs text-muted">numbers-first · ops · safety</p>
       </div>
 
-      {items.map((item) => {
+      {items.filter((item) => isSectionAllowed(role ?? null, item.id)).map((item) => {
         const Icon = item.icon;
         const active = section === item.id;
         return (

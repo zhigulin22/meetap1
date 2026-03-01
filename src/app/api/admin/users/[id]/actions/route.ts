@@ -13,7 +13,7 @@ const schema = z.object({
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const adminId = await requireAdminUserId(["admin", "moderator"]);
+    const adminId = await requireAdminUserId(["super_admin", "admin", "moderator"]);
     const body = await req.json().catch(() => null);
     const parsed = schema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);

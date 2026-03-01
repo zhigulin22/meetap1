@@ -1,8 +1,8 @@
 import { requireUserId } from "@/server/auth";
 import { supabaseAdmin } from "@/supabase/admin";
+import { ADMIN_READ_ROLES, type AdminRole, isAdminRole } from "@/lib/admin-rbac";
 
-export const ADMIN_ROLES = ["admin", "moderator", "analyst", "content_manager", "support"] as const;
-export type AdminRole = (typeof ADMIN_ROLES)[number];
+export const ADMIN_ROLES = ADMIN_READ_ROLES;
 
 export class AdminAccessError extends Error {
   code: "UNAUTHORIZED" | "FORBIDDEN" | "MISSING_ENV" | "DB";
@@ -73,6 +73,6 @@ export async function getAdminAccess() {
   return {
     userId,
     role: (data?.role ?? "user") as string,
-    canAdmin: ADMIN_ROLES.includes((data?.role ?? "user") as AdminRole),
+    canAdmin: isAdminRole(data?.role ?? "user"),
   };
 }

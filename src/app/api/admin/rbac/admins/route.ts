@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { fail, ok } from "@/lib/http";
-import { ADMIN_ROLES, requireAdminUserId } from "@/server/admin";
+import { ADMIN_ROLES, getAdminAccess, requireAdminUserId } from "@/server/admin";
 import { logAdminAction } from "@/server/admin-audit";
 import { supabaseAdmin } from "@/supabase/admin";
 
@@ -13,7 +13,8 @@ const updateSchema = z.object({
 
 export async function GET() {
   try {
-    await requireAdminUserId(["admin", "moderator", "analyst"]);
+    const access = await getAdminAccess();
+    if (!access.canAdmin) return fail("Forbidden", 403);
 
     const [admins, history] = await Promise.all([
       supabaseAdmin
@@ -34,6 +35,8 @@ export async function GET() {
       admins: admins.data ?? [],
       history: history.data ?? [],
       roles: roles,
+      current_role: access.role,
+      can_manage_roles: access.role === "super_admin",
     });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Forbidden", 403);
@@ -42,7 +45,7 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    const adminId = await requireAdminUserId(["admin"]);
+    const adminId = await requireAdminUserId(["super_admin"]);
     const body = await req.json().catch(() => null);
     const parsed = updateSchema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
