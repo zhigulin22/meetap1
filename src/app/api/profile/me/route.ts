@@ -4,76 +4,155 @@ import { requireUserId } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { z } from "zod";
 
-const profileSchema = z.object({
-  name: z.string().min(2).max(50).optional(),
-  country: z.string().max(80).optional(),
-  bio: z.string().max(350).optional(),
-  university: z.string().max(120).optional(),
-  work: z.string().max(120).optional(),
-  hobbies: z.array(z.string().max(40)).max(20).optional(),
-  interests: z.array(z.string().max(40)).min(3).max(30).optional(),
-  facts: z.array(z.string().max(120)).length(3).optional(),
-  avatar_url: z.string().url().optional(),
-  preferences: z
-    .object({
-      mode: z.enum(["dating", "networking", "both"]).default("both"),
-      intent: z.string().max(120).optional(),
-      ageRange: z.tuple([z.number().int().min(18).max(99), z.number().int().min(18).max(99)]).optional(),
-      cities: z.array(z.string().max(50)).optional(),
-      meetupFrequency: z.enum(["low", "medium", "high"]).default("medium"),
-    })
-    .optional(),
-  privacy_settings: z
-    .object({
-      showPhone: z.boolean().default(false),
-      profileVisibility: z.enum(["public", "members", "connections"]).default("members"),
-      allowMessagesFrom: z.enum(["everyone", "verified", "connections"]).default("verified"),
-      hideLastSeen: z.boolean().default(false),
-      blockedUsers: z.array(z.string().uuid()).optional(),
-    })
-    .optional(),
-  notification_settings: z
-    .object({
-      likes: z.boolean().default(true),
-      comments: z.boolean().default(true),
-      events: z.boolean().default(true),
-      connections: z.boolean().default(true),
-      moderation: z.boolean().default(true),
-      weeklyDigest: z.boolean().default(true),
-    })
-    .optional(),
-});
+const preferencesSchema = z
+  .object({
+    mode: z.enum(["dating", "networking", "both"]).optional(),
+    intent: z.string().trim().max(120).optional(),
+    meetupFrequency: z.enum(["low", "medium", "high"]).optional(),
+    lookingFor: z.array(z.string().trim().max(40)).max(6).optional(),
+  })
+  .partial();
 
-const PROFILE_FIELDS =
-  "id,phone,name,telegram_verified,telegram_user_id,last_post_at,xp,level,university,work,hobbies,interests,facts,avatar_url,bio,country,preferences,privacy_settings,notification_settings,profile_completed,personality_profile,personality_updated_at,password_hash,role,is_blocked,blocked_reason,blocked_until,shadow_banned";
+const notificationsSchema = z
+  .object({
+    likes: z.boolean().optional(),
+    comments: z.boolean().optional(),
+    events: z.boolean().optional(),
+    connections: z.boolean().optional(),
+    weeklyDigest: z.boolean().optional(),
+    push: z.boolean().optional(),
+    email: z.boolean().optional(),
+  })
+  .partial();
 
-function mapProfile(data: any) {
+const profileSchema = z
+  .object({
+    name: z.string().trim().min(2).max(50).optional(),
+    username: z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/).optional(),
+    email: z.string().trim().email().max(160).optional(),
+    country: z.string().trim().max(80).optional(),
+    city: z.string().trim().max(80).optional(),
+    bio: z.string().trim().max(320).optional(),
+    university: z.string().trim().max(120).optional(),
+    work: z.string().trim().max(120).optional(),
+    hobbies: z.array(z.string().trim().max(40)).max(20).optional(),
+    interests: z.array(z.string().trim().max(40)).min(3).max(30).optional(),
+    facts: z.array(z.string().trim().max(120)).min(2).max(3).optional(),
+    avatar_url: z.string().url().optional(),
+    preferences: preferencesSchema.optional(),
+    notification_settings: notificationsSchema.optional(),
+  })
+  .strict();
+
+function normalizeArray(input?: string[] | null) {
+  return (input ?? []).map((x) => x.trim()).filter(Boolean);
+}
+
+function mapProfile(data: Record<string, unknown> | null) {
   if (!data) return null;
-  const { password_hash, ...rest } = data;
-  return { ...rest, has_password: Boolean(password_hash) };
+  const { password_hash: _passwordHash, ...rest } = data;
+  return {
+    ...rest,
+    has_password: Boolean(data.password_hash),
+  };
+}
+
+async function loadUser(userId: string) {
+  const { data, error } = await supabaseAdmin.from("users").select("*").eq("id", userId).single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "User not found");
+  }
+  return data as Record<string, unknown>;
+}
+
+function pickKnownColumns(existing: Record<string, unknown>, payload: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (key in existing) out[key] = value;
+  }
+  return out;
+}
+
+async function getProfileResponse(userId: string) {
+  const [profileRes, postsRes, joinsRes, connectionsRes, reactionsRes] = await Promise.all([
+    supabaseAdmin.from("users").select("*").eq("id", userId).single(),
+    supabaseAdmin.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
+    supabaseAdmin.from("event_members").select("id", { count: "exact", head: true }).eq("user_id", userId),
+    supabaseAdmin.from("connections").select("id", { count: "exact", head: true }).or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`),
+    supabaseAdmin.from("reactions").select("id", { count: "exact", head: true }).eq("user_id", userId),
+  ]);
+
+  return {
+    profile: mapProfile((profileRes.data as Record<string, unknown> | null) ?? null),
+    activity: {
+      posts: postsRes.count ?? 0,
+      eventJoins: joinsRes.count ?? 0,
+      connections: connectionsRes.count ?? 0,
+      reactions: reactionsRes.count ?? 0,
+    },
+  };
 }
 
 export async function GET() {
   try {
     const userId = requireUserId();
+    const response = await getProfileResponse(userId);
+    return ok(response);
+  } catch {
+    return fail("Unauthorized", 401);
+  }
+}
 
-    const [profileRes, postsRes, joinsRes, connectionsRes, reactionsRes] = await Promise.all([
-      supabaseAdmin.from("users").select(PROFILE_FIELDS).eq("id", userId).single(),
-      supabaseAdmin.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabaseAdmin.from("event_members").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabaseAdmin.from("connections").select("id", { count: "exact", head: true }).or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`),
-      supabaseAdmin.from("reactions").select("id", { count: "exact", head: true }).eq("user_id", userId),
-    ]);
+async function updateProfile(req: Request) {
+  const userId = requireUserId();
+  const body = await req.json().catch(() => null);
+  const parsed = profileSchema.safeParse(body);
 
-    return ok({
-      profile: mapProfile(profileRes.data),
-      activity: {
-        posts: postsRes.count ?? 0,
-        eventJoins: joinsRes.count ?? 0,
-        connections: connectionsRes.count ?? 0,
-        reactions: reactionsRes.count ?? 0,
-      },
-    });
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
+  }
+
+  const existing = await loadUser(userId);
+  const payload = parsed.data;
+
+  const nextInterests = payload.interests ? normalizeArray(payload.interests) : normalizeArray(existing.interests as string[] | null);
+  const nextFacts = payload.facts ? normalizeArray(payload.facts) : normalizeArray(existing.facts as string[] | null);
+  const nextAvatar = payload.avatar_url ?? (typeof existing.avatar_url === "string" ? existing.avatar_url : null);
+
+  const profileCompleted = Boolean(nextAvatar) && nextInterests.length >= 3 && nextFacts.length >= 2;
+
+  const updatePayload = pickKnownColumns(existing, {
+    ...payload,
+    interests: payload.interests ? nextInterests : undefined,
+    facts: payload.facts ? nextFacts : undefined,
+    profile_completed: profileCompleted,
+    notification_settings: payload.notification_settings
+      ? { ...(existing.notification_settings as Record<string, unknown> | null), ...payload.notification_settings }
+      : undefined,
+    preferences: payload.preferences ? { ...(existing.preferences as Record<string, unknown> | null), ...payload.preferences } : undefined,
+  });
+
+  Object.keys(updatePayload).forEach((key) => {
+    if (updatePayload[key] === undefined) delete updatePayload[key];
+  });
+
+  const { error } = await supabaseAdmin.from("users").update(updatePayload).eq("id", userId);
+
+  if (error) {
+    return fail(error.message, 500);
+  }
+
+  if (profileCompleted) {
+    await trackEvent({ eventName: "profile.completed", userId, path: "/profile/me" });
+  }
+
+  const response = await getProfileResponse(userId);
+  return ok(response);
+}
+
+export async function PUT(req: Request) {
+  try {
+    return await updateProfile(req);
   } catch {
     return fail("Unauthorized", 401);
   }
@@ -81,35 +160,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
-    const userId = requireUserId();
-    const body = await req.json().catch(() => null);
-    const parsed = profileSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
-    }
-
-    const payload = parsed.data;
-
-    const interests = payload.interests ?? [];
-    const facts = payload.facts ?? [];
-    const profileCompleted = interests.length >= 3 && facts.length >= 3 && Boolean(payload.avatar_url ?? true);
-
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .update({ ...payload, profile_completed: profileCompleted })
-      .eq("id", userId)
-      .select(PROFILE_FIELDS)
-      .single();
-
-    if (error) {
-      return fail(error.message, 500);
-    }
-
-    if (profileCompleted) {
-      await trackEvent({ eventName: "profile.completed", userId, path: "/profile/me" });
-    }
-
-    return ok({ profile: mapProfile(data) });
+    return await updateProfile(req);
   } catch {
     return fail("Unauthorized", 401);
   }
