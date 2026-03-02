@@ -16,6 +16,7 @@ import {
   User,
   Users,
   Brain,
+  ShieldCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -40,11 +41,21 @@ function maskPhone(phone: string | null | undefined) {
 export default function MyProfileHubPage() {
   const router = useRouter();
   const [showPsychCard, setShowPsychCard] = useState(false);
+  const [activatingAdmin, setActivatingAdmin] = useState(false);
 
   const meQuery = useQuery({
     queryKey: ["profile-me-hub-v3"],
     queryFn: () => api<{ profile: any; activity: { posts: number; eventJoins: number; connections: number; reactions: number } }>("/api/profile/me"),
   });
+
+  const adminAccessQuery = useQuery({
+    queryKey: ["profile-admin-access"],
+    queryFn: () => api<any>("/api/admin/access"),
+    retry: false,
+    staleTime: 10_000,
+  });
+
+  const canOpenAdmin = adminAccessQuery.data?.can_admin === true;
 
   const profile = meQuery.data?.profile;
   const psychCompleted = Boolean(profile?.personality_profile);
@@ -92,6 +103,19 @@ export default function MyProfileHubPage() {
     const until = Date.now() + PSYCH_REMINDER_DAYS * 24 * 60 * 60 * 1000;
     localStorage.setItem(PSYCH_REMINDER_KEY, String(until));
     setShowPsychCard(false);
+  }
+
+  async function activateAdminAccess() {
+    try {
+      setActivatingAdmin(true);
+      await api("/api/auth/bootstrap-admin", { method: "POST" });
+      await Promise.all([adminAccessQuery.refetch(), meQuery.refetch()]);
+      toast.success("Админ-доступ активирован");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось активировать админ-доступ");
+    } finally {
+      setActivatingAdmin(false);
+    }
   }
 
   return (
@@ -157,6 +181,32 @@ export default function MyProfileHubPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {canOpenAdmin ? (
+        <Card className="mb-3 border-[#7aa2ff]/40 bg-[#7aa2ff]/10">
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm font-medium text-text">Админ-панель доступна</p>
+              <p className="text-xs text-muted">Управление метриками, модерацией и ролями</p>
+            </div>
+            <Link href="/admin" className="shrink-0">
+              <Button><ShieldCheck className="mr-1 h-4 w-4" /> Открыть Admin</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="mb-3 border-[#7aa2ff]/30 bg-[#7aa2ff]/8">
+          <CardContent className="space-y-3 p-4">
+            <div>
+              <p className="text-sm font-medium text-text">Нет кнопки Admin?</p>
+              <p className="text-xs text-muted">Нажми один раз, если этот аккаунт должен быть админом.</p>
+            </div>
+            <Button onClick={activateAdminAccess} disabled={activatingAdmin}>
+              <ShieldCheck className="mr-1 h-4 w-4" /> {activatingAdmin ? "Активируем..." : "Активировать админ-доступ"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
