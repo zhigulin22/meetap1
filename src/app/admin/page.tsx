@@ -428,6 +428,7 @@ export default function AdminPage() {
 
   const [roleReason, setRoleReason] = useState("Операционное назначение");
   const [roleDraft, setRoleDraft] = useState<Record<string, string>>({});
+  const [rbacSearch, setRbacSearch] = useState("");
 
   const [limitsDraft, setLimitsDraft] = useState<any>(null);
   const [qualityMapDraft, setQualityMapDraft] = useState({ event_name: "", family: "events", display_ru: "" });
@@ -564,6 +565,16 @@ export default function AdminPage() {
     queryKey: ["admin-rbac-admins"],
     queryFn: () => api<any>("/api/admin/rbac/admins"),
     enabled: healthOk && section === "rbac",
+  });
+
+  const rbacLookup = useQuery({
+    queryKey: ["admin-rbac-lookup", rbacSearch],
+    queryFn: () =>
+      adminApi(
+        `/api/admin/users/search?q=${encodeURIComponent(rbacSearch)}&limit=12&demo=all&role=all&shadow_banned=false&message_limited=false&profile_completed=false&city=&sort=created_desc`,
+        userSearchResponseSchema,
+      ),
+    enabled: healthOk && section === "rbac" && rbacSearch.trim().length >= 2,
   });
 
   const flags = useQuery({
@@ -992,8 +1003,9 @@ export default function AdminPage() {
   const showSectionGuide = healthOk && section !== "guide";
   const canManageUsers = roleHasPermission(access.data?.role ?? "", "users.action");
   const canManageRisk = roleHasPermission(access.data?.role ?? "", "risk.manage");
-  const canManageRoles = roleHasPermission(access.data?.role ?? "", "rbac.manage");
+  const canManageRoles = Boolean(rbac.data?.can_manage_roles) && roleHasPermission(access.data?.role ?? "", "rbac.manage");
   const canManageTraffic = roleHasPermission(access.data?.role ?? "", "traffic.manage");
+  const rbacLookupItems = rbacLookup.data?.items ?? [];
 
   return (
     <AdminShell
@@ -1746,6 +1758,68 @@ export default function AdminPage() {
         <div className="col-span-12 space-y-4">
           <Card>
             <CardHeader><CardTitle>RBAC & Admins</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
+                <Input
+                  placeholder="Найди пользователя по username/email/phone"
+                  value={rbacSearch}
+                  onChange={(e) => setRbacSearch(e.target.value)}
+                />
+                <Input placeholder="Причина изменения роли" value={roleReason} onChange={(e) => setRoleReason(e.target.value)} />
+                <Button variant="secondary" onClick={() => Promise.all([rbac.refetch(), rbacLookup.refetch()])}>Refresh</Button>
+              </div>
+
+              {!canManageRoles ? (
+                <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+                  Недостаточно прав для изменения ролей. Нужна роль admin или super_admin.
+                </div>
+              ) : null}
+
+              {rbacSearch.trim().length < 2 ? (
+                <p className="text-xs text-muted">Введи минимум 2 символа, чтобы назначить роль любому пользователю.</p>
+              ) : rbacLookup.isLoading ? (
+                <p className="inline-flex items-center gap-2 text-xs text-muted"><Loader2 className="h-4 w-4 animate-spin" /> Ищем пользователей...</p>
+              ) : (
+                <div className="space-y-2">
+                  {rbacLookupItems.length ? (
+                    rbacLookupItems.map((u: any) => {
+                      const roleValue = roleDraft[u.id] ?? u.role ?? "user";
+                      return (
+                        <div key={u.id} className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-surface2/70 p-3 md:grid-cols-[1fr_auto_auto]">
+                          <div>
+                            <p className="font-medium">{u.name ?? u.username ?? u.email ?? u.id}</p>
+                            <p className="text-xs text-muted">{u.id} · current:{u.role ?? "user"}</p>
+                          </div>
+                          <select
+                            className="admin-select"
+                            value={roleValue}
+                            onChange={(e) => setRoleDraft((p) => ({ ...p, [u.id]: e.target.value }))}
+                          >
+                            {(rbac.data?.roles ?? ["user", "support", "moderator", "analyst", "admin"]).map((r: string) => (
+                              <option key={r} value={r}>{r}</option>
+                            ))}
+                          </select>
+                          <Button
+                            size="sm"
+                            onClick={() => updateRole(u.id)}
+                            disabled={!canManageRoles || roleReason.trim().length < 2}
+                            title={!canManageRoles ? "Недостаточно прав" : undefined}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <EmptyNote text="Пользователи не найдены" />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Текущие администраторы</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               {(rbac.data?.admins ?? []).length ? (
                 rbac.data.admins.map((u: any) => (
@@ -1755,17 +1829,12 @@ export default function AdminPage() {
                       <p className="text-xs text-muted">{u.id} · role:{u.role}</p>
                     </div>
                     <select className="admin-select" value={roleDraft[u.id] ?? u.role} onChange={(e) => setRoleDraft((p) => ({ ...p, [u.id]: e.target.value }))}>
-                      {(rbac.data?.roles ?? ["user", "support", "moderator", "analyst", "admin", "super_admin"]).map((r: string) => <option key={r} value={r}>{r}</option>)}
+                      {(rbac.data?.roles ?? ["user", "support", "moderator", "analyst", "admin"]).map((r: string) => <option key={r} value={r}>{r}</option>)}
                     </select>
-                    <Button size="sm" onClick={() => updateRole(u.id)} disabled={!canManageRoles} title={!canManageRoles ? "Только super_admin" : undefined}>Apply</Button>
+                    <Button size="sm" onClick={() => updateRole(u.id)} disabled={!canManageRoles || roleReason.trim().length < 2} title={!canManageRoles ? "Недостаточно прав" : undefined}>Apply</Button>
                   </div>
                 ))
               ) : <EmptyNote text="Администраторы не найдены" />}
-
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
-                <Input placeholder="Причина изменения роли" value={roleReason} onChange={(e) => setRoleReason(e.target.value)} />
-                <Button variant="secondary" onClick={() => rbac.refetch()}>Refresh</Button>
-              </div>
             </CardContent>
           </Card>
 

@@ -43,6 +43,7 @@ const PERMISSION_MATRIX: Record<AdminRole, AdminPermission[]> = {
     "traffic.manage",
     "demo.reset",
     "rbac.view",
+    "rbac.manage",
     "security.manage",
     "integrations.manage",
   ],
