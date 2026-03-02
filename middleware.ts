@@ -3,7 +3,21 @@ import { updateSession } from "@/supabase/middleware";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 
 const protectedRoutes = ["/feed", "/events", "/contacts", "/profile", "/admin"];
+const ADMIN_PORTAL_ROLES = ["admin", "super_admin"] as const;
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
+
+function jsonError(status: number, code: string, message: string, hint: string) {
+  return NextResponse.json(
+    {
+      ok: false,
+      code,
+      message,
+      hint,
+      endpoint: "middleware",
+    },
+    { status },
+  );
+}
 
 async function isSessionActive(userId: string, sessionId: string) {
   try {
@@ -25,12 +39,12 @@ async function isSessionActive(userId: string, sessionId: string) {
       cache: "no-store",
     });
 
-    if (!res.ok) return true;
+    if (!res.ok) return false;
 
     const rows = (await res.json()) as Array<{ id: string }>;
     return rows.length > 0;
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -104,7 +118,11 @@ function clearCookies(res: NextResponse) {
 export async function middleware(request: NextRequest) {
   const response = await updateSession(request);
 
-  const isProtected = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
+  const pathname = request.nextUrl.pathname;
+  const isAgentApi = pathname.startsWith("/api/admin/qa-bots/agent/");
+  const isAdminApi = pathname.startsWith("/api/admin") && !isAgentApi;
+  const isAdminPage = pathname.startsWith("/admin");
+  const isProtected = protectedRoutes.some((route) => pathname.startsWith(route)) || isAdminApi;
 
   if (!isProtected) {
     return response;
@@ -115,12 +133,18 @@ export async function middleware(request: NextRequest) {
   const sessionId = request.cookies.get("meetap_session_id")?.value;
 
   if (!userId || verified !== "1") {
+    if (isAdminApi) {
+      return jsonError(401, "UNAUTHORIZED", "No active session", "Войди через /login под админ-аккаунтом");
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/register";
     return NextResponse.redirect(url);
   }
 
   if (!sessionId) {
+    if (isAdminApi) {
+      return jsonError(401, "UNAUTHORIZED", "No active session id", "Войди через /login под админ-аккаунтом");
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -128,6 +152,11 @@ export async function middleware(request: NextRequest) {
 
   const active = await isSessionActive(userId, sessionId);
   if (!active) {
+    if (isAdminApi) {
+      const denied = jsonError(401, "UNAUTHORIZED", "Session revoked or expired", "Войди заново через /login");
+      clearCookies(denied);
+      return denied;
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirected = NextResponse.redirect(url);
@@ -137,6 +166,11 @@ export async function middleware(request: NextRequest) {
 
   const access = await getUserAccess(userId);
   if (access.blocked) {
+    if (isAdminApi) {
+      const denied = jsonError(403, "FORBIDDEN", "User blocked", "Аккаунт заблокирован");
+      clearCookies(denied);
+      return denied;
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirected = NextResponse.redirect(url);
@@ -144,10 +178,29 @@ export async function middleware(request: NextRequest) {
     return redirected;
   }
 
+  const needsStrictAdmin = isAdminPage || isAdminApi;
+  if (needsStrictAdmin) {
+    if (access.degraded) {
+      if (isAdminApi) {
+        return jsonError(503, "ACCESS_DEGRADED", "Cannot verify admin role", "Проверь SUPABASE_SERVICE_ROLE_KEY и перезапусти деплой");
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/feed";
+      return NextResponse.redirect(url);
+    }
 
+    if (!ADMIN_PORTAL_ROLES.includes(access.role as (typeof ADMIN_PORTAL_ROLES)[number])) {
+      if (isAdminApi) {
+        return jsonError(403, "FORBIDDEN", "Admin access denied", "Доступ только для ролей admin и super_admin");
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/feed";
+      return NextResponse.redirect(url);
+    }
+  }
 
-  if (request.nextUrl.pathname.startsWith("/api/admin")) {
-    const key = `${request.ip ?? "ip"}:${request.nextUrl.pathname}`;
+  if (isAdminApi) {
+    const key = `${request.ip ?? "ip"}:${pathname}`;
     const now = Date.now();
     const globalAny = globalThis as unknown as { __adminRate?: Map<string, { count: number; resetAt: number }> };
     globalAny.__adminRate = globalAny.__adminRate ?? new Map();
@@ -160,11 +213,6 @@ export async function middleware(request: NextRequest) {
     } else {
       hit.count += 1;
     }
-  }
-  if (request.nextUrl.pathname.startsWith("/admin") && !access.degraded && !["super_admin","admin","moderator","analyst","support"].includes(access.role)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
   }
 
   await touchSession(userId, sessionId);

@@ -1,5 +1,5 @@
 import { failAdmin, ok } from "@/lib/http";
-import { requireUserId } from "@/server/auth";
+import { requireAdminUserId } from "@/server/admin";
 import { getLastHealthError, setLastHealthError } from "@/server/admin-health-state";
 
 const HEALTH_TIMEOUT_MS = 2500;
@@ -83,7 +83,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<ProbeRe
 export async function GET() {
   let viewerId: string;
   try {
-    viewerId = requireUserId();
+    viewerId = await requireAdminUserId();
   } catch {
     return failAdmin("/api/admin/health", "No active session", 401, {
       code: "UNAUTHORIZED",

@@ -20,7 +20,7 @@ const schema = z.object({
 function validToken(req: Request) {
   const env = getServerEnv();
   const token = req.headers.get("x-qa-control-token") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  return token.length > 0 && token === env.QA_BOTS_CONTROL_TOKEN;
+  return token.length > 0 && env.QA_BOTS_CONTROL_TOKEN !== "qa-bots-control-disabled" && token === env.QA_BOTS_CONTROL_TOKEN;
 }
 
 export async function POST(req: Request) {
