@@ -12,6 +12,21 @@ const preferencesSchema = z
     lookingFor: z.array(z.string().trim().max(40)).max(6).optional(),
     activity: z.string().trim().max(120).optional(),
     specialty: z.string().trim().max(120).optional(),
+    profileColor: z.string().trim().max(32).optional(),
+    profileEmoji: z
+      .union([
+        z.object({
+          type: z.literal("preset"),
+          id: z.string().trim().min(1).max(40),
+        }),
+        z.object({
+          type: z.literal("custom"),
+          glyph: z.string().trim().min(1).max(2),
+          color: z.string().trim().min(3).max(80),
+        }),
+      ])
+      .nullable()
+      .optional(),
   })
   .partial();
 

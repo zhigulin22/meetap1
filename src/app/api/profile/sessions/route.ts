@@ -22,6 +22,7 @@ export async function GET() {
       .from("user_sessions")
       .select("id,device_label,user_agent,ip,created_at,last_active_at,revoked_at")
       .eq("user_id", userId)
+      .is("revoked_at", null)
       .order("last_active_at", { ascending: false })
       .limit(30);
 

@@ -7,13 +7,15 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Briefcase, GraduationCap, Handshake, MapPin, Phone, Sparkles, UserRoundSearch } from "lucide-react";
+import { Briefcase, GraduationCap, Handshake, MapPin, Phone, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api-client";
+import { ProfileEmojiBadge } from "@/components/profile-emoji-badge";
+import { getThemeGradient } from "@/lib/profile-style";
 
 type PostItem = {
   id: string;
@@ -80,11 +82,12 @@ export default function ProfilePage() {
     );
 
   const p = data.profile;
+  const themeGradient = getThemeGradient(p.profileTheme);
 
   return (
     <PageShell>
       <Card className="mb-3 overflow-hidden border-white/15 bg-surface/95 backdrop-blur-xl">
-        <div className="relative h-48 overflow-hidden border-b border-border/60 bg-[linear-gradient(130deg,#08142F,#10244A)]">
+        <div className="relative h-48 overflow-hidden border-b border-border/60" style={{ background: themeGradient }}>
           <div className="absolute -left-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(119,149,255,0.30),transparent_70%)]" />
           <div className="absolute -right-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(109,208,255,0.26),transparent_70%)]" />
           <div className="absolute left-0 top-0 h-full w-24 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_1px,transparent_1px,transparent_8px)] opacity-35" />
@@ -96,10 +99,13 @@ export default function ProfilePage() {
               alt={p.name}
               width={160}
               height={160}
-              className="mx-auto h-28 w-28 rounded-[28px] border-2 border-white/70 object-cover shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+              className="mx-auto h-32 w-32 rounded-[30px] border-2 border-white/70 object-cover shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
               unoptimized
             />
-            <h1 className="mt-2 font-display text-2xl font-semibold text-text">{p.name}</h1>
+            <div className="mt-2 inline-flex items-center gap-2">
+              <h1 className="font-display text-2xl font-semibold text-text">{p.name}</h1>
+              <ProfileEmojiBadge value={p.profileEmoji} />
+            </div>
             {p.lastActiveLabel ? <p className="text-xs text-muted">{p.lastActiveLabel}</p> : null}
             {p.phone_masked ? (
               <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted">
@@ -157,25 +163,6 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          {!!p.starterPrompts?.length ? (
-            <div className="rounded-xl border border-[#7ad2ff]/35 bg-[#7ad2ff]/10 p-3">
-              <p className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-[#def6ff]"><UserRoundSearch className="h-4 w-4" /> Супер-фишка: умные стартовые темы</p>
-              <div className="space-y-1 text-xs text-[#d4eeff]">
-                {p.starterPrompts.map((prompt: string) => (
-                  <button
-                    key={prompt}
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(prompt);
-                      toast.success("Тема скопирована");
-                    }}
-                    className="block w-full rounded-lg border border-white/10 bg-black/15 px-2 py-2 text-left hover:bg-black/25"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           {!!p.topBadges?.length ? (
             <div className="flex flex-wrap gap-2">

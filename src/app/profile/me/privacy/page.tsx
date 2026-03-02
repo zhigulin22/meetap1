@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +36,7 @@ function SwitchRow({ label, hint, checked, onChange }: { label: string; hint: st
 }
 
 export default function ProfilePrivacyPage() {
+  const queryClient = useQueryClient();
   const [privacy, setPrivacy] = useState<PrivacySettings>({
     phone_visibility: "nobody",
     show_facts: true,
@@ -51,6 +52,7 @@ export default function ProfilePrivacyPage() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [cacheClearing, setCacheClearing] = useState(false);
 
   const privacyQuery = useQuery({
     queryKey: ["profile-privacy-page"],
@@ -74,6 +76,30 @@ export default function ProfilePrivacyPage() {
       setError(e instanceof Error ? e.message : "Не удалось сохранить");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function clearAppCache() {
+    try {
+      setCacheClearing(true);
+
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith("meetap_"));
+      keys.forEach((k) => localStorage.removeItem(k));
+      sessionStorage.clear();
+
+      queryClient.clear();
+
+      if (typeof window !== "undefined" && "caches" in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((k) => caches.delete(k)));
+      }
+
+      toast.success("Кэш приложения очищен");
+      await privacyQuery.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось очистить кэш");
+    } finally {
+      setCacheClearing(false);
     }
   }
 
@@ -110,7 +136,7 @@ export default function ProfilePrivacyPage() {
           <SwitchRow label="Интересы" hint="Показывать чипы интересов" checked={privacy.show_interests} onChange={(v) => setPrivacy((p) => ({ ...p, show_interests: v }))} />
           <SwitchRow label="История мероприятий" hint="Показывать посещенные события" checked={privacy.show_event_history} onChange={(v) => setPrivacy((p) => ({ ...p, show_event_history: v }))} />
           <SwitchRow label="Город" hint="Показывать город в публичном профиле" checked={privacy.show_city} onChange={(v) => setPrivacy((p) => ({ ...p, show_city: v }))} />
-          <SwitchRow label="Работа" hint="Показывать место работы" checked={privacy.show_work} onChange={(v) => setPrivacy((p) => ({ ...p, show_work: v }))} />
+          <SwitchRow label="Работа/деятельность" hint="Показывать профконтекст" checked={privacy.show_work} onChange={(v) => setPrivacy((p) => ({ ...p, show_work: v }))} />
           <SwitchRow label="ВУЗ" hint="Показывать университет" checked={privacy.show_university} onChange={(v) => setPrivacy((p) => ({ ...p, show_university: v }))} />
           <SwitchRow label="Последняя активность" hint="Показывать статус 'был недавно'" checked={privacy.show_last_active} onChange={(v) => setPrivacy((p) => ({ ...p, show_last_active: v }))} />
         </CardContent>
@@ -158,6 +184,16 @@ export default function ProfilePrivacyPage() {
           ) : (
             <p className="text-xs text-muted">Список блокировок пуст</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3">
+        <CardHeader><CardTitle className="text-sm">Кэш приложения</CardTitle></CardHeader>
+        <CardContent>
+          <p className="mb-2 text-xs text-muted">Если интерфейс работает нестабильно или видишь старые данные — очисти локальный кэш.</p>
+          <Button variant="secondary" className="w-full" onClick={clearAppCache} disabled={cacheClearing}>
+            {cacheClearing ? "Очищаем..." : "Очистить кэш"}
+          </Button>
         </CardContent>
       </Card>
 

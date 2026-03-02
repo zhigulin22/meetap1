@@ -9,19 +9,21 @@ export function ProfileSettingsRow({
   title,
   subtitle,
   badge,
+  iconToneClass,
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   badge?: React.ReactNode;
+  iconToneClass?: string;
 }) {
   return (
     <Link
       href={href}
       className="group flex min-h-[56px] w-full items-center gap-3 rounded-2xl border border-border bg-surface2/70 px-4 py-3 text-left transition active:scale-[0.99] hover:border-white/20"
     >
-      <div className="rounded-xl border border-white/15 bg-black/15 p-2 text-muted">{icon}</div>
+      <div className={`rounded-xl border border-white/15 p-2 ${iconToneClass ?? "bg-black/15 text-muted"}`}>{icon}</div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-text">{title}</p>
         <p className="truncate text-xs text-muted">{subtitle}</p>

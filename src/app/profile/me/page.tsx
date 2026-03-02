@@ -23,7 +23,9 @@ import { PageShell } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProfileSettingsRow } from "@/components/profile-settings-row";
+import { ProfileEmojiBadge } from "@/components/profile-emoji-badge";
 import { api } from "@/lib/api-client";
+import { getThemeGradient } from "@/lib/profile-style";
 
 const PSYCH_REMINDER_KEY = "meetap_psych_reminder_until";
 const PSYCH_REMINDER_DAYS = 7;
@@ -46,6 +48,7 @@ export default function MyProfileHubPage() {
 
   const profile = meQuery.data?.profile;
   const psychCompleted = Boolean(profile?.personality_profile);
+  const themeGradient = getThemeGradient(profile?.preferences?.profileColor);
 
   useEffect(() => {
     if (psychCompleted) {
@@ -99,7 +102,7 @@ export default function MyProfileHubPage() {
       </div>
 
       <Card className="mb-3 overflow-hidden">
-        <div className="relative h-48 overflow-hidden border-b border-border/60 bg-[linear-gradient(130deg,#08142F,#10244A)]">
+        <div className="relative h-48 overflow-hidden border-b border-border/60" style={{ background: themeGradient }}>
           <div className="absolute -left-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(119,149,255,0.30),transparent_70%)]" />
           <div className="absolute -right-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(109,208,255,0.26),transparent_70%)]" />
           <div className="absolute left-0 top-0 h-full w-24 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_1px,transparent_1px,transparent_8px)] opacity-35" />
@@ -112,9 +115,12 @@ export default function MyProfileHubPage() {
               width={160}
               height={160}
               unoptimized
-              className="mx-auto h-28 w-28 rounded-[28px] border-2 border-white/70 object-cover shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+              className="mx-auto h-32 w-32 rounded-[30px] border-2 border-white/70 object-cover shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
             />
-            <p className="mt-2 text-sm font-semibold text-text">{profile?.name || "Пользователь"}</p>
+            <div className="mt-2 inline-flex items-center gap-2">
+              <p className="text-sm font-semibold text-text">{profile?.name || "Пользователь"}</p>
+              <ProfileEmojiBadge value={profile?.preferences?.profileEmoji} />
+            </div>
             <p className="text-xs text-muted">{maskPhone(profile?.phone)} · {profile?.city || "Город не указан"}</p>
           </div>
         </div>
@@ -157,12 +163,12 @@ export default function MyProfileHubPage() {
           <CardTitle>Настройки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
-          <ProfileSettingsRow href="/profile/me/edit" icon={<Sparkles className="h-4 w-4" />} title="Профиль" subtitle="Фото, bio, факты, интересы, город" />
-          <ProfileSettingsRow href="/profile/me/privacy" icon={<Shield className="h-4 w-4" />} title="Конфиденциальность и безопасность" subtitle="Кто видит данные и кто может писать" />
-          <ProfileSettingsRow href="/profile/me/sessions" icon={<Monitor className="h-4 w-4" />} title="Устройства и активные сессии" subtitle="Контроль входов" />
-          <ProfileSettingsRow href="/profile/me/notifications" icon={<Bell className="h-4 w-4" />} title="Уведомления" subtitle="Коннекты, ответы, ивенты" />
-          <ProfileSettingsRow href="/profile/me/preferences" icon={<Users className="h-4 w-4" />} title="Настройки знакомств/нетворкинга" subtitle="Что ищу и как match-имся" />
+          <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} iconToneClass="bg-[#5c8cff]/20 text-[#c8d9ff]" title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
+          <ProfileSettingsRow href="/profile/me/edit" icon={<Sparkles className="h-4 w-4" />} iconToneClass="bg-[#54a2ff]/20 text-[#d7ecff]" title="Профиль" subtitle="Фото, bio, факты, интересы, город" />
+          <ProfileSettingsRow href="/profile/me/privacy" icon={<Shield className="h-4 w-4" />} iconToneClass="bg-[#52CC83]/20 text-[#d9ffe8]" title="Конфиденциальность и безопасность" subtitle="Кто видит данные и кто может писать" />
+          <ProfileSettingsRow href="/profile/me/sessions" icon={<Monitor className="h-4 w-4" />} iconToneClass="bg-[#8f9cff]/20 text-[#e1e6ff]" title="Устройства и активные сессии" subtitle="Контроль входов" />
+          <ProfileSettingsRow href="/profile/me/notifications" icon={<Bell className="h-4 w-4" />} iconToneClass="bg-[#6ec8ff]/20 text-[#ddf4ff]" title="Уведомления" subtitle="Коннекты, ответы, ивенты" />
+          <ProfileSettingsRow href="/profile/me/preferences" icon={<Users className="h-4 w-4" />} iconToneClass="bg-[#74b6ff]/20 text-[#e1f0ff]" title="Настройки знакомств/нетворкинга" subtitle="Что ищу и как match-имся" />
           <ProfileSettingsRow
             href="/profile/me/psych-test"
             icon={<Brain className="h-4 w-4" />}
@@ -176,8 +182,8 @@ export default function MyProfileHubPage() {
               )
             }
           />
-          <ProfileSettingsRow href="/profile/me/achievements" icon={<Trophy className="h-4 w-4" />} title="Достижения" subtitle="Скоро" />
-          <ProfileSettingsRow href="/profile/me/help" icon={<CircleHelp className="h-4 w-4" />} title="Помощь / О приложении" subtitle="Как использовать профиль" />
+          <ProfileSettingsRow href="/profile/me/achievements" icon={<Trophy className="h-4 w-4" />} iconToneClass="bg-[#f1c05f]/20 text-[#ffecc8]" title="Достижения" subtitle="Яркие полученные и цели на будущее" />
+          <ProfileSettingsRow href="/profile/me/help" icon={<CircleHelp className="h-4 w-4" />} iconToneClass="bg-[#56d0b0]/20 text-[#d9fff3]" title="Помощь / О приложении" subtitle="Как использовать профиль" />
 
           <button
             type="button"

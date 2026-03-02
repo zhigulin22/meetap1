@@ -40,26 +40,6 @@ function maskPhone(phone: string | null | undefined) {
   return `${clean.slice(0, 3)}***${clean.slice(-2)}`;
 }
 
-function buildStarterPrompts(input: {
-  interests: string[];
-  style: string | null;
-  activity: string | null;
-  specialty: string | null;
-}) {
-  const prompts: string[] = [];
-  const firstInterest = input.interests[0];
-  const secondInterest = input.interests[1];
-
-  if (firstInterest) prompts.push(`Вижу, тебе близка тема «${firstInterest}». Что тебя в ней сильнее всего вдохновляет сейчас?`);
-  if (secondInterest) prompts.push(`Если бы мы встретились на ивенте, с какой темы по «${secondInterest}» начал(а) бы разговор?`);
-  if (input.activity || input.specialty) {
-    prompts.push(`Расскажи, как ты пришел(а) в ${input.activity || input.specialty}. Что сейчас самое интересное в этой сфере?`);
-  }
-  if (input.style) prompts.push(`Твой стиль общения: ${input.style}. Как тебе комфортнее знакомиться — сразу офлайн или сначала чат?`);
-
-  return prompts.slice(0, 3);
-}
-
 function buildVibeTag(style: string | null, mode: string | null) {
   if (style) return style;
   if (mode === "dating") return "Открыт(а) к личным знакомствам";
@@ -156,13 +136,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const specialty = showWork ? (preferences.specialty ?? null) : null;
   const interests = showInterests ? (profile.interests ?? []) : [];
 
-  const starterPrompts = buildStarterPrompts({
-    interests,
-    style: typeof personality.style === "string" ? personality.style : null,
-    activity: typeof activity === "string" ? activity : null,
-    specialty: typeof specialty === "string" ? specialty : null,
-  });
-
   return ok({
     profile: {
       id: profile.id,
@@ -187,7 +160,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       eventHistoryCount: eventsCount,
       messagePolicy: privacyRow.who_can_message ?? defaultPrivacy.who_can_message,
       vibeTag: buildVibeTag(typeof personality.style === "string" ? personality.style : null, typeof preferences.mode === "string" ? preferences.mode : null),
-      starterPrompts,
+      profileTheme: typeof preferences.profileColor === "string" ? preferences.profileColor : null,
+      profileEmoji: preferences.profileEmoji ?? null,
     },
     positiveFact,
     content: { all: feed, videos, photos },
