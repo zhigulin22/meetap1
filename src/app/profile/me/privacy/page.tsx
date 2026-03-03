@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { api } from "@/lib/api-client";
 
 type PrivacySettings = {
@@ -41,19 +42,13 @@ function ToggleRow({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex min-h-[62px] w-full items-center justify-between gap-3 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.76)] px-3 py-2 text-left transition active:scale-[0.988]"
+      className="tap-press flex min-h-[64px] w-full items-center justify-between gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.78)] px-3 py-2.5 text-left"
     >
       <div>
         <p className="text-sm font-medium text-text">{label}</p>
         <p className="text-xs text-text2">{hint}</p>
       </div>
-      <span
-        className={`inline-flex h-6 w-11 items-center rounded-full border p-0.5 transition ${
-          checked ? "border-mint/50 bg-mint/25" : "border-borderStrong bg-surface2/72"
-        }`}
-      >
-        <span className={`h-5 w-5 rounded-full bg-white transition ${checked ? "translate-x-5" : "translate-x-0"}`} />
-      </span>
+      <ToggleSwitch checked={checked} onCheckedChange={onChange} ariaLabel={label} />
     </button>
   );
 }
@@ -130,12 +125,12 @@ export default function ProfilePrivacyPage() {
 
   return (
     <ProfileSettingsLayout title="Конфиденциальность и безопасность" subtitle="Логика как в Telegram: кто видит данные, кто может писать и управление блокировками.">
-      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
+      <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <CardHeader>
           <CardTitle className="text-sm text-text">Кто видит</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="space-y-2 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.76)] p-3">
+          <div className="space-y-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.76)] p-3">
             <p className="text-xs text-text2">Телефон</p>
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -149,8 +144,8 @@ export default function ProfilePrivacyPage() {
                   onClick={() => setPrivacy((prev) => ({ ...prev, phone_visibility: value as PrivacySettings["phone_visibility"] }))}
                   className={`rounded-xl border px-3 py-2 text-xs transition ${
                     privacy.phone_visibility === value
-                      ? "border-blue/45 bg-blue/16 text-text"
-                      : "border-border bg-surface2/60 text-text2"
+                      ? "border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.14)] text-text"
+                      : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.62)] text-text2"
                   }`}
                 >
                   {label}
@@ -170,7 +165,7 @@ export default function ProfilePrivacyPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
+      <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <CardHeader>
           <CardTitle className="text-sm text-text">Кто может писать</CardTitle>
         </CardHeader>
@@ -178,7 +173,7 @@ export default function ProfilePrivacyPage() {
           <select
             value={privacy.who_can_message}
             onChange={(e) => setPrivacy((prev) => ({ ...prev, who_can_message: e.target.value as PrivacySettings["who_can_message"] }))}
-            className="h-11 w-full rounded-xl border border-borderStrong bg-surface2/68 px-3 text-sm text-text"
+            className="h-11 w-full rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.82)] px-3 text-sm text-text focus:border-[rgb(var(--sky-rgb)/0.4)] focus:outline-none"
           >
             <option value="everyone" className="text-black">Все</option>
             <option value="shared_events" className="text-black">Только участники общих событий</option>
@@ -187,14 +182,14 @@ export default function ProfilePrivacyPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
+      <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <CardHeader>
           <CardTitle className="text-sm text-text">Блокировки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {blocked.length ? (
             blocked.map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.76)] px-3 py-2">
+              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.76)] px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <Image src={u.avatar_url || "https://placehold.co/80x80"} alt={u.name} width={36} height={36} className="h-9 w-9 rounded-full object-cover" unoptimized />
                   <p className="truncate text-sm text-text">{u.name}</p>
@@ -219,7 +214,7 @@ export default function ProfilePrivacyPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-blue/30 bg-blue/9">
+      <Card className="border-[rgb(var(--sky-rgb)/0.28)] bg-[rgb(var(--sky-rgb)/0.08)]">
         <CardHeader>
           <CardTitle className="inline-flex items-center gap-2 text-sm text-text"><Shield className="h-4 w-4" /> Кэш приложения</CardTitle>
         </CardHeader>

@@ -8,21 +8,21 @@ import { Button } from "@/components/ui/button";
 export default function ProfileHelpPage() {
   return (
     <ProfileSettingsLayout title="Помощь / О приложении" subtitle="Как пользоваться профилем и настройками">
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Как пользоваться профилем</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted">
-          <p>1. Заполни фото, био, 2-3 факта и интересы.</p>
-          <p>2. Укажи работу/ВУЗ — это повышает точность матчей.</p>
+      <Card className="mb-3 border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+        <CardHeader><CardTitle className="text-sm text-text">Как пользоваться профилем</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm text-text2">
+          <p>1. Заполни фото, bio, 2-3 факта и интересы.</p>
+          <p>2. Укажи работу/вуз/деятельность по желанию для более точных рекомендаций.</p>
           <p>3. Настрой приватность: что видят другие и кто может писать.</p>
-          <p>4. Проверь публичный preview и скорректируй видимость.</p>
-          <p>5. Пройди психотест — это улучшит рекомендации и подсказки первого шага.</p>
+          <p>4. Проверь публичный preview и скорректируй видимость полей.</p>
+          <p>5. Пройди психотест для персональных подсказок знакомства и match.</p>
         </CardContent>
       </Card>
 
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">О приложении</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-xs text-muted">
-          <p>Meetap — платформа для офлайн-знакомств и нетворкинга.</p>
+      <Card className="mb-3 border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+        <CardHeader><CardTitle className="text-sm text-text">О приложении</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-xs text-text2">
+          <p>Meetap - платформа для офлайн-знакомств и нетворкинга.</p>
           <p>Поддержка: support@meetap.app</p>
           <p>Версия: MVP beta</p>
         </CardContent>

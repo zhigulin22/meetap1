@@ -92,7 +92,7 @@ export default function ProfileAccountPage() {
       if (typeof meQuery.data?.profile?.username === "string") body.username = parsed.data.username || null;
       if (typeof meQuery.data?.profile?.email === "string") body.email = parsed.data.email || null;
       await api("/api/profile/me", { method: "PUT", body: JSON.stringify(body) });
-      toast.success("Аккаунт сохранён");
+      toast.success("Аккаунт сохранен");
       await meQuery.refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось сохранить");
@@ -110,17 +110,19 @@ export default function ProfileAccountPage() {
   const profile = meQuery.data?.profile;
 
   return (
-    <ProfileSettingsLayout title="Аккаунт" subtitle="Основные данные и контроль аккаунта">
-      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
+    <ProfileSettingsLayout title="Аккаунт" subtitle="Основные данные и управление аккаунтом">
+      <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <CardContent className="p-4">
           <div className="flex items-end gap-3">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="relative rounded-3xl border-2 border-borderStrong outline-none transition active:scale-[0.98]"
+              className="tap-press relative rounded-3xl border-2 border-[rgb(var(--border-strong-rgb)/0.45)] outline-none"
             >
               <Image src={avatar || "https://placehold.co/200x200"} alt="avatar" width={132} height={132} className="h-24 w-24 rounded-3xl object-cover" unoptimized />
-              <span className="absolute -bottom-1 -right-1 rounded-full border border-borderStrong bg-[rgb(var(--bg-rgb)/0.64)] p-1.5 text-white"><Camera className="h-4 w-4" /></span>
+              <span className="absolute -bottom-1 -right-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.88)] p-1.5 text-text">
+                <Camera className="h-4 w-4" />
+              </span>
             </button>
             <input
               ref={fileRef}
@@ -135,7 +137,7 @@ export default function ProfileAccountPage() {
             <div>
               <p className="text-sm font-semibold text-text">{profile?.name || "Пользователь"}</p>
               <p className="text-xs text-text2">{maskPhone(profile?.phone)}</p>
-              <p className="text-xs text-blue/70">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
+              <p className="text-xs text-[rgb(var(--sky-rgb)/0.88)]">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
             </div>
           </div>
         </CardContent>
@@ -149,7 +151,7 @@ export default function ProfileAccountPage() {
         {typeof profile?.email === "string" ? (
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
         ) : (
-          <Card className="border-border bg-surface2/64">
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.64)]">
             <CardContent className="p-3 text-xs text-text2">Email не подключен для этого аккаунта</CardContent>
           </Card>
         )}

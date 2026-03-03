@@ -137,15 +137,17 @@ export default function ProfileSessionsPage() {
 
   return (
     <ProfileSettingsLayout title="Устройства и активные сессии" subtitle="Как в Telegram: текущее устройство отдельно, остальные сессии можно завершать по одной или все сразу.">
-      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
+      <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <CardHeader>
           <CardTitle className="text-sm text-text">Текущее устройство</CardTitle>
         </CardHeader>
         <CardContent>
           {current ? (
-            <div className="rounded-2xl border border-teal-400/45 bg-[linear-gradient(125deg,rgb(28_156_178_/0.18),rgb(46_197_207_/0.14))] p-3">
+            <div className="rounded-2xl border border-[rgb(var(--teal-rgb)/0.35)] bg-[linear-gradient(125deg,rgb(var(--sky-rgb)/0.14),rgb(var(--teal-rgb)/0.12))] p-3">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-border bg-[linear-gradient(145deg,#1C9CB2,#2EC5CF)] p-2 text-white"><Smartphone className="h-4 w-4" /></div>
+                <div className="rounded-xl border border-[color:var(--border-soft)] bg-[linear-gradient(145deg,rgb(var(--sky-rgb)/0.9),rgb(var(--teal-rgb)/0.78))] p-2 text-[rgb(var(--bg-rgb))]">
+                  <Smartphone className="h-4 w-4" />
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-text">{current.device_label || "Текущее устройство"}</p>
                   <p className="text-xs text-text2">{parsePlatform(current.user_agent)}</p>
@@ -155,22 +157,24 @@ export default function ProfileSessionsPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-xs text-text2">Текущая сессия не найдена.</div>
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-xs text-text2">Текущая сессия не найдена.</div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
+      <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <CardHeader>
           <CardTitle className="text-sm text-text">Активные сессии ({activeCount})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {items.length ? (
             items.map((s) => (
-              <div key={s.id} className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3">
+              <div key={s.id} className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.74)] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <div className="rounded-xl border border-border bg-[rgb(var(--surface-2-rgb)/0.9)] p-2 text-text2"><Laptop className="h-4 w-4" /></div>
+                    <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-2 text-text2">
+                      <Laptop className="h-4 w-4" />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-text">{s.device_label || "Устройство"}</p>
                       <p className="text-xs text-text2">{parsePlatform(s.user_agent)} · {s.approx_location || "Локация недоступна"}</p>
@@ -196,14 +200,14 @@ export default function ProfileSessionsPage() {
               </div>
             ))
           ) : (
-            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-xs text-text2">Других активных сессий нет.</div>
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-xs text-text2">Других активных сессий нет.</div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-amber/35 bg-amber/10">
+      <Card className="border-[rgb(var(--amber-rgb)/0.35)] bg-[rgb(var(--amber-rgb)/0.1)]">
         <CardContent className="space-y-3 p-4">
-          <p className="inline-flex items-center gap-2 text-xs text-amber/90">
+          <p className="inline-flex items-center gap-2 text-xs text-[rgb(var(--amber-rgb)/0.92)]">
             <ShieldAlert className="h-4 w-4" /> Если устройство не твое, заверши все сессии кроме текущей.
           </p>
           <Button variant="danger" className="w-full" onClick={revokeAll} disabled={revokeAllLoading || sessionsQuery.isLoading}>
