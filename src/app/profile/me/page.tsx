@@ -271,16 +271,16 @@ export default function MyProfileHubPage() {
           <CardTitle className="text-[rgb(var(--peach-rgb))]">Настройки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} iconToneClass="bg-[#2AB3FF] text-white" title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
-          <ProfileSettingsRow href="/profile/me/edit" icon={<Sparkles className="h-4 w-4" />} iconToneClass="bg-[#00D2A8] text-white" title="Профиль" subtitle="Фото, bio, факты, интересы, город" />
-          <ProfileSettingsRow href="/profile/me/privacy" icon={<Shield className="h-4 w-4" />} iconToneClass="bg-[#6C4DFF] text-white" title="Конфиденциальность и безопасность" subtitle="Кто видит данные и кто может писать" />
-          <ProfileSettingsRow href="/profile/me/sessions" icon={<Monitor className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Устройства и активные сессии" subtitle="Управление входами, завершение сессий" />
-          <ProfileSettingsRow href="/profile/me/notifications" icon={<Bell className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Уведомления" subtitle="Коннекты, ответы, ивенты" />
-          <ProfileSettingsRow href="/profile/me/preferences" icon={<Users className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Настройки знакомств/нетворкинга" subtitle="Что ищу и как match-имся" />
+          <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} iconToneClass="border border-[#2AB3FF]/40 bg-[#2AB3FF]/25 text-white" title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
+          <ProfileSettingsRow href="/profile/me/edit" icon={<Sparkles className="h-4 w-4" />} iconToneClass="border border-[#00D2A8]/40 bg-[#00D2A8]/25 text-white" title="Профиль" subtitle="Фото, bio, факты, интересы, город" />
+          <ProfileSettingsRow href="/profile/me/privacy" icon={<Shield className="h-4 w-4" />} iconToneClass="border border-[#6C4DFF]/40 bg-[#6C4DFF]/25 text-white" title="Конфиденциальность и безопасность" subtitle="Кто видит данные и кто может писать" />
+          <ProfileSettingsRow href="/profile/me/sessions" icon={<Monitor className="h-4 w-4" />} iconToneClass="border border-[#2AB3FF]/40 bg-[#2AB3FF]/25 text-white" title="Устройства и активные сессии" subtitle="Управление входами, завершение сессий" />
+          <ProfileSettingsRow href="/profile/me/notifications" icon={<Bell className="h-4 w-4" />} iconToneClass="border border-[#F7C948]/40 bg-[#F7C948]/25 text-white" title="Уведомления" subtitle="Коннекты, ответы, ивенты" />
+          <ProfileSettingsRow href="/profile/me/preferences" icon={<Users className="h-4 w-4" />} iconToneClass="border border-[#00D2A8]/40 bg-[#00D2A8]/25 text-white" title="Настройки знакомств/нетворкинга" subtitle="Что ищу и как match-имся" />
           <ProfileSettingsRow
             href="/profile/me/psych-test"
             icon={<Brain className="h-4 w-4" />}
-            iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2"
+            iconToneClass="border border-[#6C4DFF]/40 bg-[#6C4DFF]/25 text-white"
             title="Психотест"
             subtitle={psychCompleted ? "Пройден, можно обновить" : "Не пройден — влияет на качество рекомендаций"}
             badge={
@@ -291,13 +291,13 @@ export default function MyProfileHubPage() {
               )
             }
           />
-          <ProfileSettingsRow href="/profile/me/achievements" icon={<Trophy className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Достижения" subtitle="Яркие полученные и цели на будущее" />
-          <ProfileSettingsRow href="/profile/me/help" icon={<CircleHelp className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Помощь / О приложении" subtitle="Как использовать профиль" />
+          <ProfileSettingsRow href="/profile/me/achievements" icon={<Trophy className="h-4 w-4" />} iconToneClass="border border-[#F7C948]/40 bg-[#F7C948]/25 text-white" title="Достижения" subtitle="Яркие полученные и цели на будущее" />
+          <ProfileSettingsRow href="/profile/me/help" icon={<CircleHelp className="h-4 w-4" />} iconToneClass="border border-[#2AB3FF]/40 bg-[#2AB3FF]/25 text-white" title="Помощь / О приложении" subtitle="Как использовать профиль" />
 
           <button
             type="button"
             onClick={logout}
-            className="mt-1 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border border-danger/35 bg-danger/10 text-sm font-semibold text-danger transition active:scale-[0.988]"
+            className="mt-1 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border border-[#FF3B5C]/40 bg-[#FF3B5C]/12 text-sm font-semibold text-[#FF3B5C] transition active:scale-[0.988]"
           >
             <LogOut className="h-4 w-4" /> Выйти
           </button>
