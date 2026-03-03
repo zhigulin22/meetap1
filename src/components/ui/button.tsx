@@ -3,16 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan disabled:pointer-events-none disabled:opacity-40 active:scale-[0.985]",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/40 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.98]",
   {
     variants: {
       variant: {
         default:
-          "bg-[linear-gradient(135deg,#52CC83,#47c89a)] text-[#04120a] shadow-[0_14px_28px_rgba(82,204,131,0.33)] hover:brightness-105",
+          "bg-[linear-gradient(135deg,var(--blue),var(--mint))] text-white shadow-[0_14px_28px_rgba(76,141,255,0.30)] hover:brightness-[1.04]",
         secondary:
-          "border border-border bg-white/8 text-text hover:border-cyan/40 hover:bg-white/12",
-        ghost: "text-muted hover:text-text hover:bg-white/8",
-        danger: "bg-[#8d2525] text-white hover:bg-[#a83131]",
+          "border border-borderStrong bg-surface2 text-text hover:bg-surface3 hover:border-blue/35",
+        ghost: "text-text2 hover:bg-surface2/65 hover:text-text",
+        danger: "bg-danger text-white shadow-[0_12px_24px_rgba(255,77,79,0.28)] hover:brightness-[1.06]",
       },
       size: {
         default: "h-11 px-4 py-2",

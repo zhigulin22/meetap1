@@ -156,7 +156,7 @@ export function AdminShell({
 
   const SideNav = (
     <div className="flex h-full flex-col gap-2">
-      <div className="mb-3 rounded-2xl border border-border bg-surface2/85 p-3">
+      <div className="mb-3 rounded-2xl border border-border bg-surface2/90 p-3">
         <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Control Center</p>
         <p className="font-display text-lg font-semibold text-text">Meetap Admin</p>
         <p className="text-xs text-muted">numbers-first · ops · safety</p>
@@ -176,8 +176,8 @@ export function AdminShell({
             className={cn(
               "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition active:scale-[0.98]",
               active
-                ? "border-cyan/40 bg-[linear-gradient(135deg,#193968,#1e4a7f)] text-[#e3efff] shadow-glow"
-                : "border-border bg-surface2/70 text-muted hover:text-text",
+                ? "border-blue/35 bg-[linear-gradient(135deg,rgb(var(--blue-rgb)/0.24),rgb(var(--mint-rgb)/0.18))] text-text shadow-glow"
+                : "border-border bg-surface2/75 text-text2 hover:text-text",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -186,26 +186,26 @@ export function AdminShell({
         );
       })}
 
-      <div className="mt-auto rounded-2xl border border-border bg-surface2/70 p-3 text-xs text-muted">
+      <div className="mt-auto rounded-2xl border border-border bg-surface2/75 p-3 text-xs text-text2">
         <p>Project: {pathname}</p>
-        <p className="mt-1 inline-flex items-center gap-1 text-[#ffb86b]">
+        <p className="mt-1 inline-flex items-center gap-1 text-amber">
           <Flag className="h-3 w-3" /> Reactive moderation ON
         </p>
       </div>
 
-      <Link href="/feed" className="text-center text-xs text-cyan underline">
+      <Link href="/feed" className="text-center text-xs text-blue underline underline-offset-2">
         Вернуться в продукт
       </Link>
     </div>
   );
 
   return (
-    <div className="min-h-screen p-3 md:p-5">
+    <div className="aurora-screen min-h-screen p-3 md:p-5">
       <div className="admin-grid gap-4">
-        <aside className="hidden rounded-3xl border border-border bg-surface p-4 lg:block">{SideNav}</aside>
+        <aside className="hidden rounded-3xl border border-border bg-surface/92 p-4 lg:block">{SideNav}</aside>
 
         <div className="min-w-0 space-y-4">
-          <header className="sticky top-2 z-30 rounded-3xl border border-border bg-surface px-3 py-3 shadow-soft backdrop-blur-xl md:px-4">
+          <header className="sticky top-2 z-30 rounded-3xl border border-border bg-surface/92 px-3 py-3 shadow-soft backdrop-blur-xl md:px-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[auto_1fr_auto_auto_auto_auto] md:items-center">
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="icon" className="lg:hidden" onClick={() => setOpen(true)}>
@@ -240,14 +240,14 @@ export function AdminShell({
                 <option value="active">Активные</option>
               </select>
 
-              <Button onClick={onAskAI} className="active:scale-[0.98] transition-transform">
+              <Button onClick={onAskAI} className="tap-press">
                 <Bot className="mr-1 h-4 w-4" /> AI
               </Button>
 
               <Button
                 variant={helpMode ? "default" : "secondary"}
                 onClick={() => onHelpModeChange(!helpMode)}
-                className="active:scale-[0.98] transition-transform"
+                className="tap-press"
                 aria-pressed={helpMode}
                 title="Показывает встроенные подсказки по метрикам и разделам"
               >
