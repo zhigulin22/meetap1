@@ -88,8 +88,8 @@ export default function ProfilePage() {
 
   return (
     <PageShell>
-      <Card className="mb-3 overflow-hidden border-borderStrong bg-surface/90 backdrop-blur-2xl">
-        <div className="relative h-[18.5rem] overflow-hidden border-b border-border" style={{ background: themeGradient }}>
+      <Card className="mb-3 overflow-hidden border-borderStrong bg-[rgb(var(--surface-2-rgb)/0.92)] shadow-card backdrop-blur-2xl">
+        <div className="relative h-[20.8rem] overflow-hidden border-b border-border" style={{ background: themeGradient }}>
           <div className="absolute -left-20 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--blue-rgb)/0.40),transparent_68%)]" />
           <div className="absolute -right-20 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--mint-rgb)/0.34),transparent_68%)]" />
           <div className="absolute inset-y-0 left-0 w-24 bg-[repeating-linear-gradient(135deg,rgb(var(--border-rgb)/0.10)_0px,rgb(var(--border-rgb)/0.10)_1px,transparent_1px,transparent_9px)] opacity-45" />
@@ -101,10 +101,10 @@ export default function ProfilePage() {
               alt={p.name}
               width={220}
               height={220}
-              className="mx-auto h-40 w-40 rounded-[38px] border-2 border-borderStrong object-cover shadow-soft"
+              className="mx-auto h-44 w-44 rounded-[38px] border-2 border-white/55 object-cover shadow-[0_22px_54px_rgba(5,12,28,0.45)]"
               unoptimized
             />
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-3 py-1.5 backdrop-blur-xl">
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/22 px-3 py-1.5 backdrop-blur-xl">
               <h1 className="font-display text-[1.35rem] font-semibold leading-none text-text">{p.name}</h1>
               <ProfileEmojiBadge value={p.profileEmoji} />
               {p.telegram_verified ? <span title="Профиль подтвержден"><CheckCircle2 className="h-4 w-4 text-mint" /></span> : null}
@@ -123,11 +123,11 @@ export default function ProfilePage() {
           {p.bio ? <p className="text-sm leading-6 text-text">{p.bio}</p> : null}
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-border bg-surface2/64 px-3 py-2 text-left">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] px-3 py-2 text-left">
               <p className="text-[11px] text-text3">Посещено мероприятий</p>
               <p className="text-sm font-semibold text-text">{p.eventHistoryCount ?? 0}</p>
             </div>
-            <div className="rounded-2xl border border-border bg-surface2/64 px-3 py-2 text-left">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] px-3 py-2 text-left">
               <p className="text-[11px] text-text3">Отметили после встреч</p>
               <p className="text-sm font-semibold text-text">{p.endorsementsCount ?? 0}</p>
             </div>
@@ -141,7 +141,7 @@ export default function ProfilePage() {
           ) : null}
 
           {p.vibeTag ? (
-            <div className="inline-flex rounded-full border border-blue/35 bg-blue/16 px-3 py-1 text-xs text-text">{p.vibeTag}</div>
+            <div className="inline-flex rounded-full border border-blue/35 bg-[linear-gradient(120deg,rgb(var(--blue-rgb)/0.2),rgb(var(--mint-rgb)/0.16))] px-3 py-1 text-xs text-text">{p.vibeTag}</div>
           ) : null}
 
           <div className="flex flex-wrap gap-2 text-xs text-muted">
@@ -170,7 +170,7 @@ export default function ProfilePage() {
               {p.interests.map((interest: string) => (
                 <span
                   key={interest}
-                  className="rounded-full border border-transparent bg-[linear-gradient(rgb(var(--surface-2-rgb)),rgb(var(--surface-2-rgb)))_padding-box,linear-gradient(135deg,rgb(var(--blue-rgb)/0.85),rgb(var(--mint-rgb)/0.85))_border-box] px-3 py-1 text-xs text-text"
+                  className="rounded-full border border-transparent bg-[linear-gradient(rgb(var(--surface-1-rgb)/0.92),rgb(var(--surface-1-rgb)/0.92))_padding-box,linear-gradient(135deg,rgb(var(--blue-rgb)/0.78),rgb(var(--mint-rgb)/0.72),rgb(var(--amber-rgb)/0.72))_border-box] px-3 py-1 text-xs text-text"
                 >
                   {interest}
                 </span>
@@ -181,7 +181,7 @@ export default function ProfilePage() {
           {!!p.facts?.length ? (
             <div className="grid grid-cols-1 gap-2">
               {p.facts.slice(0, 3).map((fact: string, idx: number) => (
-                <div key={`${fact}-${idx}`} className="rounded-2xl border border-border bg-surface2/64 p-3 text-sm text-text">
+                <div key={`${fact}-${idx}`} className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3 text-sm text-text">
                   {fact}
                 </div>
               ))}
@@ -220,7 +220,7 @@ export default function ProfilePage() {
           )}
 
           {p.eventHistory?.length ? (
-            <div className="space-y-1 rounded-2xl border border-border bg-surface2/64 p-3">
+            <div className="space-y-1 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
               <p className="text-xs text-text2">История мероприятий ({p.eventHistoryCount})</p>
               {p.eventHistory.slice(0, 4).map((e: any) => {
                 const event = Array.isArray(e.events) ? e.events[0] : e.events;
@@ -258,7 +258,7 @@ export default function ProfilePage() {
       <div className="space-y-3 pb-2">
         {list.map((post, idx) => (
           <motion.div key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
-            <Card className="overflow-hidden border-border bg-surface/88 backdrop-blur-2xl">
+            <Card className="overflow-hidden border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
               <CardContent className="space-y-2 p-3">
                 {post.type === "reel" ? (
                   <video src={post.photos[0]?.url} className="h-64 w-full rounded-2xl object-cover" controls playsInline />
@@ -283,7 +283,7 @@ export default function ProfilePage() {
           </motion.div>
         ))}
 
-        {!list.length ? <p className="text-sm text-text3">Публикаций пока нет</p> : null}
+        {!list.length ? <p className="text-sm text-text2">Публикаций пока нет</p> : null}
       </div>
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Monitor, ShieldAlert, Smartphone, Trash2 } from "lucide-react";
+import { Laptop, ShieldAlert, Smartphone, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -136,16 +136,16 @@ export default function ProfileSessionsPage() {
   }
 
   return (
-    <ProfileSettingsLayout title="Устройства и активные сессии" subtitle="Контролируй входы как в Telegram: текущая сессия и безопасное завершение остальных.">
-      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
+    <ProfileSettingsLayout title="Устройства и активные сессии" subtitle="Как в Telegram: текущее устройство отдельно, остальные сессии можно завершать по одной или все сразу.">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
         <CardHeader>
           <CardTitle className="text-sm text-text">Текущее устройство</CardTitle>
         </CardHeader>
         <CardContent>
           {current ? (
-            <div className="rounded-2xl border border-blue/35 bg-blue/14 p-3">
+            <div className="rounded-2xl border border-teal-400/45 bg-[linear-gradient(125deg,rgb(28_156_178_/0.18),rgb(46_197_207_/0.14))] p-3">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-border bg-surface2/72 p-2 text-text"><Smartphone className="h-4 w-4" /></div>
+                <div className="rounded-xl border border-white/15 bg-[linear-gradient(145deg,#1C9CB2,#2EC5CF)] p-2 text-white"><Smartphone className="h-4 w-4" /></div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-text">{current.device_label || "Текущее устройство"}</p>
                   <p className="text-xs text-text2">{parsePlatform(current.user_agent)}</p>
@@ -155,25 +155,28 @@ export default function ProfileSessionsPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-border bg-surface2/64 p-3 text-xs text-text2">Текущая сессия не найдена.</div>
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-xs text-text2">Текущая сессия не найдена.</div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-surface/88 backdrop-blur-2xl">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
         <CardHeader>
           <CardTitle className="text-sm text-text">Активные сессии ({activeCount})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {items.length ? (
             items.map((s) => (
-              <div key={s.id} className="rounded-2xl border border-border bg-surface2/64 p-3">
+              <div key={s.id} className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text">{s.device_label || "Устройство"}</p>
-                    <p className="text-xs text-text2">{parsePlatform(s.user_agent)} · {s.approx_location || "Локация недоступна"}</p>
-                    <p className="text-xs text-text2">Был(а): {formatDate(s.last_active_at)}</p>
-                    <p className="text-[11px] text-text3">Вход: {formatDate(s.created_at)}</p>
+                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                    <div className="rounded-xl border border-border bg-[rgb(var(--surface-2-rgb)/0.9)] p-2 text-text2"><Laptop className="h-4 w-4" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-text">{s.device_label || "Устройство"}</p>
+                      <p className="text-xs text-text2">{parsePlatform(s.user_agent)} · {s.approx_location || "Локация недоступна"}</p>
+                      <p className="text-xs text-text2">Был(а): {formatDate(s.last_active_at)}</p>
+                      <p className="text-[11px] text-text3">Вход: {formatDate(s.created_at)}</p>
+                    </div>
                   </div>
 
                   {s.is_current ? (
@@ -193,7 +196,7 @@ export default function ProfileSessionsPage() {
               </div>
             ))
           ) : (
-            <div className="rounded-2xl border border-border bg-surface2/64 p-3 text-xs text-text2">Других активных сессий нет.</div>
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-xs text-text2">Других активных сессий нет.</div>
           )}
         </CardContent>
       </Card>
@@ -206,9 +209,6 @@ export default function ProfileSessionsPage() {
           <Button variant="danger" className="w-full" onClick={revokeAll} disabled={revokeAllLoading || sessionsQuery.isLoading}>
             <Trash2 className="mr-1 h-4 w-4" /> {revokeAllLoading ? "Завершаем..." : "Завершить все кроме текущей"}
           </Button>
-          <div className="inline-flex items-center gap-2 text-[11px] text-text2">
-            <Monitor className="h-3.5 w-3.5" /> Изменения применяются сразу и сохраняются в безопасности аккаунта.
-          </div>
         </CardContent>
       </Card>
     </ProfileSettingsLayout>

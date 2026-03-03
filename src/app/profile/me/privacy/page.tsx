@@ -41,7 +41,7 @@ function ToggleRow({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex min-h-[58px] w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface2/64 px-3 py-2 text-left transition active:scale-[0.988]"
+      className="flex min-h-[62px] w-full items-center justify-between gap-3 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.76)] px-3 py-2 text-left transition active:scale-[0.988]"
     >
       <div>
         <p className="text-sm font-medium text-text">{label}</p>
@@ -129,13 +129,13 @@ export default function ProfilePrivacyPage() {
   const blocked = privacyQuery.data?.blocked_users ?? [];
 
   return (
-    <ProfileSettingsLayout title="Конфиденциальность и безопасность" subtitle="Тонкая настройка видимости, общения и локальной безопасности.">
-      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
+    <ProfileSettingsLayout title="Конфиденциальность и безопасность" subtitle="Логика как в Telegram: кто видит данные, кто может писать и управление блокировками.">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
         <CardHeader>
           <CardTitle className="text-sm text-text">Кто видит</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="space-y-2 rounded-2xl border border-border bg-surface2/64 p-3">
+          <div className="space-y-2 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.76)] p-3">
             <p className="text-xs text-text2">Телефон</p>
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -170,7 +170,7 @@ export default function ProfilePrivacyPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-surface/88 backdrop-blur-2xl">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
         <CardHeader>
           <CardTitle className="text-sm text-text">Кто может писать</CardTitle>
         </CardHeader>
@@ -187,14 +187,14 @@ export default function ProfilePrivacyPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-surface/88 backdrop-blur-2xl">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
         <CardHeader>
           <CardTitle className="text-sm text-text">Блокировки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {blocked.length ? (
             blocked.map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-border bg-surface2/64 px-3 py-2">
+              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.76)] px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <Image src={u.avatar_url || "https://placehold.co/80x80"} alt={u.name} width={36} height={36} className="h-9 w-9 rounded-full object-cover" unoptimized />
                   <p className="truncate text-sm text-text">{u.name}</p>

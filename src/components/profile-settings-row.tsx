@@ -21,16 +21,20 @@ export function ProfileSettingsRow({
   return (
     <Link
       href={href}
-      className="group tap-press relative flex min-h-[62px] w-full items-center gap-3 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-surface2/78 px-4 py-3 text-left shadow-card backdrop-blur-xl transition duration-150 hover:border-blue/35"
+      className="group tap-press relative flex min-h-[66px] w-full items-center gap-3 overflow-hidden rounded-[18px] border border-border bg-[rgb(var(--surface-2-rgb)/0.86)] px-4 py-3 text-left shadow-card backdrop-blur-xl transition duration-150 hover:border-[rgb(var(--blue-rgb)/0.28)]"
     >
       <div
         className="absolute inset-0 opacity-0 transition group-hover:opacity-100"
         style={{
           background:
-            "linear-gradient(110deg, rgb(var(--blue-rgb) / 0.1), transparent 38%, rgb(var(--mint-rgb) / 0.1))",
+            "linear-gradient(110deg, rgb(var(--blue-rgb) / 0.09), transparent 38%, rgb(var(--mint-rgb) / 0.08))",
         }}
       />
-      <div className={`relative rounded-2xl border border-borderStrong p-2.5 ${iconToneClass ?? "bg-surface3/60 text-text2"}`}>{icon}</div>
+      <div
+        className={`relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/12 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.18)] ${iconToneClass ?? "bg-surface3/60 text-text2"}`}
+      >
+        {icon}
+      </div>
       <div className="relative min-w-0 flex-1">
         <p className="truncate text-[0.95rem] font-semibold tracking-[-0.01em] text-text">{title}</p>
         <p className="truncate text-xs leading-5 text-text2">{subtitle}</p>
