@@ -16,10 +16,9 @@ body {
   font-size: 16px;
   line-height: 1.45;
   background-image:
-    radial-gradient(circle at 20% 20%, rgba(46, 211, 183, 0.1), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(124, 203, 255, 0.08), transparent 60%),
-    radial-gradient(circle at 70% 80%, rgba(214, 178, 94, 0.06), transparent 65%),
-    linear-gradient(180deg, rgb(var(--surface-1-rgb) / 0.32), rgb(var(--bg-rgb) / 0.9));
+    radial-gradient(circle at 16% 14%, rgba(46, 211, 183, 0.08), transparent 58%),
+    radial-gradient(circle at 86% 8%, rgba(124, 203, 255, 0.07), transparent 62%),
+    radial-gradient(circle at 72% 82%, rgba(214, 178, 94, 0.04), transparent 66%);
 }
 
 h1,

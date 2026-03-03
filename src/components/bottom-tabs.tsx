@@ -18,7 +18,7 @@ export function BottomTabs() {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-3 flex w-[calc(100%-24px)] max-w-md items-center justify-around rounded-[var(--radius-lg)] border border-border bg-[rgb(var(--surface-1-rgb)/0.9)] px-2 py-2 shadow-soft backdrop-blur-2xl lg:max-w-xl xl:max-w-2xl">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-3 flex w-[calc(100%-24px)] max-w-md items-center justify-between rounded-[20px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-2 py-1.5 shadow-soft backdrop-blur-2xl lg:max-w-xl xl:max-w-2xl">
       {tabs.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         const Icon = tab.icon;
@@ -28,13 +28,18 @@ export function BottomTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "tap-press flex min-w-16 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[11px] transition-colors",
-              active
-                ? "bg-[linear-gradient(135deg,rgb(var(--teal-rgb)/0.16),rgb(var(--sky-rgb)/0.12))] text-mint"
-                : "text-text3 hover:text-text",
+              "tap-press flex min-w-16 flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] transition",
+              active ? "text-[rgb(var(--teal-rgb))]" : "text-text3 hover:text-text2",
             )}
           >
-            <Icon className="h-5 w-5" />
+            <span
+              className={cn(
+                "flex h-7 min-w-[42px] items-center justify-center rounded-full px-2",
+                active ? "bg-[rgb(var(--text-rgb)/0.1)] shadow-[inset_0_1px_0_rgb(var(--border-strong-rgb)/0.1)]" : "bg-transparent",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </span>
             {tab.label}
           </Link>
         );

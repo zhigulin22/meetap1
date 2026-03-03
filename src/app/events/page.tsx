@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { PageShell } from "@/components/page-shell";
+import { CalendarDays } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { EventCard } from "@/components/event-card";
+import { PageShell } from "@/components/page-shell";
+import { TopBar } from "@/components/top-bar";
+import { Pill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api-client";
 
@@ -25,7 +29,7 @@ export default function EventsPage() {
   const queryClient = useQueryClient();
   const [joiningId, setJoiningId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["events"],
     queryFn: () => api<EventsResponse>("/api/events"),
   });
@@ -37,14 +41,7 @@ export default function EventsPage() {
       queryClient.setQueryData<EventsResponse | undefined>(["events"], (prev) => {
         if (!prev) return prev;
         return {
-          items: prev.items.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  joined: true,
-                }
-              : item,
-          ),
+          items: prev.items.map((item) => (item.id === id ? { ...item, joined: true } : item)),
         };
       });
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -55,9 +52,16 @@ export default function EventsPage() {
 
   return (
     <PageShell>
-      <div className="mb-3">
-        <h1 className="text-2xl font-semibold">Мероприятия</h1>
-        <p className="text-xs text-muted">Живые встречи с подбором людей рядом и мягким golden-акцентом на важных CTA.</p>
+      <TopBar
+        title="Ивенты"
+        subtitle="Встречи и активности рядом: base-палитра + gold только на специальных CTA"
+        right={<Pill tone="gold">EVENTS</Pill>}
+      />
+
+      <div className="mb-3 rounded-[18px] border border-[color:var(--border-soft)] bg-[rgb(var(--event-surface-rgb)/0.42)] p-3">
+        <p className="inline-flex items-center gap-1 text-xs text-[rgb(var(--ivory-rgb)/0.86)]">
+          <CalendarDays className="h-3.5 w-3.5 text-gold" /> Event mode: gold-акценты применяются только для меток и кнопки «Пойти».
+        </p>
       </div>
 
       {isLoading ? (
@@ -72,10 +76,12 @@ export default function EventsPage() {
           ))}
         </div>
       ) : (
-        <div className="empty-state">
-          <p>Пока нет доступных ивентов.</p>
-          <p className="mt-1 text-xs text-text2">Почему пусто: в системе нет активных событий. Что сделать: зайти позже или обновить экран.</p>
-        </div>
+        <EmptyState
+          title="Пока нет активных ивентов"
+          description="В твоем сегменте сейчас нет опубликованных встреч."
+          hint="Попробуй обновить экран или выбрать другой момент времени."
+          cta={{ label: "Обновить", onClick: () => refetch() }}
+        />
       )}
     </PageShell>
   );

@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Handshake, MessageCircle, Star, Volume2, VolumeX } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Heart, Handshake, MessageCircle, Play, Star, Volume2, VolumeX } from "lucide-react";
+import { Pill } from "@/components/ui/pill";
+import { cn } from "@/lib/utils";
 
 type Post = {
   id: string;
@@ -22,10 +23,10 @@ type Post = {
 function renderCaption(caption: string) {
   const parts = caption.split(/(@[\wа-яА-Я0-9_]+)/g);
   return (
-    <p className="mt-2 text-[14px] leading-5 text-text/95">
+    <p className="mt-2 text-sm leading-5 text-text2">
       {parts.map((part, idx) =>
         part.startsWith("@") ? (
-          <span key={`${part}-${idx}`} className="font-medium text-blue/80">
+          <span key={`${part}-${idx}`} className="font-medium text-cyan">
             {part}
           </span>
         ) : (
@@ -38,6 +39,37 @@ function renderCaption(caption: string) {
 
 function isVideo(url: string | undefined) {
   return Boolean(url?.match(/\.(mp4|webm|ogg)(\?.*)?$/i)) || Boolean(url?.includes("/video"));
+}
+
+function ActionIcon({
+  icon,
+  count,
+  active,
+  onClick,
+  label,
+}: {
+  icon: React.ReactNode;
+  count?: number;
+  active?: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "tap-press inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs text-text2 transition",
+        active
+          ? "border-[rgb(var(--teal-rgb)/0.45)] bg-[rgb(var(--teal-rgb)/0.14)] text-[rgb(var(--teal-rgb))]"
+          : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] hover:text-text",
+      )}
+    >
+      {icon}
+      {typeof count === "number" ? <span>{count}</span> : null}
+    </button>
+  );
 }
 
 export function PostCard({
@@ -76,53 +108,55 @@ export function PostCard({
     return () => observer.disconnect();
   }, [mediaUrl]);
 
-  const duoImages = useMemo(() => [post.photos.front, post.photos.back].filter(Boolean) as string[], [post.photos.front, post.photos.back]);
+  const duoImages = useMemo(
+    () => [post.photos.front, post.photos.back].filter(Boolean) as string[],
+    [post.photos.front, post.photos.back],
+  );
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.24 }}
       className="snap-start"
     >
-      <div className="overflow-hidden rounded-[28px] border border-border bg-surface/90 shadow-card backdrop-blur-xl">
-        <div className="flex items-center justify-between px-4 pb-2 pt-4">
-          <div className="flex items-center gap-3">
+      <div className="overflow-hidden rounded-[22px] bg-[rgb(var(--surface-1-rgb)/0.92)] shadow-card">
+        <div className="flex items-center justify-between px-4 pt-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <Image
               src={post.user?.avatar_url || "https://placehold.co/100"}
               alt={post.user?.name ?? "avatar"}
-              width={96}
-              height={96}
-              className="h-10 w-10 rounded-full border border-borderStrong object-cover"
+              width={80}
+              height={80}
+              className="h-9 w-9 rounded-full object-cover"
               unoptimized
             />
-            <div>
+            <div className="min-w-0">
               {post.user?.id ? (
-                <Link href={`/profile/${post.user.id}`} className="text-sm font-semibold text-text hover:text-action">
+                <Link href={`/profile/${post.user.id}`} className="truncate text-sm font-semibold text-text hover:text-cyan">
                   {post.user.name}
                 </Link>
               ) : (
-                <p className="text-sm font-semibold">{post.user?.name ?? "Пользователь"}</p>
+                <p className="truncate text-sm font-semibold text-text">{post.user?.name ?? "Пользователь"}</p>
               )}
-              <p className="text-xs text-muted">{new Date(post.created_at).toLocaleString("ru-RU")}</p>
+              <p className="text-xs text-text3">{new Date(post.created_at).toLocaleString("ru-RU")}</p>
             </div>
           </div>
-          <span className="rounded-full border border-border px-2 py-1 text-[10px] uppercase tracking-wide text-muted">
-            {post.type === "daily_duo" ? "Daily Duo" : "Media"}
-          </span>
+
+          {post.type === "daily_duo" ? <Pill tone="teal">DUO</Pill> : <Pill>MEDIA</Pill>}
         </div>
 
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 pt-2">
           {post.type === "daily_duo" ? (
-            <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-2xl">
+            <div className="grid grid-cols-2 gap-2">
               {duoImages.map((src, idx) => (
                 <Image
                   key={`${src}-${idx}`}
                   src={src}
                   alt={`duo-${idx + 1}`}
-                  width={900}
-                  height={1200}
-                  className="h-[54vh] w-full min-w-full snap-center rounded-2xl object-cover"
+                  width={800}
+                  height={1000}
+                  className="h-[44vh] w-full rounded-2xl object-cover"
                   unoptimized
                 />
               ))}
@@ -136,11 +170,17 @@ export function PostCard({
                 playsInline
                 loop
                 controls={false}
-                className="h-[58vh] w-full rounded-2xl object-cover"
+                className="h-[50vh] w-full rounded-2xl object-cover"
               />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--sky-rgb)/0.24)] text-text">
+                  <Play className="ml-0.5 h-5 w-5" />
+                </span>
+              </div>
               <button
+                type="button"
                 onClick={() => setMuted((v) => !v)}
-                className="absolute right-3 top-3 rounded-full border border-border bg-[rgb(var(--bg-rgb)/0.45)] p-2"
+                className="absolute right-2 top-2 rounded-full bg-[rgb(var(--bg-rgb)/0.5)] p-2 text-text2"
                 aria-label="Toggle sound"
               >
                 {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -152,47 +192,41 @@ export function PostCard({
               alt="single"
               width={1200}
               height={1600}
-              className="h-[58vh] w-full rounded-2xl object-cover"
+              className="h-[50vh] w-full rounded-2xl object-cover"
               unoptimized
             />
           )}
 
           {post.caption ? renderCaption(post.caption) : null}
 
-          <div className="mt-3 grid grid-cols-[1fr_1fr_auto_1fr] gap-2">
-            <Button
-              variant="secondary"
-              size="default"
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <ActionIcon
+              label="Лайк"
+              icon={<Heart className="h-4 w-4" />}
+              count={post.reactions.like}
+              active={post.viewer.liked}
               onClick={() => onReact(post.id, "like")}
-              disabled={post.viewer.liked}
-              className={post.viewer.liked ? "h-11 border-mint/50 bg-mint/14 text-mint" : "h-11"}
-            >
-              <Heart className="mr-1 h-4 w-4" /> {post.reactions.like}
-            </Button>
-
-            <Button variant="secondary" size="default" onClick={() => onOpenComments(post)} className="h-11">
-              <MessageCircle className="mr-1 h-4 w-4" /> {post.comments_count}
-            </Button>
-
-            <Button
-              variant="secondary"
-              size="icon"
+            />
+            <ActionIcon
+              label="Комментарии"
+              icon={<MessageCircle className="h-4 w-4" />}
+              count={post.comments_count}
+              onClick={() => onOpenComments(post)}
+            />
+            <ActionIcon
+              label="Познакомиться"
+              icon={<Handshake className="h-4 w-4" />}
+              count={post.reactions.connect}
+              active={post.viewer.connected}
               onClick={() => onConnect(post)}
-              className={post.viewer.connected ? "h-11 w-11 border-blue/50 bg-blue/15 text-blue/80" : "h-11 w-11"}
-              aria-label="Хочу познакомиться"
-            >
-              <Handshake className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="secondary"
-              size="default"
+            />
+            <ActionIcon
+              label="В избранное"
+              icon={<Star className="h-4 w-4" />}
+              count={post.reactions.star}
+              active={post.viewer.starred}
               onClick={() => onReact(post.id, "star")}
-              disabled={post.viewer.starred}
-              className={post.viewer.starred ? "h-11 border-amber/55 bg-amber/16 text-amber" : "h-11"}
-            >
-              <Star className="mr-1 h-4 w-4" /> {post.reactions.star}
-            </Button>
+            />
           </div>
         </div>
       </div>
