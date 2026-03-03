@@ -7,8 +7,8 @@
   --surface-1: #0e1630;
   --surface-2: #121f3f;
   --surface-3: #182a52;
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.1);
 
   --text: #f3f6ff;
   --text-2: rgba(243, 246, 255, 0.72);
@@ -52,8 +52,8 @@
   --surface-1: #ffffff;
   --surface-2: #f6f9ff;
   --surface-3: #e9f0ff;
-  --border: rgba(19, 33, 66, 0.12);
-  --border-strong: rgba(19, 33, 66, 0.18);
+  --border: rgba(19, 33, 66, 0.1);
+  --border-strong: rgba(19, 33, 66, 0.14);
   --text: #0b0f1a;
   --text-2: rgba(11, 15, 26, 0.7);
   --text-3: rgba(11, 15, 26, 0.5);
@@ -226,4 +226,12 @@ input[type="file"]::file-selector-button {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
   }
+}
+
+.panel-soft {
+  border: 0;
+  background: rgb(var(--surface-1-rgb) / 0.9);
+  box-shadow:
+    0 14px 34px rgb(0 0 0 / 0.3),
+    inset 0 1px 0 rgb(var(--border-rgb) / 0.07);
 }

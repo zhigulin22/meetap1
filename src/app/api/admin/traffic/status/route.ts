@@ -20,7 +20,7 @@ const querySchema = z.object({
   run_id: z.string().uuid().optional(),
 });
 
-const CACHE_TTL_MS = 1_500;
+const CACHE_TTL_MS = 2_000;
 
 type CacheEntry = {
   key: string;

@@ -56,6 +56,14 @@ const C = {
   ai_error: new Set(["ai_error"]),
 };
 
+const SUMMARY_CACHE_TTL_MS = 10_000;
+const SUMMARY_CACHE_MAX_STALE_MS = 2 * 60_000;
+const EVENTS_FAST_LIMIT = 50_000;
+const USERS_SNAPSHOT_LIMIT = 15_000;
+const RISK_FAST_LIMIT = 10_000;
+type SummaryCacheEntry = { cachedAt: number; expiresAt: number; payload: any };
+const summaryCache = new Map<string, SummaryCacheEntry>();
+
 function dayKey(iso: string) {
   return iso.slice(0, 10);
 }
@@ -92,6 +100,15 @@ export async function GET(req: Request) {
     });
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
 
+    const cacheKey = `${parsed.data.days}:${parsed.data.segment}`;
+    const cached = summaryCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return ok({
+        ...cached.payload,
+        cache: { mode: "hot", cached_at: new Date(cached.cachedAt).toISOString() },
+      });
+    }
+
     const now = Date.now();
     const toISO = new Date(now).toISOString();
     const fromISO = new Date(now - parsed.data.days * 24 * 60 * 60 * 1000).toISOString();
@@ -119,7 +136,7 @@ export async function GET(req: Request) {
       .gte("created_at", safeFromISO)
       .lte("created_at", safeToISO)
       .order("created_at", { ascending: true })
-      .limit(200000);
+      .limit(EVENTS_FAST_LIMIT);
 
     if (segmentUserIds && segmentUserIds.length) eventsQuery = eventsQuery.in("user_id", segmentUserIds);
 
@@ -127,6 +144,7 @@ export async function GET(req: Request) {
     if (eventsRes.error) return fail(eventsRes.error.message, 500);
 
     const eventRows = (eventsRes.data ?? []) as EventRow[];
+    if (eventRows.length >= EVENTS_FAST_LIMIT) warnings.push("analytics_events snapshot truncated (fast mode)");
     const activityRows = eventRows.filter((r) => isActivityEventName(r.event_name));
 
     const usersMap = new Map<string, UserRow>();
@@ -162,69 +180,105 @@ export async function GET(req: Request) {
       }
     }
 
-    const usersTotal = usersCols.has("id")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true })).count ?? 0
-      : 0;
+    const usersSnapshotCols = [
+      "id",
+      "city",
+      "role",
+      "profile_completed",
+      "shadow_banned",
+      "message_limited",
+      "is_demo",
+      "demo_group",
+      "personality_profile",
+      "interests",
+      "facts",
+      "avatar_url",
+      "created_at",
+      "deleted_at",
+      "telegram_verified",
+    ].filter((c) => usersCols.has(c));
 
-    const usersNew24h = usersCols.has("created_at")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).gte("created_at", new Date(now - 24 * 60 * 60 * 1000).toISOString())).count ?? 0
-      : 0;
-    const usersNew7d = usersCols.has("created_at")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).gte("created_at", new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString())).count ?? 0
-      : 0;
-    const usersNew30d = usersCols.has("created_at")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).gte("created_at", new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString())).count ?? 0
-      : 0;
+    let usersSnapshot: UserRow[] = [];
+    if (usersCols.has("id")) {
+      if (!usersSnapshotCols.includes("id")) usersSnapshotCols.unshift("id");
+      let usersSnapshotQuery = supabaseAdmin
+        .from("users")
+        .select(usersSnapshotCols.join(","))
+        .limit(USERS_SNAPSHOT_LIMIT);
+      if (usersCols.has("created_at")) usersSnapshotQuery = usersSnapshotQuery.order("created_at", { ascending: false });
+      const usersSnapshotRes = await usersSnapshotQuery;
 
-    const deletedUsers30d = usersCols.has("deleted_at")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).not("deleted_at", "is", null).gte("deleted_at", new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString())).count ?? 0
-      : 0;
+      if (usersSnapshotRes.error) {
+        warnings.push(`users snapshot error: ${usersSnapshotRes.error.message}`);
+      } else {
+        usersSnapshot = (usersSnapshotRes.data ?? []) as UserRow[];
+      }
+    }
 
-    const demoUsersTotal = usersCols.has("is_demo")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("is_demo", true)).count ?? 0
-      : 0;
+    if (usersSnapshot.length >= USERS_SNAPSHOT_LIMIT) {
+      warnings.push("users snapshot truncated (fast mode)");
+    }
 
-    const profileCompletedCount = usersCols.has("profile_completed")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("profile_completed", true)).count ?? 0
-      : 0;
+    for (const row of usersSnapshot) {
+      if (row.id && !usersMap.has(row.id)) usersMap.set(row.id, row);
+    }
 
-    const avatarCount = usersCols.has("avatar_url")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).not("avatar_url", "is", null)).count ?? 0
-      : 0;
+    const cut24h = now - 24 * 60 * 60 * 1000;
+    const cut7d = now - 7 * 24 * 60 * 60 * 1000;
+    const cut30d = now - 30 * 24 * 60 * 60 * 1000;
 
-    const psychCount = usersCols.has("personality_profile")
-      ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).not("personality_profile", "is", null)).count ?? 0
-      : 0;
+    let usersTotal = 0;
+    let usersNew24h = 0;
+    let usersNew7d = 0;
+    let usersNew30d = 0;
+    let deletedUsers30d = 0;
+    let demoUsersTotal = 0;
+    let profileCompletedCount = 0;
+    let avatarCount = 0;
+    let psychCount = 0;
+    let shadowBannedCount = 0;
+    let messageLimitedCount = 0;
 
     const rolesCountMap = new Map<string, number>();
-    if (usersCols.has("role")) {
-      const roleRows = await supabaseAdmin.from("users").select("role").limit(200000);
-      for (const row of roleRows.data ?? []) {
-        const role = String((row as any).role ?? "user");
-        rolesCountMap.set(role, (rolesCountMap.get(role) ?? 0) + 1);
-      }
-    }
-
-    let avgInterestsCount = 0;
+    let interestsSum = 0;
+    let interestsN = 0;
     let factsFilledUsers = 0;
-    if (usersCols.has("interests") || usersCols.has("facts")) {
-      const rows = await supabaseAdmin
-        .from("users")
-        .select([usersCols.has("interests") ? "interests" : null, usersCols.has("facts") ? "facts" : null].filter(Boolean).join(","))
-        .limit(50000);
 
-      const data = rows.data ?? [];
-      let interestsSum = 0;
-      let interestsN = 0;
-      for (const row of data as any[]) {
-        if (usersCols.has("interests")) {
-          interestsSum += arrLen(row.interests);
-          interestsN += 1;
+    for (const row of usersSnapshot) {
+      usersTotal += 1;
+
+      if (row.created_at) {
+        const createdTs = new Date(row.created_at).getTime();
+        if (Number.isFinite(createdTs)) {
+          if (createdTs >= cut24h) usersNew24h += 1;
+          if (createdTs >= cut7d) usersNew7d += 1;
+          if (createdTs >= cut30d) usersNew30d += 1;
         }
-        if (usersCols.has("facts") && arrLen(row.facts) >= 2) factsFilledUsers += 1;
       }
-      avgInterestsCount = interestsN ? Number((interestsSum / interestsN).toFixed(3)) : 0;
+
+      if (row.deleted_at) {
+        const deletedTs = new Date(row.deleted_at).getTime();
+        if (Number.isFinite(deletedTs) && deletedTs >= cut30d) deletedUsers30d += 1;
+      }
+
+      if (row.is_demo) demoUsersTotal += 1;
+      if (row.profile_completed) profileCompletedCount += 1;
+      if (row.avatar_url) avatarCount += 1;
+      if (row.personality_profile) psychCount += 1;
+      if (row.shadow_banned) shadowBannedCount += 1;
+      if (row.message_limited) messageLimitedCount += 1;
+
+      const role = String(row.role ?? "user");
+      rolesCountMap.set(role, (rolesCountMap.get(role) ?? 0) + 1);
+
+      if (usersCols.has("interests")) {
+        interestsSum += arrLen(row.interests);
+        interestsN += 1;
+      }
+      if (usersCols.has("facts") && arrLen(row.facts) >= 2) factsFilledUsers += 1;
     }
+
+    const avgInterestsCount = interestsN ? Number((interestsSum / interestsN).toFixed(3)) : 0;
 
     const canonicalRows = activityRows.map((row) => ({
       ...row,
@@ -309,7 +363,7 @@ export async function GET(req: Request) {
         .from("risk_signals")
         .select("user_id,signal_key,severity,created_at")
         .gte("created_at", new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString())
-        .limit(30000);
+        .limit(RISK_FAST_LIMIT);
 
       if (!riskRes.error) {
         const byUser = new Map<string, { score: number; signals: Set<string> }>();
@@ -433,7 +487,7 @@ export async function GET(req: Request) {
     }
     const continuedChatsUsers = [...messagesByUserDay.values()].filter((d) => d.size >= 2).length;
 
-    return ok({
+    const summaryPayload = {
       period: {
         from: safeFromISO,
         to: safeToISO,
@@ -493,12 +547,8 @@ export async function GET(req: Request) {
         messages_sent_30d: messages30,
         continued_chats_proxy_30d: continuedChatsUsers,
 
-        shadow_banned_count: usersCols.has("shadow_banned")
-          ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("shadow_banned", true)).count ?? 0
-          : 0,
-        message_limited_count: usersCols.has("message_limited")
-          ? (await supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("message_limited", true)).count ?? 0
-          : 0,
+        shadow_banned_count: shadowBannedCount,
+        message_limited_count: messageLimitedCount,
         reports_count_24h: countBy(rows24, C.report_created),
         reports_count_7d: countBy(rows7, C.report_created),
         reports_count_30d: countBy(rows30, C.report_created),
@@ -526,8 +576,32 @@ export async function GET(req: Request) {
         steps: funnelSteps,
       },
       warnings,
+    };
+
+    summaryCache.set(cacheKey, {
+      cachedAt: Date.now(),
+      expiresAt: Date.now() + SUMMARY_CACHE_TTL_MS,
+      payload: summaryPayload,
+    });
+
+    return ok({
+      ...summaryPayload,
+      cache: { mode: "fresh", cached_at: new Date().toISOString() },
     });
   } catch (error) {
+    try {
+      const { searchParams } = new URL(req.url);
+      const days = Number(searchParams.get("days") ?? 30);
+      const segment = String(searchParams.get("segment") ?? "all");
+      const fallback = summaryCache.get(`${days}:${segment}`);
+      if (fallback && Date.now() - fallback.cachedAt <= SUMMARY_CACHE_MAX_STALE_MS) {
+        return ok({
+          ...fallback.payload,
+          warnings: [...(fallback.payload?.warnings ?? []), "summary fallback: stale cache used"],
+          cache: { mode: "stale", cached_at: new Date(fallback.cachedAt).toISOString() },
+        });
+      }
+    } catch {}
     return adminRouteError("/api/admin/metrics/summary", error);
   }
 }

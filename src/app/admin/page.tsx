@@ -62,6 +62,8 @@ const KPI_GROUPS: Record<string, string[]> = {
   health: ["events_total_24h", "events_total_7d", "events_total_30d", "active_users_24h", "users_total"],
 };
 
+const ADMIN_SUMMARY_SNAPSHOT_KEY = "admin_metrics_summary_snapshot_v2";
+
 type SectionGuide = {
   title: string;
   value: string;
@@ -444,6 +446,7 @@ export default function AdminPage() {
   const [riskSelected, setRiskSelected] = useState<string[]>([]);
 
   const [helpMode, setHelpMode] = useState(false);
+  const [summarySnapshot, setSummarySnapshot] = useState<{ savedAt: string; data: any } | null>(null);
   const [helpTexts, setHelpTexts] = useState<Record<string, any>>(DEFAULT_HELP_TEXTS);
   const [helpSheetOpen, setHelpSheetOpen] = useState(false);
   const [userSort, setUserSort] = useState<"created_desc" | "activity_7d" | "reports_7d" | "connect_sent_7d" | "reply_rate" | "risk_score">("activity_7d");
@@ -475,6 +478,16 @@ export default function AdminPage() {
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem("admin_help_mode") : null;
     setHelpMode(saved === "1");
+
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem(ADMIN_SUMMARY_SNAPSHOT_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as { savedAt: string; data: any };
+          if (parsed?.data) setSummarySnapshot(parsed);
+        } catch {}
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -491,8 +504,18 @@ export default function AdminPage() {
     queryKey: ["admin-summary-v2", days, summarySegment],
     queryFn: () => adminApi(`/api/admin/metrics/summary?days=${days}&segment=${summarySegment}`, metricsSummaryResponseSchema),
     enabled: healthOk,
-    refetchInterval: section === "traffic" || section === "overview" || section === "operations" ? 7000 : 15000,
+    staleTime: 12_000,
+    retry: 1,
+    retryDelay: 700,
+    refetchInterval: section === "traffic" || section === "overview" || section === "operations" ? 10_000 : 20_000,
   });
+
+  useEffect(() => {
+    if (!summary.data || typeof window === "undefined") return;
+    const snapshot = { savedAt: new Date().toISOString(), data: summary.data };
+    setSummarySnapshot(snapshot);
+    window.localStorage.setItem(ADMIN_SUMMARY_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  }, [summary.data]);
 
   const helpTextsQuery = useQuery({
     queryKey: ["admin-help-texts"],
@@ -538,18 +561,19 @@ export default function AdminPage() {
   const trafficStatus = useQuery({
     queryKey: ["admin-traffic-status-v3"],
     queryFn: () => api<any>("/api/admin/traffic/status"),
-    enabled: healthOk,
-    staleTime: 2000,
+    enabled: healthOk && (section === "traffic" || section === "operations"),
+    staleTime: 2_000,
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: section === "traffic" || section === "operations" ? 3000 : false,
+    refetchInterval: section === "traffic" || section === "operations" ? 4_000 : false,
   });
 
   const trafficProof = useQuery({
     queryKey: ["admin-traffic-proof-v3"],
     queryFn: () => api<{ events_last_window: number; last_event_at: string | null }>("/api/admin/traffic/proof?minutes=2"),
-    enabled: healthOk,
-    refetchInterval: section === "traffic" || section === "operations" ? 4000 : false,
+    enabled: healthOk && (section === "traffic" || section === "operations"),
+    staleTime: 2_000,
+    refetchInterval: section === "traffic" || section === "operations" ? 5_000 : false,
   });
 
   const operations = useQuery({
@@ -671,7 +695,7 @@ export default function AdminPage() {
 
   const activeErrors = [
     health.error,
-    summary.error,
+    summarySnapshot?.data ? null : summary.error,
     helpTextsQuery.error,
     drilldown.error,
     users.error,
@@ -937,10 +961,10 @@ export default function AdminPage() {
       generated_at: new Date().toISOString(),
       period_days: days,
       segment,
-      summary: summary.data?.kpis ?? {},
-      top_events_24h: summary.data?.tables?.top_events_24h ?? [],
-      funnel: summary.data?.funnel?.steps ?? [],
-      warnings: summary.data?.warnings ?? [],
+      summary: summaryData?.kpis ?? {},
+      top_events_24h: summaryData?.tables?.top_events_24h ?? [],
+      funnel: summaryData?.funnel?.steps ?? [],
+      warnings: summaryData?.warnings ?? [],
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -1022,8 +1046,11 @@ export default function AdminPage() {
   };
 
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
-  const kpis = summary.data?.kpis ?? {};
-  const showSectionGuide = healthOk && section !== "guide";
+  const summaryData = summary.data ?? summarySnapshot?.data ?? null;
+  const kpis = summaryData?.kpis ?? {};
+  const offlineSnapshotMode = !healthOk && Boolean(summarySnapshot?.data);
+  const viewReady = healthOk || offlineSnapshotMode;
+  const showSectionGuide = viewReady && section !== "guide";
   const canManageUsers = roleHasPermission(access.data?.role ?? "", "users.action");
   const canManageRisk = roleHasPermission(access.data?.role ?? "", "risk.manage");
   const canManageRoles = Boolean(rbac.data?.can_manage_roles) && roleHasPermission(access.data?.role ?? "", "rbac.manage");
@@ -1100,6 +1127,23 @@ export default function AdminPage() {
         </div>
       ) : null}
 
+      {offlineSnapshotMode ? (
+        <div className="col-span-12">
+          <Card className="border-blue/30 bg-blue/10">
+            <CardHeader><CardTitle>Offline snapshot mode</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>Онлайн-проверка временно недоступна. Показана последняя сохраненная сводка метрик.</p>
+              <p>Snapshot: <strong>{summarySnapshot?.savedAt ? new Date(summarySnapshot.savedAt).toLocaleString("ru-RU") : "—"}</strong></p>
+              <p className="text-xs text-muted">Деструктивные действия отключены до восстановления подключения.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => health.refetch()}><RefreshCw className="mr-1 h-4 w-4" />Проверить подключение</Button>
+                <Button variant="secondary" onClick={() => setSection("events_live")}>Перейти в Events Stream</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       {healthOk && activeErrors.length ? (
 
         <div className="col-span-12">
@@ -1124,16 +1168,16 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {healthOk && section === "overview" ? (
+      {viewReady && section === "overview" ? (
         <>
           <div className="col-span-12">
             <Card>
               <CardHeader><CardTitle>Overview · KPI в цифрах</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 {summary.isLoading ? <p className="text-sm text-muted">Загрузка метрик…</p> : <KpiGrid kpis={kpis} onSelect={setDrillMetric} helpMode={helpMode} helpTexts={helpTexts} />}
-                {summary.data?.warnings?.length ? (
+                {summaryData?.warnings?.length ? (
                   <div className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
-                    {summary.data.warnings.map((w) => <p key={w}>• {w}</p>)}
+                    {summaryData.warnings.map((w: string) => <p key={w}>• {w}</p>)}
                   </div>
                 ) : null}
               </CardContent>
@@ -1144,8 +1188,8 @@ export default function AdminPage() {
             <Card>
               <CardHeader><CardTitle>Top events 24h</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                {(summary.data?.tables.top_events_24h ?? []).length ? (
-                  summary.data?.tables.top_events_24h.map((r) => <p key={r.event_name} className="flex justify-between"><span>{r.event_name}</span><strong>{r.count}</strong></p>)
+                {(summaryData?.tables.top_events_24h ?? []).length ? (
+                  summaryData?.tables.top_events_24h.map((r: { event_name: string; count: number }) => <p key={r.event_name} className="flex justify-between"><span>{r.event_name}</span><strong>{r.count}</strong></p>)
                 ) : <EmptyNote text="За 24ч нет событий из выбранной категории" onOpenStream={() => setSection("events_live")} />}
               </CardContent>
             </Card>
@@ -1153,8 +1197,8 @@ export default function AdminPage() {
             <Card>
               <CardHeader><CardTitle>Funnel</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                {(summary.data?.funnel.steps ?? []).length ? (
-                  summary.data?.funnel.steps.map((r) => (
+                {(summaryData?.funnel.steps ?? []).length ? (
+                  summaryData?.funnel.steps.map((r: { step: string; users: number; conversion: number; dropoff: number }) => (
                     <p key={r.step} className="flex justify-between"><span>{r.step}</span><strong>{r.users} · {(r.conversion * 100).toFixed(1)}%</strong></p>
                   ))
                 ) : <EmptyNote text="Нет данных funnel за период" onOpenStream={() => setSection("events_live")} />}
@@ -1163,7 +1207,7 @@ export default function AdminPage() {
           </div>
         </>
       ) : null}
-      {healthOk && section === "guide" ? (
+      {viewReady && section === "guide" ? (
         <div className="col-span-12 space-y-4">
           <Card>
             <CardHeader>
@@ -1316,7 +1360,7 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {healthOk && section === "metrics_lab" ? (
+      {viewReady && section === "metrics_lab" ? (
         <div className="col-span-12 space-y-4">
           <Card>
             <CardHeader><CardTitle>Metrics Lab (только цифры и таблицы)</CardTitle></CardHeader>
@@ -1336,8 +1380,8 @@ export default function AdminPage() {
             <Card>
               <CardHeader><CardTitle>Breakdown by day</CardTitle></CardHeader>
               <CardContent className="max-h-[380px] space-y-1 overflow-auto text-sm">
-                {(summary.data?.tables.breakdown_by_day ?? []).length ? (
-                  summary.data?.tables.breakdown_by_day.map((r) => (
+                {(summaryData?.tables.breakdown_by_day ?? []).length ? (
+                  summaryData?.tables.breakdown_by_day.map((r: { day: string; events: number; active_users: number; posts: number; joins: number; connect_sent: number; connect_replied: number }) => (
                     <p key={r.day} className="grid grid-cols-[120px_1fr] gap-2">
                       <span>{r.day}</span>
                       <span className="text-muted">events:{r.events} · users:{r.active_users} · posts:{r.posts} · joins:{r.joins} · connect:{r.connect_sent}/{r.connect_replied}</span>
@@ -1350,8 +1394,8 @@ export default function AdminPage() {
             <Card>
               <CardHeader><CardTitle>Top users 30d</CardTitle></CardHeader>
               <CardContent className="max-h-[380px] space-y-1 overflow-auto text-sm">
-                {(summary.data?.tables.top_users_30d ?? []).length ? (
-                  summary.data?.tables.top_users_30d.map((r) => (
+                {(summaryData?.tables.top_users_30d ?? []).length ? (
+                  summaryData?.tables.top_users_30d.map((r: { user_id: string; events: number; posts: number; joins: number; connect_sent: number; connect_replied: number; city: string }) => (
                     <p key={r.user_id} className="grid grid-cols-[120px_1fr] gap-2">
                       <span className="font-mono text-xs">{r.user_id.slice(0, 8)}</span>
                       <span className="text-muted">events:{r.events} · posts:{r.posts} · joins:{r.joins} · connect:{r.connect_sent}/{r.connect_replied} · {r.city}</span>
@@ -1364,13 +1408,13 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {healthOk && section === "funnels" ? (
+      {viewReady && section === "funnels" ? (
         <div className="col-span-12">
           <Card>
             <CardHeader><CardTitle>Funnels Table</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {(summary.data?.funnel.steps ?? []).length ? (
-                summary.data?.funnel.steps.map((r) => (
+              {(summaryData?.funnel.steps ?? []).length ? (
+                summaryData?.funnel.steps.map((r: { step: string; users: number; conversion: number; dropoff: number }) => (
                   <p key={r.step} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2">
                     <span>{r.step}</span>
                     <span className="text-right">{r.users}</span>
@@ -2145,15 +2189,15 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {healthOk && section === "campaigns" ? (
+      {viewReady && section === "campaigns" ? (
         <div className="col-span-12">
           <Card>
             <CardHeader><CardTitle>Campaigns (read-only)</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>Режим: Read-only / подготовка к запуску.</p>
-              <p>Активные пользователи 7d: {summary.data?.kpis?.active_users_7d ?? 0}</p>
-              <p>Connect reply rate 30d: {formatKpi("reply_rate", Number(summary.data?.kpis?.reply_rate ?? 0))}</p>
-              <p>Top city 30d: {summary.data?.tables?.cities_30d?.[0]?.city ?? "—"}</p>
+              <p>Активные пользователи 7d: {summaryData?.kpis?.active_users_7d ?? 0}</p>
+              <p>Connect reply rate 30d: {formatKpi("reply_rate", Number(summaryData?.kpis?.reply_rate ?? 0))}</p>
+              <p>Top city 30d: {summaryData?.tables?.cities_30d?.[0]?.city ?? "—"}</p>
             </CardContent>
           </Card>
         </div>
