@@ -3,19 +3,31 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Briefcase, CheckCircle2, GraduationCap, Handshake, MapPin, Phone, Sparkles, Star } from "lucide-react";
+import {
+  CheckCircle2,
+  Ellipsis,
+  Handshake,
+  MapPin,
+  MessageCircle,
+  Play,
+  Sparkles,
+  UserPlus,
+} from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { PageShell } from "@/components/page-shell";
-import { Card, CardContent } from "@/components/ui/card";
+import { TopBar } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Pill } from "@/components/ui/pill";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api-client";
 import { ProfileEmojiBadge } from "@/components/profile-emoji-badge";
-import { getThemeGradient } from "@/lib/profile-style";
 
 type PostItem = {
   id: string;
@@ -25,15 +37,30 @@ type PostItem = {
   photos: Array<{ kind: string; url: string }>;
 };
 
+function isVideoUrl(url?: string) {
+  if (!url) return false;
+  return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.includes("/video") || url.includes("mov_bbb");
+}
+
+function firstPhoto(post: PostItem) {
+  return post.photos[0]?.url || "https://placehold.co/800x800";
+}
+
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
-  const [tab, setTab] = useState<"all" | "videos" | "photos">("all");
+  const router = useRouter();
+
+  const [tab, setTab] = useState<"posts" | "reposts" | "duo">("posts");
+  const [duoFilter, setDuoFilter] = useState<"all" | "with" | "group">("all");
+  const [following, setFollowing] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectData, setConnectData] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["profile-v6", params.id],
+    queryKey: ["profile-v7", params.id],
     queryFn: () =>
       api<{
         profile: any;
@@ -42,19 +69,41 @@ export default function ProfilePage() {
       }>(`/api/profile/${params.id}`),
   });
 
-  const list = useMemo(() => {
-    if (!data) return [] as PostItem[];
-    if (tab === "videos") return data.content.videos;
-    if (tab === "photos") return data.content.photos;
-    return data.content.all;
-  }, [data, tab]);
+  const p = data?.profile;
 
-  async function connect() {
+  const posts = useMemo(() => {
+    return (data?.content.all ?? []).filter((x) => x.type !== "daily_duo");
+  }, [data?.content.all]);
+
+  const reposts = useMemo(() => {
+    return (data?.content.all ?? []).filter((x) => {
+      const cap = (x.caption ?? "").toLowerCase();
+      return cap.includes("repost") || cap.includes("репост");
+    });
+  }, [data?.content.all]);
+
+  const duo = useMemo(() => {
+    const base = (data?.content.all ?? []).filter((x) => x.type === "daily_duo");
+    if (duoFilter === "all") return base;
+    if (duoFilter === "group") {
+      return base.filter((x) => (x.caption ?? "").toLowerCase().includes("груп"));
+    }
+    return base.filter((x) => !(x.caption ?? "").toLowerCase().includes("груп"));
+  }, [data?.content.all, duoFilter]);
+
+  const stats = {
+    posts: posts.length,
+    followers: p?.endorsementsCount ?? 0,
+    duos: (data?.content.all ?? []).filter((x) => x.type === "daily_duo").length,
+  };
+
+  async function openConnect() {
+    if (!p?.id) return;
     try {
       setConnectLoading(true);
       const res = await api<{ icebreaker: any }>("/api/contacts/connect", {
         method: "POST",
-        body: JSON.stringify({ targetUserId: params.id, context: "знакомство из профиля" }),
+        body: JSON.stringify({ targetUserId: p.id, context: "знакомство из публичного профиля" }),
       });
       setConnectData(res.icebreaker);
       setConnectOpen(true);
@@ -68,251 +117,268 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <PageShell>
-        <Skeleton className="h-64 w-full rounded-3xl" />
+        <Skeleton className="h-72 w-full rounded-3xl" />
       </PageShell>
     );
   }
 
-  if (!data?.profile) {
+  if (!p) {
     return (
       <PageShell>
-        <Card>
-          <CardContent className="p-4 text-sm text-muted">Профиль не найден</CardContent>
-        </Card>
+        <EmptyState title="Профиль не найден" description="Пользователь недоступен или удалён." />
       </PageShell>
     );
   }
-
-  const p = data.profile;
-  const themeGradient = getThemeGradient(p.profileTheme);
 
   return (
     <PageShell>
-      <Card className="mb-3 overflow-hidden border-borderStrong bg-[rgb(var(--surface-2-rgb)/0.92)] shadow-card backdrop-blur-2xl">
-        <div className="relative h-[20.8rem] overflow-hidden border-b border-border" style={{ background: themeGradient }}>
-          <div className="absolute -left-20 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--blue-rgb)/0.40),transparent_68%)]" />
-          <div className="absolute -right-20 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--mint-rgb)/0.34),transparent_68%)]" />
-          <div className="absolute inset-y-0 left-0 w-24 bg-[repeating-linear-gradient(135deg,rgb(var(--border-rgb)/0.10)_0px,rgb(var(--border-rgb)/0.10)_1px,transparent_1px,transparent_9px)] opacity-45" />
-          <div className="absolute inset-y-0 right-0 w-24 bg-[repeating-linear-gradient(45deg,rgb(var(--border-rgb)/0.10)_0px,rgb(var(--border-rgb)/0.10)_1px,transparent_1px,transparent_9px)] opacity-45" />
+      <TopBar title="Профиль" subtitle="Публичная карточка пользователя" />
 
-          <div className="absolute inset-x-0 bottom-4 z-10 text-center">
-            <Image
-              src={p.avatar_url || "https://placehold.co/560x560"}
-              alt={p.name}
-              width={220}
-              height={220}
-              className="mx-auto h-44 w-44 rounded-[38px] border-2 border-borderStrong object-cover shadow-[0_22px_54px_rgba(5,12,28,0.45)]"
-              unoptimized
-            />
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] px-3 py-1.5 backdrop-blur-xl">
-              <h1 className="font-display text-[1.35rem] font-semibold leading-none text-text">{p.name}</h1>
-              <ProfileEmojiBadge value={p.profileEmoji} />
-              {p.telegram_verified ? <span title="Профиль подтвержден"><CheckCircle2 className="h-4 w-4 text-mint" /></span> : null}
-              {p.profile_completed ? <span title="Профиль заполнен"><Star className="h-4 w-4 text-amber" /></span> : null}
-            </div>
-            {p.lastActiveLabel ? <p className="mt-1 text-xs text-text2">{p.lastActiveLabel}</p> : null}
-            {p.phone_masked ? (
-              <p className="mt-1 inline-flex items-center gap-1 text-xs text-text2">
-                <Phone className="h-3.5 w-3.5" /> {p.phone_masked}
-              </p>
-            ) : null}
-          </div>
+      <section className="relative mb-3 overflow-hidden rounded-[28px] bg-[rgb(var(--surface-1-rgb)/0.92)] p-5 shadow-card">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-[-18%] top-[-24%] h-60 w-60 rounded-full bg-[radial-gradient(circle,rgb(var(--teal-rgb)/0.12),transparent_66%)]" />
+          <div className="absolute right-[-18%] top-[-18%] h-56 w-56 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.1),transparent_68%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,rgb(var(--text-rgb)/0.12),transparent_62%)]" />
         </div>
 
-        <CardContent className="space-y-4 p-4">
-          {p.bio ? <p className="text-sm leading-6 text-text">{p.bio}</p> : null}
+        <div className="relative flex flex-col items-center text-center">
+          <Image
+            src={p.avatar_url || "https://placehold.co/560x560"}
+            alt={p.name}
+            width={220}
+            height={220}
+            className="h-28 w-28 rounded-full border-2 border-[color:var(--border-soft)] object-cover shadow-[0_14px_30px_rgba(0,0,0,0.38)]"
+            unoptimized
+          />
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.78)] px-3 py-1.5">
+            <span className="text-[11px] uppercase tracking-[0.09em] text-text2">Stage profile</span>
+            <Pill tone="mint">verified</Pill>
+          </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] px-3 py-2 text-left">
-              <p className="text-[11px] text-text3">Посещено мероприятий</p>
-              <p className="text-sm font-semibold text-text">{p.eventHistoryCount ?? 0}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] px-3 py-2 text-left">
-              <p className="text-[11px] text-text3">Отметили после встреч</p>
-              <p className="text-sm font-semibold text-text">{p.endorsementsCount ?? 0}</p>
-            </div>
+      <Card className="mb-3 bg-[rgb(var(--surface-1-rgb)/0.94)]">
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[1.6rem] font-semibold leading-none text-text">{p.name}</h1>
+            <ProfileEmojiBadge value={p.profileEmoji} />
+            {p.telegram_verified ? <CheckCircle2 className="h-4 w-4 text-mint" /> : null}
+            {p.vibeTag ? <Pill>{p.vibeTag}</Pill> : null}
           </div>
 
-          {p.mood ? (
-            <div className="rounded-2xl border border-blue/35 bg-[linear-gradient(120deg,rgb(var(--blue-rgb)/0.18),rgb(var(--mint-rgb)/0.14))] px-3 py-2">
-              <p className="text-[11px] uppercase tracking-[0.08em] text-blue/70">Эмоции / настроение</p>
-              <p className="mt-1 text-sm text-text">{p.mood}</p>
-            </div>
-          ) : null}
+          {p.bio ? <p className="line-clamp-2 text-[15px] leading-6 text-text2">{p.bio}</p> : null}
 
-          {p.vibeTag ? (
-            <div className="inline-flex rounded-full border border-blue/35 bg-[linear-gradient(120deg,rgb(var(--blue-rgb)/0.2),rgb(var(--mint-rgb)/0.16))] px-3 py-1 text-xs text-text">{p.vibeTag}</div>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2 text-xs text-muted">
-            {p.city ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface2/64 px-3 py-1.5 text-text">
-                <MapPin className="h-3.5 w-3.5" /> {p.city}
-                {p.country ? `, ${p.country}` : ""}
-              </span>
-            ) : null}
-            {p.work ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface2/64 px-3 py-1.5 text-text">
-                <Briefcase className="h-3.5 w-3.5" /> {p.work}
-              </span>
-            ) : null}
-            {p.university ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface2/64 px-3 py-1.5 text-text">
-                <GraduationCap className="h-3.5 w-3.5" /> {p.university}
-              </span>
-            ) : null}
-            {p.activity ? <span className="rounded-full border border-border bg-surface2/64 px-3 py-1.5 text-text">{p.activity}</span> : null}
-            {p.specialty ? <span className="rounded-full border border-border bg-surface2/64 px-3 py-1.5 text-text">{p.specialty}</span> : null}
-          </div>
-
-          {!!p.interests?.length ? (
-            <div className="flex flex-wrap gap-2">
-              {p.interests.map((interest: string) => (
-                <span
-                  key={interest}
-                  className="rounded-full border border-transparent bg-[linear-gradient(rgb(var(--surface-1-rgb)/0.92),rgb(var(--surface-1-rgb)/0.92))_padding-box,linear-gradient(135deg,rgb(var(--blue-rgb)/0.78),rgb(var(--mint-rgb)/0.72),rgb(var(--amber-rgb)/0.72))_border-box] px-3 py-1 text-xs text-text"
-                >
-                  {interest}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          {!!p.facts?.length ? (
-            <div className="grid grid-cols-1 gap-2">
-              {p.facts.slice(0, 3).map((fact: string, idx: number) => (
-                <div key={`${fact}-${idx}`} className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3 text-sm text-text">
-                  {fact}
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {!!p.topBadges?.length ? (
-            <div className="flex flex-wrap gap-2">
-              {p.topBadges.map((b: any) => (
-                <span key={b.id} className="rounded-full border border-blue/35 bg-blue/14 px-3 py-1 text-xs text-text">
-                  {b.title}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="rounded-2xl border border-mint/30 bg-mint/12 p-3 text-sm text-mint/90">
-            <p className="inline-flex items-center gap-1 font-medium text-mint/90">
-              <Sparkles className="h-4 w-4" /> Позитивный факт
-            </p>
-            <p className="mt-1">{data.positiveFact}</p>
-          </div>
-
-          {!p.is_owner ? (
-            <Button
-              onClick={connect}
-              disabled={connectLoading}
-              className="h-12 w-full rounded-2xl bg-[linear-gradient(135deg,var(--blue),var(--mint))] text-bg shadow-card"
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setTab("posts")}
+              className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-2 text-center"
             >
-              <Handshake className="mr-2 h-4 w-4" /> {connectLoading ? "Загрузка..." : "Познакомиться"}
-            </Button>
-          ) : (
-            <div className="rounded-2xl border border-border bg-surface2/68 px-3 py-2 text-center text-xs text-text2">
-              Это ваш публичный preview. CTA знакомства скрыт.
-            </div>
-          )}
+              <p className="text-[17px] font-semibold text-text">{stats.posts}</p>
+              <p className="text-[11px] text-text3">Posts</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => toast.message("Список подписчиков", { description: "Экран подписчиков можно добавить следующим шагом." })}
+              className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-2 text-center"
+            >
+              <p className="text-[17px] font-semibold text-text">{stats.followers}</p>
+              <p className="text-[11px] text-text3">Followers</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("duo")}
+              className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-2 text-center"
+            >
+              <p className="text-[17px] font-semibold text-text">{stats.duos}</p>
+              <p className="text-[11px] text-text3">DUOs</p>
+            </button>
+          </div>
 
-          {p.eventHistory?.length ? (
-            <div className="space-y-1 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
-              <p className="text-xs text-text2">История мероприятий ({p.eventHistoryCount})</p>
-              {p.eventHistory.slice(0, 4).map((e: any) => {
-                const event = Array.isArray(e.events) ? e.events[0] : e.events;
-                return event ? (
-                  <p key={event.id} className="text-xs text-text">
-                    • {event.title} · {event.city}
-                  </p>
-                ) : null;
-              })}
-            </div>
-          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {p.city ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.74)] px-3 py-1 text-xs text-text2">
+                <MapPin className="h-3.5 w-3.5 text-cyan" /> {p.city}
+              </span>
+            ) : null}
+            {(p.interests ?? []).slice(0, 4).map((interest: string) => (
+              <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.74)] px-3 py-1 text-xs text-text2">
+                {interest}
+              </span>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-        {[
-          { id: "all", label: "Всё" },
-          { id: "videos", label: "Видео" },
-          { id: "photos", label: "Фото" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id as typeof tab)}
-            className={`rounded-full border px-3 py-1.5 text-xs ${
-              tab === t.id
-                ? "border-blue/45 bg-blue/16 text-text"
-                : "border-border bg-surface2/60 text-text3"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {!p.is_owner ? (
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <Button onClick={() => setFollowing((x) => !x)}>
+            <UserPlus className="mr-1 h-4 w-4" /> {following ? "Following" : "Follow"}
+          </Button>
+          <Button variant="secondary" onClick={() => router.push("/contacts")}>
+            <MessageCircle className="mr-1 h-4 w-4" /> Message
+          </Button>
+          <Button variant="secondary" onClick={openConnect} disabled={connectLoading}>
+            <Handshake className="mr-1 h-4 w-4" /> {connectLoading ? "..." : "Invite DUO"}
+          </Button>
+          <Button variant="secondary" onClick={() => setMoreOpen(true)}>
+            <Ellipsis className="mr-1 h-4 w-4" /> More
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="mb-3 rounded-[14px] bg-[rgb(var(--surface-2-rgb)/0.88)] p-1">
+        <SegmentedTabs
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "posts", label: "Posts" },
+            { value: "reposts", label: "Reposts" },
+            { value: "duo", label: "DUO" },
+          ]}
+          className="w-full"
+        />
       </div>
 
-      <div className="space-y-3 pb-2">
-        {list.map((post, idx) => (
-          <motion.div key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
-            <Card className="overflow-hidden border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl">
-              <CardContent className="space-y-2 p-3">
-                {post.type === "reel" ? (
-                  <video src={post.photos[0]?.url} className="h-64 w-full rounded-2xl object-cover" controls playsInline />
-                ) : (
-                  <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-2xl">
-                    {post.photos.map((photo, i) => (
-                      <Image
-                        key={`${post.id}-${i}`}
-                        src={photo.url || "https://placehold.co/900x1200"}
-                        alt="post"
-                        width={900}
-                        height={1200}
-                        className="h-64 w-full min-w-full snap-center rounded-2xl object-cover"
-                        unoptimized
-                      />
-                    ))}
-                  </div>
-                )}
-                {post.caption ? <p className="text-sm text-text">{post.caption}</p> : null}
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+      {tab === "posts" ? (
+        posts.length ? (
+          <div className="grid grid-cols-3 gap-2 pb-2">
+            {posts.map((post) => {
+              const src = firstPhoto(post);
+              const video = isVideoUrl(src);
+              return (
+                <Link key={post.id} href="/feed" className="group relative block overflow-hidden rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)]">
+                  {video ? (
+                    <div className="relative aspect-square">
+                      <video src={src} className="h-full w-full object-cover" muted playsInline />
+                      <div className="absolute inset-0 flex items-center justify-center bg-[rgb(var(--bg-rgb)/0.24)]">
+                        <Play className="h-5 w-5 text-text" />
+                      </div>
+                    </div>
+                  ) : (
+                    <Image src={src} alt="post" width={400} height={400} className="aspect-square w-full object-cover" unoptimized />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState title="Постов пока нет" description="Этот пользователь еще не публиковал контент." />
+        )
+      ) : null}
 
-        {!list.length ? <p className="text-sm text-text2">Публикаций пока нет</p> : null}
-      </div>
+      {tab === "reposts" ? (
+        reposts.length ? (
+          <div className="grid grid-cols-3 gap-2 pb-2">
+            {reposts.map((post) => (
+              <Link key={post.id} href="/feed" className="block overflow-hidden rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)]">
+                <Image src={firstPhoto(post)} alt="repost" width={400} height={400} className="aspect-square w-full object-cover" unoptimized />
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="Репостов пока нет"
+            description="В этом профиле нет публичных репостов за выбранный период."
+            hint="Если в событиях появятся репосты, они отобразятся здесь автоматически."
+          />
+        )
+      ) : null}
+
+      {tab === "duo" ? (
+        <div className="space-y-3 pb-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {[
+              { id: "all", label: "Все" },
+              { id: "with", label: "С кем" },
+              { id: "group", label: "Группа" },
+            ].map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setDuoFilter(filter.id as typeof duoFilter)}
+                className={`tap-press rounded-full px-3 py-1.5 text-xs ${
+                  duoFilter === filter.id
+                    ? "bg-[rgb(var(--text-rgb)/0.12)] text-text"
+                    : "bg-[rgb(var(--surface-2-rgb)/0.72)] text-text2"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {duo.length ? (
+            duo.map((item, idx) => {
+              const photos = item.photos.slice(0, 2);
+              return (
+                <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
+                  <Card className="bg-[rgb(var(--surface-1-rgb)/0.94)]">
+                    <CardContent className="space-y-3 p-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        {photos.map((photo, i) => (
+                          <Image
+                            key={`${item.id}-${i}`}
+                            src={photo.url || "https://placehold.co/500x700"}
+                            alt="duo"
+                            width={500}
+                            height={700}
+                            className="h-40 w-full rounded-2xl object-cover"
+                            unoptimized
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-text">DUO moment</p>
+                          <p className="text-xs text-text2">Участники: {p.name} + 1</p>
+                        </div>
+                        <Button variant="secondary" onClick={() => router.push("/feed")}>View</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })
+          ) : (
+            <EmptyState title="DUO пока нет" description="Пока не найдено DUO-карточек под текущий фильтр." />
+          )}
+        </div>
+      ) : null}
+
+      <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
+        <DialogHeader>
+          <DialogTitle>Дополнительно</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 text-sm text-text2">
+          <p>Пожаловаться на профиль</p>
+          <p>Скопировать ссылку</p>
+          <p>Скрыть рекомендации этого пользователя</p>
+        </div>
+      </Dialog>
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogHeader>
           <DialogTitle>Подсказки для знакомства</DialogTitle>
         </DialogHeader>
         {!connectData ? (
-          <p className="text-sm text-muted">Собираем рекомендации...</p>
+          <p className="text-sm text-text2">Собираем рекомендации...</p>
         ) : (
           <div className="space-y-3 text-sm">
-            <div className="rounded-xl border border-border bg-surface2/70 p-3">
-              <p className="text-xs text-muted">Стиль общения</p>
+            <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] p-3">
+              <p className="text-xs text-text3">Стиль общения</p>
               <p className="text-text">{connectData.vibeStatus}</p>
             </div>
-            <div className="rounded-xl border border-border bg-surface2/70 p-3">
-              <p className="text-xs text-muted">О чём начать</p>
+            <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] p-3">
+              <p className="text-xs text-text3">О чём начать</p>
               {(connectData.messages ?? []).slice(0, 2).map((m: string) => (
-                <p key={m} className="text-text">
-                  • {m}
-                </p>
+                <p key={m} className="text-text">• {m}</p>
               ))}
             </div>
-            <div className="rounded-xl border border-border bg-surface2/70 p-3">
-              <p className="text-xs text-muted">Готовые первые сообщения</p>
-              {(connectData.firstMessages ?? []).slice(0, 3).map((m: string) => (
-                <p key={m} className="text-text">
-                  • {m}
-                </p>
-              ))}
+            <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] p-3">
+              <p className="inline-flex items-center gap-1 text-xs text-mint/95">
+                <Sparkles className="h-3.5 w-3.5" /> {data?.positiveFact}
+              </p>
             </div>
             <Button className="w-full" onClick={() => setConnectOpen(false)}>
               Понял, написать самому
@@ -321,8 +387,8 @@ export default function ProfilePage() {
         )}
       </Dialog>
 
-      <div className="pb-20 text-center text-xs text-muted">
-        <Link href="/profile/me" className="underline">
+      <div className="pb-20 text-center text-xs text-text3">
+        <Link href="/profile/me" className="underline underline-offset-2">
           Открыть настройки своего профиля
         </Link>
       </div>
