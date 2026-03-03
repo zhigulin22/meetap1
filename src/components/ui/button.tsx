@@ -8,7 +8,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[rgb(var(--peach-rgb))] text-white shadow-[0_8px_18px_rgb(var(--peach-rgb)/0.28)] hover:bg-[rgb(var(--peach-pressed-rgb))] focus-visible:ring-[rgb(var(--peach-rgb)/0.28)]",
+          "bg-[rgb(var(--peach-rgb))] text-[rgb(var(--text-rgb))] shadow-[0_8px_18px_rgb(var(--peach-rgb)/0.22)] hover:bg-[rgb(var(--peach-pressed-rgb))] focus-visible:ring-[rgb(var(--peach-rgb)/0.28)]",
         event:
           "bg-[image:var(--grad-event)] text-[rgb(var(--text-rgb))] shadow-[0_8px_18px_rgb(var(--gold-rgb)/0.24)] hover:brightness-[1.02] focus-visible:ring-[rgb(var(--gold-rgb)/0.35)]",
         secondary:

@@ -296,7 +296,7 @@ function KpiGrid({
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {entries.map(([k, v]) => {
+      {entries.map(([k, v], idx) => {
         const value = Number(v);
         const delta = deriveDelta(kpis, k);
         const source = kpiSource(k);
@@ -311,7 +311,7 @@ function KpiGrid({
           >
             <CardContent className="space-y-2 p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xs text-muted">{getMetricLabel(k)}</p>
+                <p className={idx < 5 ? "text-xs font-medium text-[rgb(var(--peach-rgb))]" : "text-xs text-muted"}>{getMetricLabel(k)}</p>
                 {helpMode && help ? <HelpTip compact {...help} /> : null}
               </div>
 
@@ -1283,11 +1283,11 @@ export default function AdminPage() {
             <CardHeader><CardTitle className="inline-flex items-center gap-2"><Workflow className="h-5 w-5" />Operations Center {helpMode ? <HelpTip compact {...(helpTexts["section.operations"] ?? DEFAULT_HELP_TEXTS["section.operations"])} /> : null}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Events last 5m</p><p className="text-xl font-semibold">{operations.data?.status_strip?.events_last_5min ?? 0}</p></CardContent></Card>
-                <Card><CardContent className="p-4 text-sm"><p className="text-muted">TG verify 15m</p><p className="text-xl font-semibold">{formatKpi("tg_verify_rate", Number(operations.data?.status_strip?.tg_verify_success_rate_15min ?? 0))}</p></CardContent></Card>
-                <Card><CardContent className="p-4 text-sm"><p className="text-muted">AI error rate 15m</p><p className="text-xl font-semibold">{formatKpi("ai_error_rate", Number(operations.data?.status_strip?.ai_error_rate_15min ?? 0))}</p></CardContent></Card>
-                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Reports 1h</p><p className="text-xl font-semibold">{operations.data?.status_strip?.reports_1h ?? 0}</p></CardContent></Card>
-                <Card><CardContent className="p-4 text-sm"><p className="text-muted">Risk high count</p><p className="text-xl font-semibold">{operations.data?.status_strip?.risk_high_count ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="font-medium text-[rgb(var(--peach-rgb))]">Events last 5m</p><p className="text-xl font-semibold">{operations.data?.status_strip?.events_last_5min ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="font-medium text-[rgb(var(--peach-rgb))]">TG verify 15m</p><p className="text-xl font-semibold">{formatKpi("tg_verify_rate", Number(operations.data?.status_strip?.tg_verify_success_rate_15min ?? 0))}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="font-medium text-[rgb(var(--peach-rgb))]">AI error rate 15m</p><p className="text-xl font-semibold">{formatKpi("ai_error_rate", Number(operations.data?.status_strip?.ai_error_rate_15min ?? 0))}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="font-medium text-[rgb(var(--peach-rgb))]">Reports 1h</p><p className="text-xl font-semibold">{operations.data?.status_strip?.reports_1h ?? 0}</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-sm"><p className="font-medium text-[rgb(var(--peach-rgb))]">Risk high count</p><p className="text-xl font-semibold">{operations.data?.status_strip?.risk_high_count ?? 0}</p></CardContent></Card>
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">API p95 latency</p><p className="text-xl font-semibold">{operations.data?.status_strip?.api_latency_p95_1h ?? 0} ms</p></CardContent></Card>
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">AI cost today</p><p className="text-xl font-semibold">${Number(operations.data?.status_strip?.ai_cost_today ?? 0).toFixed(4)}</p></CardContent></Card>
                 <Card><CardContent className="p-4 text-sm"><p className="text-muted">Last event</p><p className="text-sm font-semibold">{operations.data?.status_strip?.last_event_at ? new Date(operations.data.status_strip.last_event_at).toLocaleString("ru-RU") : "—"}</p></CardContent></Card>
