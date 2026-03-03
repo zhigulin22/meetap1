@@ -5,11 +5,11 @@ import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const palette = [
-  "bg-[rgb(var(--teal-rgb)/0.14)] text-text border-[rgb(var(--teal-rgb)/0.32)]",
-  "bg-[rgb(var(--sky-rgb)/0.14)] text-text border-[rgb(var(--sky-rgb)/0.32)]",
-  "bg-[rgb(var(--amber-rgb)/0.14)] text-text border-[rgb(var(--amber-rgb)/0.34)]",
-  "bg-surface3/62 text-text border-borderStrong",
-  "bg-[rgb(var(--surface-3-rgb)/0.7)] text-text border-border",
+  "bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--teal-hover-rgb))] border-[rgb(var(--teal-rgb)/0.28)]",
+  "bg-[rgb(var(--peach-rgb)/0.12)] text-[rgb(var(--peach-pressed-rgb))] border-[rgb(var(--peach-rgb)/0.32)]",
+  "bg-[rgb(var(--sky-rgb)/0.12)] text-[rgb(var(--sky-rgb)/0.92)] border-[rgb(var(--sky-rgb)/0.3)]",
+  "bg-[rgb(var(--amber-rgb)/0.15)] text-[rgb(140,92,7)] border-[rgb(var(--amber-rgb)/0.35)]",
+  "bg-[rgb(var(--surface-2-rgb)/0.88)] text-text2 border-[color:var(--border-soft)]",
 ];
 
 export function TagInput({
@@ -71,7 +71,7 @@ export function TagInput({
               key={s}
               type="button"
               onClick={() => addTag(s)}
-              className="rounded-full border border-border bg-[rgb(var(--surface-2-rgb)/0.78)] px-3 py-1 text-xs text-text2 hover:text-text"
+              className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-3 py-1 text-xs text-text2 hover:text-text"
             >
               {s}
             </button>
@@ -90,7 +90,7 @@ export function TagInput({
         ))}
       </div>
 
-      <p className="text-xs text-muted">
+      <p className="text-xs text-text3">
         {normalized.length}/{max} тегов {normalized.length < min ? `· минимум ${min}` : ""}
       </p>
     </div>

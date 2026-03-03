@@ -60,10 +60,10 @@ function ActionIcon({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        "tap-press inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs text-text2 transition",
+        "tap-press inline-flex h-9 items-center gap-1 rounded-full border px-3 text-xs transition",
         active
-          ? "border-[rgb(var(--teal-rgb)/0.45)] bg-[rgb(var(--teal-rgb)/0.14)] text-[rgb(var(--teal-rgb))]"
-          : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] hover:text-text",
+          ? "border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--teal-hover-rgb))]"
+          : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.78)] text-text2 hover:text-text",
       )}
     >
       {icon}
@@ -120,7 +120,7 @@ export function PostCard({
       transition={{ duration: 0.24 }}
       className="snap-start"
     >
-      <div className="overflow-hidden rounded-[22px] bg-[rgb(var(--surface-1-rgb)/0.92)] shadow-card">
+      <div className="overflow-hidden rounded-[24px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)] shadow-soft">
         <div className="flex items-center justify-between px-4 pt-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <Image
@@ -143,23 +143,26 @@ export function PostCard({
             </div>
           </div>
 
-          {post.type === "daily_duo" ? <Pill tone="teal">DUO</Pill> : <Pill>MEDIA</Pill>}
+          {post.type === "daily_duo" ? <Pill tone="teal">DUO</Pill> : <Pill>POST</Pill>}
         </div>
 
         <div className="px-3 pb-3 pt-2">
           {post.type === "daily_duo" ? (
-            <div className="grid grid-cols-2 gap-2">
-              {duoImages.map((src, idx) => (
-                <Image
-                  key={`${src}-${idx}`}
-                  src={src}
-                  alt={`duo-${idx + 1}`}
-                  width={800}
-                  height={1000}
-                  className="h-[44vh] w-full rounded-2xl object-cover"
-                  unoptimized
-                />
-              ))}
+            <div className="overflow-hidden rounded-2xl border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--mint-rgb)/0.08)] p-2">
+              <div className="mb-2 h-[2px] w-full rounded-full bg-[image:var(--grad-primary)]" />
+              <div className="grid grid-cols-2 gap-2">
+                {duoImages.map((src, idx) => (
+                  <Image
+                    key={`${src}-${idx}`}
+                    src={src}
+                    alt={`duo-${idx + 1}`}
+                    width={800}
+                    height={1000}
+                    className="h-[40vh] w-full rounded-xl object-cover"
+                    unoptimized
+                  />
+                ))}
+              </div>
             </div>
           ) : isVideo(mediaUrl) ? (
             <div className="relative">
@@ -170,17 +173,17 @@ export function PostCard({
                 playsInline
                 loop
                 controls={false}
-                className="h-[50vh] w-full rounded-2xl object-cover"
+                className="h-[48vh] w-full rounded-2xl object-cover"
               />
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--sky-rgb)/0.24)] text-text">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--sky-rgb)/0.22)] text-white">
                   <Play className="ml-0.5 h-5 w-5" />
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setMuted((v) => !v)}
-                className="absolute right-2 top-2 rounded-full bg-[rgb(var(--bg-rgb)/0.5)] p-2 text-text2"
+                className="absolute right-2 top-2 rounded-full border border-white/40 bg-black/35 p-2 text-white"
                 aria-label="Toggle sound"
               >
                 {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -192,7 +195,7 @@ export function PostCard({
               alt="single"
               width={1200}
               height={1600}
-              className="h-[50vh] w-full rounded-2xl object-cover"
+              className="h-[48vh] w-full rounded-2xl object-cover"
               unoptimized
             />
           )}

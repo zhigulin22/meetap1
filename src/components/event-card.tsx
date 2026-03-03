@@ -26,7 +26,7 @@ export function EventCard({
   joining?: boolean;
 }) {
   return (
-    <Card className="overflow-hidden bg-[rgb(var(--surface-1-rgb)/0.92)] shadow-card">
+    <Card className="overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)] shadow-soft">
       <div className="relative">
         <Image
           src={event.cover_url || "https://placehold.co/1200x700"}
@@ -42,16 +42,18 @@ export function EventCard({
       </div>
 
       <CardContent className="space-y-3 p-4">
+        <div className="h-[2px] w-full rounded-full bg-[linear-gradient(90deg,rgb(var(--peach-rgb)/0.32),rgb(var(--gold-rgb)/0.42),rgb(var(--peach-rgb)/0.32))]" />
+
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold leading-tight">{event.title}</h3>
-          <span className="rounded-full bg-[rgb(var(--surface-2-rgb)/0.75)] px-2.5 py-1 text-xs text-text2">
+          <h3 className="text-lg font-semibold leading-tight text-text">{event.title}</h3>
+          <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1 text-xs text-text2">
             {event.price === 0 ? "Бесплатно" : `${event.price} ₽`}
           </span>
         </div>
 
         <p className="line-clamp-2 text-sm text-text2">{event.description}</p>
         <p className="inline-flex items-center gap-1.5 text-xs text-text2">
-          <CalendarDays className="h-3.5 w-3.5 text-gold" /> {new Date(event.event_date).toLocaleString("ru-RU")}
+          <CalendarDays className="h-3.5 w-3.5 text-[rgb(var(--gold-rgb))]" /> {new Date(event.event_date).toLocaleString("ru-RU")}
         </p>
 
         <div className="flex -space-x-2">
@@ -74,7 +76,7 @@ export function EventCard({
           </Link>
 
           {event.joined ? (
-            <span className="inline-flex h-10 items-center rounded-full border border-mint/45 bg-mint/12 px-4 text-sm font-semibold text-mint">
+            <span className="inline-flex h-10 items-center rounded-full border border-[rgb(var(--teal-rgb)/0.35)] bg-[rgb(var(--teal-rgb)/0.14)] px-4 text-sm font-semibold text-[rgb(var(--teal-hover-rgb))]">
               Регистрация успешна
             </span>
           ) : (

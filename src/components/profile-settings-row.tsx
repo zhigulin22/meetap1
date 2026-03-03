@@ -22,12 +22,12 @@ export function ProfileSettingsRow({
   return (
     <Link
       href={href}
-      className="group tap-press relative flex min-h-[70px] w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.86)] px-4 py-3 text-left shadow-card transition duration-150"
+      className="group tap-press relative flex min-h-[72px] w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)] px-4 py-3 text-left shadow-soft transition duration-150"
     >
-      <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100" style={{ background: "linear-gradient(110deg, rgb(var(--teal-rgb) / 0.08), transparent 42%, rgb(var(--sky-rgb) / 0.08))" }} />
+      <div className="absolute inset-0 opacity-0 transition group-hover:opacity-100" style={{ background: "linear-gradient(110deg, rgb(var(--peach-rgb) / 0.07), transparent 42%, rgb(var(--teal-rgb) / 0.07))" }} />
 
       <div
-        className={`relative flex h-11 w-11 items-center justify-center rounded-[13px] shadow-[inset_0_1px_0_rgb(var(--border-strong-rgb)/0.16)] ${iconToneClass ?? "bg-surface3/60 text-text2"}`}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-[13px] shadow-[inset_0_1px_0_rgb(255_255_255/0.45)] ${iconToneClass ?? "bg-[rgb(var(--surface-2-rgb))] text-text2"}`}
       >
         {icon}
       </div>

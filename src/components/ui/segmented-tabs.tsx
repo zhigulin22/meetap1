@@ -20,7 +20,7 @@ export function SegmentedTabs<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cn("relative inline-flex rounded-[14px] bg-[rgb(var(--surface-2-rgb)/0.94)] p-1", className)}>
+    <div className={cn("relative inline-flex rounded-[14px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-1", className)}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -36,7 +36,7 @@ export function SegmentedTabs<T extends string>({
             {active ? (
               <motion.span
                 layoutId="segmented-active"
-                className="absolute inset-0 -z-10 rounded-[10px] border border-[color:var(--border-soft)] bg-[rgb(var(--text-rgb)/0.08)]"
+                className="absolute inset-0 -z-10 rounded-[10px] border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.12)]"
                 transition={{ duration: 0.2, ease: "easeOut" }}
               />
             ) : null}

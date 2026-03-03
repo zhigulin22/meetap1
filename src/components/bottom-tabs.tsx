@@ -18,7 +18,7 @@ export function BottomTabs() {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-3 flex w-[calc(100%-24px)] max-w-md items-center justify-between rounded-[20px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-2 py-1.5 shadow-soft backdrop-blur-2xl lg:max-w-xl xl:max-w-2xl">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto mb-3 flex w-[calc(100%-24px)] max-w-md items-center justify-between rounded-[20px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2 py-1.5 shadow-soft backdrop-blur-2xl lg:max-w-xl xl:max-w-2xl">
       {tabs.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         const Icon = tab.icon;
@@ -35,7 +35,7 @@ export function BottomTabs() {
             <span
               className={cn(
                 "flex h-7 min-w-[42px] items-center justify-center rounded-full px-2",
-                active ? "bg-[rgb(var(--text-rgb)/0.1)] shadow-[inset_0_1px_0_rgb(var(--border-strong-rgb)/0.1)]" : "bg-transparent",
+                active ? "bg-[rgb(var(--mint-rgb)/0.14)] border border-[rgb(var(--teal-rgb)/0.24)]" : "bg-transparent",
               )}
             >
               <Icon className="h-4 w-4" />

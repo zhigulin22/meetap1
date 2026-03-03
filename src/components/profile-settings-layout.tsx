@@ -18,7 +18,7 @@ export function ProfileSettingsLayout({
 }) {
   return (
     <PageShell>
-      <div className="mb-4 rounded-[24px] bg-[rgb(var(--surface-1-rgb)/0.94)] p-3 shadow-card">
+      <div className="mb-4 rounded-[24px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)] p-3 shadow-soft">
         <div className="flex items-start gap-3">
           <Link
             href={backHref}
@@ -28,13 +28,13 @@ export function ProfileSettingsLayout({
             <ArrowLeft className="h-4 w-4" />
           </Link>
 
-          <div className="min-w-0 flex-1 rounded-[16px] bg-[rgb(var(--surface-2-rgb)/0.74)] px-4 py-3">
+          <div className="min-w-0 flex-1 rounded-[16px] bg-[rgb(var(--surface-2-rgb)/0.78)] px-4 py-3">
             <h1 className="font-display text-[1.2rem] font-semibold leading-tight text-text">{title}</h1>
             {subtitle ? <p className="mt-1 text-[13px] leading-5 text-text2">{subtitle}</p> : null}
           </div>
         </div>
 
-        <div className="mt-3 h-px bg-[linear-gradient(90deg,transparent,rgb(var(--teal-rgb)/0.45),transparent)]" />
+        <div className="mt-3 h-px bg-[linear-gradient(90deg,transparent,rgb(var(--peach-rgb)/0.4),rgb(var(--teal-rgb)/0.4),transparent)]" />
       </div>
 
       <div className="space-y-3">{children}</div>

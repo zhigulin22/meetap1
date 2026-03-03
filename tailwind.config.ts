@@ -40,8 +40,8 @@ const config: Config = {
         glow: "0 0 0 1px rgb(var(--teal-rgb) / 0.24), 0 14px 34px rgb(var(--teal-rgb) / 0.18)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "var(--font-manrope)", "system-ui", "sans-serif"],
-        display: ["var(--font-manrope)", "var(--font-inter)", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        display: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       borderRadius: {
         xl2: "var(--radius-md)",

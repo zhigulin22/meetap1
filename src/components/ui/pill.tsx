@@ -12,12 +12,12 @@ export function Pill({
 }) {
   const toneClass =
     tone === "teal"
-      ? "border-teal-300/35 bg-[rgb(var(--teal-rgb)/0.16)] text-text"
+      ? "border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--teal-hover-rgb))]"
       : tone === "gold"
-      ? "border-gold/45 bg-[rgb(var(--gold-rgb)/0.2)] text-[rgb(var(--ivory-rgb))]"
+      ? "border-[rgb(var(--gold-rgb)/0.46)] bg-[rgb(var(--gold-rgb)/0.22)] text-[rgb(146,102,12)]"
       : tone === "mint"
-      ? "border-mint/45 bg-mint/14 text-mint/95"
-      : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.78)] text-text2";
+      ? "border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.1)] text-[rgb(var(--teal-hover-rgb))]"
+      : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2";
 
   return (
     <span

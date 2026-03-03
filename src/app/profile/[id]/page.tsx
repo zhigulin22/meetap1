@@ -60,7 +60,7 @@ export default function ProfilePage() {
   const [connectData, setConnectData] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["profile-v7", params.id],
+    queryKey: ["profile-v8", params.id],
     queryFn: () =>
       api<{
         profile: any;
@@ -90,6 +90,8 @@ export default function ProfilePage() {
     }
     return base.filter((x) => !(x.caption ?? "").toLowerCase().includes("груп"));
   }, [data?.content.all, duoFilter]);
+
+  const pinned = useMemo(() => posts.slice(0, 3), [posts]);
 
   const stats = {
     posts: posts.length,
@@ -125,84 +127,78 @@ export default function ProfilePage() {
   if (!p) {
     return (
       <PageShell>
-        <EmptyState title="Профиль не найден" description="Пользователь недоступен или удалён." />
+        <EmptyState title="Профиль не найден" description="Пользователь недоступен или удален." />
       </PageShell>
     );
   }
 
   return (
     <PageShell>
-      <TopBar title="Профиль" subtitle="Публичная карточка пользователя" />
+      <TopBar title="Профиль" subtitle="Визитка пользователя" />
 
-      <section className="relative mb-3 overflow-hidden rounded-[28px] bg-[rgb(var(--surface-1-rgb)/0.92)] p-5 shadow-card">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[-18%] top-[-24%] h-60 w-60 rounded-full bg-[radial-gradient(circle,rgb(var(--teal-rgb)/0.12),transparent_66%)]" />
-          <div className="absolute right-[-18%] top-[-18%] h-56 w-56 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.1),transparent_68%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,rgb(var(--text-rgb)/0.12),transparent_62%)]" />
+      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[image:var(--grad-hero-1)] p-5 shadow-soft">
+        <div className="pointer-events-none absolute inset-0 opacity-70">
+          <div className="absolute left-[-18%] top-[-24%] h-60 w-60 rounded-full bg-[radial-gradient(circle,rgb(var(--peach-rgb)/0.22),transparent_66%)]" />
+          <div className="absolute right-[-18%] top-[-18%] h-56 w-56 rounded-full bg-[radial-gradient(circle,rgb(var(--teal-rgb)/0.2),transparent_68%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,rgb(255_255_255/0.5),transparent_60%)]" />
         </div>
 
         <div className="relative flex flex-col items-center text-center">
-          <Image
-            src={p.avatar_url || "https://placehold.co/560x560"}
-            alt={p.name}
-            width={220}
-            height={220}
-            className="h-28 w-28 rounded-full border-2 border-[color:var(--border-soft)] object-cover shadow-[0_14px_30px_rgba(0,0,0,0.38)]"
-            unoptimized
-          />
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.78)] px-3 py-1.5">
-            <span className="text-[11px] uppercase tracking-[0.09em] text-text2">Stage profile</span>
-            <Pill tone="mint">verified</Pill>
+          <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-white/80 p-1.5 shadow-soft">
+            <Image
+              src={p.avatar_url || "https://placehold.co/560x560"}
+              alt={p.name}
+              width={224}
+              height={224}
+              className="h-28 w-28 rounded-full object-cover"
+              unoptimized
+            />
           </div>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[rgb(var(--text-2-rgb)/0.8)]">public vibe</p>
         </div>
       </section>
 
-      <Card className="mb-3 bg-[rgb(var(--surface-1-rgb)/0.94)]">
+      <Card className="mb-3 bg-[rgb(var(--surface-1-rgb)/0.98)]">
         <CardContent className="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[1.6rem] font-semibold leading-none text-text">{p.name}</h1>
+            <h1 className="text-[1.62rem] font-semibold leading-none text-text">{p.name}</h1>
             <ProfileEmojiBadge value={p.profileEmoji} />
-            {p.telegram_verified ? <CheckCircle2 className="h-4 w-4 text-mint" /> : null}
-            {p.vibeTag ? <Pill>{p.vibeTag}</Pill> : null}
+            {p.telegram_verified ? <CheckCircle2 className="h-4 w-4 text-[rgb(var(--teal-rgb))]" /> : null}
+            <Pill>{p?.preferences?.activity || "Creator"}</Pill>
           </div>
 
           {p.bio ? <p className="line-clamp-2 text-[15px] leading-6 text-text2">{p.bio}</p> : null}
 
+          {p.city ? (
+            <p className="inline-flex items-center gap-1 text-xs text-text2">
+              <MapPin className="h-3.5 w-3.5 text-cyan" /> {p.city}
+            </p>
+          ) : null}
+
+          {data?.positiveFact ? (
+            <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.26)] bg-[rgb(var(--teal-rgb)/0.1)] px-3 py-2 text-xs text-[rgb(var(--teal-hover-rgb))]">
+              <Sparkles className="mr-1 inline h-3.5 w-3.5" /> {data.positiveFact}
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setTab("posts")}
-              className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-2 text-center"
-            >
+            <button type="button" onClick={() => setTab("posts")} className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.82)] px-2 py-2 text-center">
               <p className="text-[17px] font-semibold text-text">{stats.posts}</p>
-              <p className="text-[11px] text-text3">Posts</p>
+              <p className="text-[11px] text-text3">Посты</p>
             </button>
-            <button
-              type="button"
-              onClick={() => toast.message("Список подписчиков", { description: "Экран подписчиков можно добавить следующим шагом." })}
-              className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-2 text-center"
-            >
+            <button type="button" className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.82)] px-2 py-2 text-center">
               <p className="text-[17px] font-semibold text-text">{stats.followers}</p>
-              <p className="text-[11px] text-text3">Followers</p>
+              <p className="text-[11px] text-text3">Подписчики</p>
             </button>
-            <button
-              type="button"
-              onClick={() => setTab("duo")}
-              className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-2 text-center"
-            >
+            <button type="button" onClick={() => setTab("duo")} className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.82)] px-2 py-2 text-center">
               <p className="text-[17px] font-semibold text-text">{stats.duos}</p>
-              <p className="text-[11px] text-text3">DUOs</p>
+              <p className="text-[11px] text-text3">DUO</p>
             </button>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {p.city ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.74)] px-3 py-1 text-xs text-text2">
-                <MapPin className="h-3.5 w-3.5 text-cyan" /> {p.city}
-              </span>
-            ) : null}
             {(p.interests ?? []).slice(0, 4).map((interest: string) => (
-              <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.74)] px-3 py-1 text-xs text-text2">
+              <span key={interest} className="rounded-full border border-[rgb(var(--teal-rgb)/0.2)] bg-[rgb(var(--teal-rgb)/0.08)] px-3 py-1 text-xs text-[rgb(var(--teal-hover-rgb))]">
                 {interest}
               </span>
             ))}
@@ -218,7 +214,7 @@ export default function ProfilePage() {
           <Button variant="secondary" onClick={() => router.push("/contacts")}>
             <MessageCircle className="mr-1 h-4 w-4" /> Message
           </Button>
-          <Button variant="secondary" onClick={openConnect} disabled={connectLoading}>
+          <Button variant="ghost" onClick={openConnect} disabled={connectLoading}>
             <Handshake className="mr-1 h-4 w-4" /> {connectLoading ? "..." : "Invite DUO"}
           </Button>
           <Button variant="secondary" onClick={() => setMoreOpen(true)}>
@@ -227,13 +223,31 @@ export default function ProfilePage() {
         </div>
       ) : null}
 
-      <div className="mb-3 rounded-[14px] bg-[rgb(var(--surface-2-rgb)/0.88)] p-1">
+      {pinned.length ? (
+        <Card className="mb-3 border-[rgb(var(--peach-rgb)/0.24)] bg-[rgb(255_240_235/0.72)]">
+          <CardContent className="p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--peach-pressed-rgb))]">Pinned</p>
+              <Pill>top</Pill>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {pinned.map((post) => (
+                <Link key={post.id} href="/feed" className="block overflow-hidden rounded-xl">
+                  <Image src={firstPhoto(post)} alt="pinned" width={300} height={300} className="aspect-square w-full object-cover" unoptimized />
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="mb-3 rounded-[14px] bg-[rgb(var(--surface-2-rgb)/0.92)] p-1">
         <SegmentedTabs
           value={tab}
           onChange={setTab}
           options={[
-            { value: "posts", label: "Posts" },
-            { value: "reposts", label: "Reposts" },
+            { value: "posts", label: "Посты" },
+            { value: "reposts", label: "Репосты" },
             { value: "duo", label: "DUO" },
           ]}
           className="w-full"
@@ -251,8 +265,8 @@ export default function ProfilePage() {
                   {video ? (
                     <div className="relative aspect-square">
                       <video src={src} className="h-full w-full object-cover" muted playsInline />
-                      <div className="absolute inset-0 flex items-center justify-center bg-[rgb(var(--bg-rgb)/0.24)]">
-                        <Play className="h-5 w-5 text-text" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-[rgb(18_32_28/0.18)]">
+                        <Play className="h-5 w-5 text-white" />
                       </div>
                     </div>
                   ) : (
@@ -280,7 +294,7 @@ export default function ProfilePage() {
           <EmptyState
             title="Репостов пока нет"
             description="В этом профиле нет публичных репостов за выбранный период."
-            hint="Если в событиях появятся репосты, они отобразятся здесь автоматически."
+            hint="Если появятся новые репосты, они отобразятся здесь автоматически."
           />
         )
       ) : null}
@@ -297,10 +311,10 @@ export default function ProfilePage() {
                 key={filter.id}
                 type="button"
                 onClick={() => setDuoFilter(filter.id as typeof duoFilter)}
-                className={`tap-press rounded-full px-3 py-1.5 text-xs ${
+                className={`tap-press rounded-full border px-3 py-1.5 text-xs ${
                   duoFilter === filter.id
-                    ? "bg-[rgb(var(--text-rgb)/0.12)] text-text"
-                    : "bg-[rgb(var(--surface-2-rgb)/0.72)] text-text2"
+                    ? "border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--teal-hover-rgb))]"
+                    : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] text-text2"
                 }`}
               >
                 {filter.label}
@@ -309,89 +323,97 @@ export default function ProfilePage() {
           </div>
 
           {duo.length ? (
-            duo.map((item, idx) => {
-              const photos = item.photos.slice(0, 2);
-              return (
-                <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
-                  <Card className="bg-[rgb(var(--surface-1-rgb)/0.94)]">
-                    <CardContent className="space-y-3 p-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        {photos.map((photo, i) => (
-                          <Image
-                            key={`${item.id}-${i}`}
-                            src={photo.url || "https://placehold.co/500x700"}
-                            alt="duo"
-                            width={500}
-                            height={700}
-                            className="h-40 w-full rounded-2xl object-cover"
-                            unoptimized
-                          />
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-text">DUO moment</p>
-                          <p className="text-xs text-text2">Участники: {p.name} + 1</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {duo.map((item, idx) => {
+                const photos = item.photos.slice(0, 2);
+                return (
+                  <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
+                    <Card className="overflow-hidden bg-[rgb(var(--surface-1-rgb)/0.98)]">
+                      <CardContent className="space-y-3 p-3">
+                        <div className="h-[2px] w-full rounded-full bg-[image:var(--grad-primary)]" />
+                        <div className="grid grid-cols-2 gap-2">
+                          {photos.map((photo, i) => (
+                            <Image
+                              key={`${photo.url}-${i}`}
+                              src={photo.url}
+                              alt="duo"
+                              width={500}
+                              height={700}
+                              className="h-36 w-full rounded-xl object-cover"
+                              unoptimized
+                            />
+                          ))}
                         </div>
-                        <Button variant="secondary" onClick={() => router.push("/feed")}>View</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })
+
+                        <p className="line-clamp-2 text-xs text-text2">{item.caption || "DUO-момент"}</p>
+
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] text-text3">{new Date(item.created_at).toLocaleDateString("ru-RU")}</p>
+                          <Button size="sm" variant="secondary">Смотреть</Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
           ) : (
-            <EmptyState title="DUO пока нет" description="Пока не найдено DUO-карточек под текущий фильтр." />
+            <EmptyState title="DUO пока нет" description="Пользователь еще не публиковал совместные DUO-записи." />
           )}
         </div>
       ) : null}
+
+      <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
+        <DialogHeader>
+          <DialogTitle>Зона знакомства</DialogTitle>
+        </DialogHeader>
+
+        <div className="max-h-[74vh] space-y-3 overflow-y-auto pr-1 text-sm">
+          {connectData?.vibeStatus ? (
+            <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.12)] px-3 py-1 text-xs text-[rgb(var(--teal-hover-rgb))]">
+              {connectData.vibeStatus}
+            </div>
+          ) : null}
+
+          {connectData?.profileSummary ? (
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.76)] p-3 text-text2">
+              {connectData.profileSummary}
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
+            <p className="text-xs text-text3">Тема</p>
+            <p className="font-medium">{connectData?.topic}</p>
+          </div>
+
+          {(connectData?.firstMessages ?? []).length
+            ? connectData?.firstMessages?.map((m: string) => (
+                <div key={m} className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--sky-rgb)/0.1)] p-3 text-[13px]">
+                  {m}
+                </div>
+              ))
+            : null}
+
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
+            <p className="mb-1 text-xs text-text3">Контрольный вопрос</p>
+            <p>{connectData?.question}</p>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
         <DialogHeader>
           <DialogTitle>Дополнительно</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2 text-sm text-text2">
-          <p>Пожаловаться на профиль</p>
-          <p>Скопировать ссылку</p>
-          <p>Скрыть рекомендации этого пользователя</p>
+        <div className="space-y-2">
+          <Button variant="secondary" className="w-full" onClick={() => toast.message("Скоро", { description: "Жалоба и блокировка будут здесь." })}>
+            Пожаловаться
+          </Button>
+          <Button variant="secondary" className="w-full" onClick={() => toast.message("Скоро", { description: "Сохранение профиля в избранное будет здесь." })}>
+            Сохранить профиль
+          </Button>
         </div>
       </Dialog>
-
-      <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
-        <DialogHeader>
-          <DialogTitle>Подсказки для знакомства</DialogTitle>
-        </DialogHeader>
-        {!connectData ? (
-          <p className="text-sm text-text2">Собираем рекомендации...</p>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] p-3">
-              <p className="text-xs text-text3">Стиль общения</p>
-              <p className="text-text">{connectData.vibeStatus}</p>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] p-3">
-              <p className="text-xs text-text3">О чём начать</p>
-              {(connectData.messages ?? []).slice(0, 2).map((m: string) => (
-                <p key={m} className="text-text">• {m}</p>
-              ))}
-            </div>
-            <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] p-3">
-              <p className="inline-flex items-center gap-1 text-xs text-mint/95">
-                <Sparkles className="h-3.5 w-3.5" /> {data?.positiveFact}
-              </p>
-            </div>
-            <Button className="w-full" onClick={() => setConnectOpen(false)}>
-              Понял, написать самому
-            </Button>
-          </div>
-        )}
-      </Dialog>
-
-      <div className="pb-20 text-center text-xs text-text3">
-        <Link href="/profile/me" className="underline underline-offset-2">
-          Открыть настройки своего профиля
-        </Link>
-      </div>
     </PageShell>
   );
 }
