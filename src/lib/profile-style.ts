@@ -1,18 +1,18 @@
 export const PROFILE_COLOR_THEMES = [
-  { id: "midnight", label: "Midnight", gradient: "linear-gradient(130deg,#08142F,#10244A)" },
-  { id: "ocean", label: "Ocean", gradient: "linear-gradient(130deg,#051a33,#0d3a58)" },
-  { id: "graphite", label: "Graphite", gradient: "linear-gradient(130deg,#151b2b,#1f2d46)" },
-  { id: "aurora", label: "Aurora", gradient: "linear-gradient(130deg,#0f2440,#1f3f6d)" },
-  { id: "cobalt", label: "Cobalt", gradient: "linear-gradient(130deg,#0B1D47,#183A7A)" },
+  { id: "midnight", label: "Midnight", gradient: "linear-gradient(140deg,#0B1020,#152646 56%,#1E335D)" },
+  { id: "aurora", label: "Aurora", gradient: "linear-gradient(140deg,#111A34,#1A3766 55%,#2B5E87)" },
+  { id: "electric", label: "Electric", gradient: "linear-gradient(140deg,#0F1B3D,#2858A7 58%,#4C8DFF)" },
+  { id: "mintwave", label: "Mintwave", gradient: "linear-gradient(140deg,#0E1B32,#1F3E64 52%,#52CC83)" },
+  { id: "sunset", label: "Sunset", gradient: "linear-gradient(140deg,#1A233F,#304E8A 56%,#FFB020)" },
 ] as const;
 
 export const PROFILE_EMOJI_PRESETS = [
-  { id: "orbit", label: "Orbit", glyph: "◉", bg: "linear-gradient(135deg,#1f3f78,#6b9cff)" },
-  { id: "pulse", label: "Pulse", glyph: "✦", bg: "linear-gradient(135deg,#26406b,#66b4ff)" },
-  { id: "forge", label: "Forge", glyph: "⬢", bg: "linear-gradient(135deg,#2f3447,#63708e)" },
-  { id: "stream", label: "Stream", glyph: "≈", bg: "linear-gradient(135deg,#0f3f57,#4fb3d8)" },
-  { id: "focus", label: "Focus", glyph: "◇", bg: "linear-gradient(135deg,#2d3b69,#8aa2ff)" },
-  { id: "spark", label: "Spark", glyph: "✷", bg: "linear-gradient(135deg,#1c365f,#5e8ee6)" },
+  { id: "orbit", label: "Orbit", glyph: "◉", bg: "linear-gradient(135deg,#24417a,#4C8DFF)" },
+  { id: "spark", label: "Spark", glyph: "✦", bg: "linear-gradient(135deg,#2b5f99,#56b7ff)" },
+  { id: "mint", label: "Mint", glyph: "❖", bg: "linear-gradient(135deg,#2d6c62,#52CC83)" },
+  { id: "pulse", label: "Pulse", glyph: "◈", bg: "linear-gradient(135deg,#3a4f83,#879cff)" },
+  { id: "sun", label: "Sun", glyph: "✺", bg: "linear-gradient(135deg,#6b4e24,#FFB020)" },
+  { id: "wave", label: "Wave", glyph: "≈", bg: "linear-gradient(135deg,#255173,#5dc4ff)" },
 ] as const;
 
 export type ProfileEmojiConfig =

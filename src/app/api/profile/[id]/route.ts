@@ -47,6 +47,15 @@ function buildVibeTag(style: string | null, mode: string | null) {
   return "Гибкий формат знакомств";
 }
 
+function buildMood(preferences: Record<string, any>, mode: string | null) {
+  if (typeof preferences.mood === "string" && preferences.mood.trim().length > 0) {
+    return preferences.mood.trim();
+  }
+  if (mode === "dating") return "Сегодня: в поиске теплого знакомства";
+  if (mode === "networking") return "Сегодня: в нетворк-режиме";
+  return "Сегодня: открыт(а) к новым людям";
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const viewerId = getCurrentUserId();
 
@@ -135,10 +144,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const activity = showWork ? (preferences.activity ?? null) : null;
   const specialty = showWork ? (preferences.specialty ?? null) : null;
   const interests = showInterests ? (profile.interests ?? []) : [];
+  const mode = typeof preferences.mode === "string" ? preferences.mode : null;
 
   return ok({
     profile: {
       id: profile.id,
+      is_owner: isOwner,
       name: profile.name,
       avatar_url: profile.avatar_url,
       bio: profile.bio,
@@ -152,6 +163,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       facts: showFacts ? profile.facts ?? [] : [],
       phone_masked: canShowPhone ? maskPhone(profile.phone) : null,
       level: profile.level,
+      telegram_verified: Boolean(profile.telegram_verified),
+      profile_completed: Boolean(profile.profile_completed),
+      mood: buildMood(preferences, mode),
       lastActiveLabel,
       endorsementsCount,
       featuredBadge,
@@ -159,7 +173,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       eventHistory: showEventHistory ? (eventsRes.data ?? []) : [],
       eventHistoryCount: eventsCount,
       messagePolicy: privacyRow.who_can_message ?? defaultPrivacy.who_can_message,
-      vibeTag: buildVibeTag(typeof personality.style === "string" ? personality.style : null, typeof preferences.mode === "string" ? preferences.mode : null),
+      vibeTag: buildVibeTag(typeof personality.style === "string" ? personality.style : null, mode),
       profileTheme: typeof preferences.profileColor === "string" ? preferences.profileColor : null,
       profileEmoji: preferences.profileEmoji ?? null,
     },

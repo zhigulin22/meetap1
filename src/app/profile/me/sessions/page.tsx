@@ -1,6 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Monitor, ShieldAlert, Smartphone, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,31 +20,105 @@ type SessionItem = {
   is_current: boolean;
 };
 
+type SessionsResponse = {
+  current_session_id: string | null;
+  current: SessionItem | null;
+  items: SessionItem[];
+};
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("ru-RU");
+}
+
+function parsePlatform(ua: string | null) {
+  if (!ua) return "Web";
+  if (/iphone|ios/i.test(ua)) return "iPhone / iOS";
+  if (/android/i.test(ua)) return "Android";
+  if (/mac os|macintosh/i.test(ua)) return "macOS";
+  if (/windows/i.test(ua)) return "Windows";
+  return "Web";
+}
+
 export default function ProfileSessionsPage() {
+  const queryClient = useQueryClient();
+  const [revokingIds, setRevokingIds] = useState<Record<string, boolean>>({});
+  const [revokeAllLoading, setRevokeAllLoading] = useState(false);
+  const [sessions, setSessions] = useState<SessionsResponse | null>(null);
+
   const sessionsQuery = useQuery({
     queryKey: ["profile-sessions-page"],
-    queryFn: () =>
-      api<{ current_session_id: string | null; current: SessionItem | null; items: SessionItem[] }>("/api/profile/sessions"),
+    queryFn: () => api<SessionsResponse>("/api/profile/sessions"),
   });
 
+  useEffect(() => {
+    if (sessionsQuery.data) {
+      setSessions(sessionsQuery.data);
+    }
+  }, [sessionsQuery.data]);
+
+  const current = sessions?.current ?? null;
+  const items = sessions?.items ?? [];
+
+  const activeCount = useMemo(() => items.filter((s) => !s.revoked_at).length, [items]);
+
   async function revokeSession(sessionId: string) {
+    const snapshot = sessions;
+    if (!snapshot) return;
+
+    const target = snapshot.items.find((s) => s.id === sessionId);
+    if (!target) return;
+
+    setRevokingIds((prev) => ({ ...prev, [sessionId]: true }));
+
+    const optimistic: SessionsResponse = {
+      ...snapshot,
+      current: snapshot.current?.id === sessionId ? null : snapshot.current,
+      items: snapshot.items.filter((s) => s.id !== sessionId),
+    };
+
+    setSessions(optimistic);
+    queryClient.setQueryData(["profile-sessions-page"], optimistic);
+
     try {
       const result = await api<{ success: boolean; signed_out: boolean }>("/api/profile/sessions/revoke", {
         method: "POST",
         body: JSON.stringify({ session_id: sessionId }),
       });
+
       if (result.signed_out) {
         window.location.href = "/login";
         return;
       }
+
       await sessionsQuery.refetch();
       toast.success("Сессия завершена");
     } catch (e) {
+      setSessions(snapshot);
+      queryClient.setQueryData(["profile-sessions-page"], snapshot);
       toast.error(e instanceof Error ? e.message : "Не удалось завершить сессию");
+    } finally {
+      setRevokingIds((prev) => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
     }
   }
 
   async function revokeAll() {
+    if (!sessions) return;
+
+    const snapshot = sessions;
+    const optimistic: SessionsResponse = {
+      ...snapshot,
+      items: snapshot.items.filter((s) => s.is_current),
+    };
+
+    setRevokeAllLoading(true);
+    setSessions(optimistic);
+    queryClient.setQueryData(["profile-sessions-page"], optimistic);
+
     try {
       await api<{ success: boolean; revoked_count: number }>("/api/profile/sessions/revoke-all", {
         method: "POST",
@@ -51,61 +127,90 @@ export default function ProfileSessionsPage() {
       await sessionsQuery.refetch();
       toast.success("Сессии завершены");
     } catch (e) {
+      setSessions(snapshot);
+      queryClient.setQueryData(["profile-sessions-page"], snapshot);
       toast.error(e instanceof Error ? e.message : "Не удалось завершить сессии");
+    } finally {
+      setRevokeAllLoading(false);
     }
   }
 
-  const current = sessionsQuery.data?.current ?? null;
-  const items = sessionsQuery.data?.items ?? [];
-
   return (
-    <ProfileSettingsLayout title="Устройства и активные сессии" subtitle="Как в Telegram: текущее устройство + история входов">
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Текущее устройство</CardTitle></CardHeader>
+    <ProfileSettingsLayout title="Устройства и активные сессии" subtitle="Контролируй входы как в Telegram: текущая сессия и безопасное завершение остальных.">
+      <Card className="border-white/15 bg-surface/90 backdrop-blur-2xl">
+        <CardHeader>
+          <CardTitle className="text-sm text-[#edf3ff]">Текущее устройство</CardTitle>
+        </CardHeader>
         <CardContent>
           {current ? (
-            <div className="rounded-xl border border-action/30 bg-action/10 p-3">
-              <p className="text-sm text-text">{current.device_label}</p>
-              <p className="text-xs text-muted">Локация: {current.approx_location || "—"}</p>
-              <p className="text-xs text-muted">Активность: {new Date(current.last_active_at).toLocaleString("ru-RU")}</p>
+            <div className="rounded-2xl border border-[#4C8DFF]/35 bg-[#4C8DFF]/14 p-3">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl border border-white/15 bg-white/10 p-2 text-[#dbe8ff]"><Smartphone className="h-4 w-4" /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-[#eef4ff]">{current.device_label || "Текущее устройство"}</p>
+                  <p className="text-xs text-[#bfd0e8]">{parsePlatform(current.user_agent)}</p>
+                  <p className="mt-1 text-xs text-[#bfd0e8]">Локация: {current.approx_location || "—"}</p>
+                  <p className="text-xs text-[#bfd0e8]">Активность: {formatDate(current.last_active_at)}</p>
+                </div>
+              </div>
             </div>
           ) : (
-            <p className="text-xs text-muted">Текущая сессия не найдена</p>
+            <div className="rounded-2xl border border-white/15 bg-white/7 p-3 text-xs text-[#b7c4db]">Текущая сессия не найдена.</div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Активные сессии</CardTitle></CardHeader>
+      <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
+        <CardHeader>
+          <CardTitle className="text-sm text-[#edf3ff]">Активные сессии ({activeCount})</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2">
           {items.length ? (
             items.map((s) => (
-              <div key={s.id} className="rounded-xl border border-border bg-surface2/70 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm text-text">{s.device_label}</p>
-                    <p className="text-xs text-muted">{s.approx_location || "Локация недоступна"}</p>
-                    <p className="text-xs text-muted">Был(а): {new Date(s.last_active_at).toLocaleString("ru-RU")}</p>
+              <div key={s.id} className="rounded-2xl border border-white/15 bg-white/7 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[#edf3ff]">{s.device_label || "Устройство"}</p>
+                    <p className="text-xs text-[#aebcd4]">{parsePlatform(s.user_agent)} · {s.approx_location || "Локация недоступна"}</p>
+                    <p className="text-xs text-[#aebcd4]">Был(а): {formatDate(s.last_active_at)}</p>
+                    <p className="text-[11px] text-[#8fa1bf]">Вход: {formatDate(s.created_at)}</p>
                   </div>
+
                   {s.is_current ? (
-                    <span className="rounded-full border border-action/30 bg-action/10 px-2 py-1 text-[10px] text-action">Текущее</span>
+                    <span className="rounded-full border border-[#52CC83]/45 bg-[#52CC83]/12 px-2 py-1 text-[10px] text-[#ddffe9]">Текущее</span>
                   ) : (
-                    <Button variant="secondary" size="sm" onClick={() => revokeSession(s.id)}>
-                      Завершить
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => revokeSession(s.id)}
+                      disabled={Boolean(revokingIds[s.id])}
+                      className="shrink-0"
+                    >
+                      {revokingIds[s.id] ? "Завершаем..." : "Завершить"}
                     </Button>
                   )}
                 </div>
               </div>
             ))
           ) : (
-            <p className="text-xs text-muted">Сессий нет</p>
+            <div className="rounded-2xl border border-white/15 bg-white/7 p-3 text-xs text-[#b7c4db]">Других активных сессий нет.</div>
           )}
         </CardContent>
       </Card>
 
-      <Button variant="secondary" className="w-full" onClick={revokeAll} disabled={sessionsQuery.isLoading}>
-        Завершить все кроме текущей
-      </Button>
+      <Card className="border-[#ffb020]/35 bg-[#ffb020]/10">
+        <CardContent className="space-y-3 p-4">
+          <p className="inline-flex items-center gap-2 text-xs text-[#ffe9c1]">
+            <ShieldAlert className="h-4 w-4" /> Если устройство не твое, заверши все сессии кроме текущей.
+          </p>
+          <Button variant="danger" className="w-full" onClick={revokeAll} disabled={revokeAllLoading || sessionsQuery.isLoading}>
+            <Trash2 className="mr-1 h-4 w-4" /> {revokeAllLoading ? "Завершаем..." : "Завершить все кроме текущей"}
+          </Button>
+          <div className="inline-flex items-center gap-2 text-[11px] text-[#d7e3f6]">
+            <Monitor className="h-3.5 w-3.5" /> Изменения применяются сразу и сохраняются в безопасности аккаунта.
+          </div>
+        </CardContent>
+      </Card>
     </ProfileSettingsLayout>
   );
 }

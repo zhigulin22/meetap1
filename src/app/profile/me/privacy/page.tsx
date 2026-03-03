@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Shield, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,15 +24,37 @@ type PrivacySettings = {
   show_badges: boolean;
 };
 
-function SwitchRow({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+type BlockedUser = { id: string; name: string; avatar_url: string | null };
+
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
-    <label className="flex min-h-[52px] cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-surface2/70 px-3 py-2">
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex min-h-[58px] w-full items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/7 px-3 py-2 text-left transition active:scale-[0.988]"
+    >
       <div>
-        <p className="text-sm text-text">{label}</p>
-        <p className="text-xs text-muted">{hint}</p>
+        <p className="text-sm font-medium text-[#eaf1ff]">{label}</p>
+        <p className="text-xs text-[#aebcd4]">{hint}</p>
       </div>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[#52CC83]" />
-    </label>
+      <span
+        className={`inline-flex h-6 w-11 items-center rounded-full border p-0.5 transition ${
+          checked ? "border-[#52CC83]/50 bg-[#52CC83]/25" : "border-white/20 bg-white/10"
+        }`}
+      >
+        <span className={`h-5 w-5 rounded-full bg-white transition ${checked ? "translate-x-5" : "translate-x-0"}`} />
+      </span>
+    </button>
   );
 }
 
@@ -56,7 +79,7 @@ export default function ProfilePrivacyPage() {
 
   const privacyQuery = useQuery({
     queryKey: ["profile-privacy-page"],
-    queryFn: () => api<{ settings: PrivacySettings; blocked_users: Array<{ id: string; name: string; avatar_url: string | null }> }>("/api/profile/privacy"),
+    queryFn: () => api<{ settings: PrivacySettings; blocked_users: BlockedUser[] }>("/api/profile/privacy"),
   });
 
   useEffect(() => {
@@ -106,12 +129,14 @@ export default function ProfilePrivacyPage() {
   const blocked = privacyQuery.data?.blocked_users ?? [];
 
   return (
-    <ProfileSettingsLayout title="Конфиденциальность и безопасность" subtitle="Тонкая настройка видимости и доступа">
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Кто видит</CardTitle></CardHeader>
+    <ProfileSettingsLayout title="Конфиденциальность и безопасность" subtitle="Тонкая настройка видимости, общения и локальной безопасности.">
+      <Card className="border-white/15 bg-surface/90 backdrop-blur-2xl">
+        <CardHeader>
+          <CardTitle className="text-sm text-[#edf3ff]">Кто видит</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2">
-          <div className="space-y-2 rounded-xl border border-border bg-surface2/70 p-3">
-            <p className="text-xs text-muted">Телефон</p>
+          <div className="space-y-2 rounded-2xl border border-white/15 bg-white/7 p-3">
+            <p className="text-xs text-[#b4c2db]">Телефон</p>
             <div className="grid grid-cols-3 gap-2">
               {[
                 ["nobody", "Никто"],
@@ -122,8 +147,10 @@ export default function ProfilePrivacyPage() {
                   key={value}
                   type="button"
                   onClick={() => setPrivacy((prev) => ({ ...prev, phone_visibility: value as PrivacySettings["phone_visibility"] }))}
-                  className={`rounded-xl border px-3 py-2 text-xs ${
-                    privacy.phone_visibility === value ? "border-action bg-action/20 text-action" : "border-border bg-black/10 text-muted"
+                  className={`rounded-xl border px-3 py-2 text-xs transition ${
+                    privacy.phone_visibility === value
+                      ? "border-[#4C8DFF]/45 bg-[#4C8DFF]/16 text-[#dce9ff]"
+                      : "border-white/15 bg-white/6 text-[#a8b7ce]"
                   }`}
                 >
                   {label}
@@ -132,40 +159,45 @@ export default function ProfilePrivacyPage() {
             </div>
           </div>
 
-          <SwitchRow label="Факты" hint="Показывать факты в публичном профиле" checked={privacy.show_facts} onChange={(v) => setPrivacy((p) => ({ ...p, show_facts: v }))} />
-          <SwitchRow label="Интересы" hint="Показывать чипы интересов" checked={privacy.show_interests} onChange={(v) => setPrivacy((p) => ({ ...p, show_interests: v }))} />
-          <SwitchRow label="История мероприятий" hint="Показывать посещенные события" checked={privacy.show_event_history} onChange={(v) => setPrivacy((p) => ({ ...p, show_event_history: v }))} />
-          <SwitchRow label="Город" hint="Показывать город в публичном профиле" checked={privacy.show_city} onChange={(v) => setPrivacy((p) => ({ ...p, show_city: v }))} />
-          <SwitchRow label="Работа/деятельность" hint="Показывать профконтекст" checked={privacy.show_work} onChange={(v) => setPrivacy((p) => ({ ...p, show_work: v }))} />
-          <SwitchRow label="ВУЗ" hint="Показывать университет" checked={privacy.show_university} onChange={(v) => setPrivacy((p) => ({ ...p, show_university: v }))} />
-          <SwitchRow label="Последняя активность" hint="Показывать статус 'был недавно'" checked={privacy.show_last_active} onChange={(v) => setPrivacy((p) => ({ ...p, show_last_active: v }))} />
+          <ToggleRow label="Факты" hint="Показывать карточки фактов в публичном профиле" checked={privacy.show_facts} onChange={(v) => setPrivacy((p) => ({ ...p, show_facts: v }))} />
+          <ToggleRow label="Интересы" hint="Показывать чипы интересов" checked={privacy.show_interests} onChange={(v) => setPrivacy((p) => ({ ...p, show_interests: v }))} />
+          <ToggleRow label="История мероприятий" hint="Показывать посещенные события" checked={privacy.show_event_history} onChange={(v) => setPrivacy((p) => ({ ...p, show_event_history: v }))} />
+          <ToggleRow label="Город" hint="Показывать город в публичном профиле" checked={privacy.show_city} onChange={(v) => setPrivacy((p) => ({ ...p, show_city: v }))} />
+          <ToggleRow label="Работа / деятельность" hint="Показывать профессиональный контекст" checked={privacy.show_work} onChange={(v) => setPrivacy((p) => ({ ...p, show_work: v }))} />
+          <ToggleRow label="ВУЗ" hint="Показывать университет" checked={privacy.show_university} onChange={(v) => setPrivacy((p) => ({ ...p, show_university: v }))} />
+          <ToggleRow label="Последняя активность" hint="Показывать статус 'был(а) недавно'" checked={privacy.show_last_active} onChange={(v) => setPrivacy((p) => ({ ...p, show_last_active: v }))} />
+          <ToggleRow label="Бейджи" hint="Показывать полученные достижения" checked={privacy.show_badges} onChange={(v) => setPrivacy((p) => ({ ...p, show_badges: v }))} />
         </CardContent>
       </Card>
 
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Кто может писать</CardTitle></CardHeader>
+      <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
+        <CardHeader>
+          <CardTitle className="text-sm text-[#edf3ff]">Кто может писать</CardTitle>
+        </CardHeader>
         <CardContent>
           <select
             value={privacy.who_can_message}
             onChange={(e) => setPrivacy((prev) => ({ ...prev, who_can_message: e.target.value as PrivacySettings["who_can_message"] }))}
-            className="h-11 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text"
+            className="h-11 w-full rounded-xl border border-white/20 bg-white/8 px-3 text-sm text-[#eaf1ff]"
           >
-            <option value="everyone">Все</option>
-            <option value="shared_events">Только участники общих событий</option>
-            <option value="connections">Только контакты</option>
+            <option value="everyone" className="text-black">Все</option>
+            <option value="shared_events" className="text-black">Только участники общих событий</option>
+            <option value="connections" className="text-black">Только контакты</option>
           </select>
         </CardContent>
       </Card>
 
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Блокировки</CardTitle></CardHeader>
+      <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
+        <CardHeader>
+          <CardTitle className="text-sm text-[#edf3ff]">Блокировки</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2">
           {blocked.length ? (
             blocked.map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-xl border border-border bg-surface2/70 px-3 py-2">
-                <div className="flex items-center gap-2">
+              <div key={u.id} className="flex items-center justify-between rounded-2xl border border-white/15 bg-white/7 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <Image src={u.avatar_url || "https://placehold.co/80x80"} alt={u.name} width={36} height={36} className="h-9 w-9 rounded-full object-cover" unoptimized />
-                  <p className="text-sm text-text">{u.name}</p>
+                  <p className="truncate text-sm text-[#eaf1ff]">{u.name}</p>
                 </div>
                 <Button
                   variant="secondary"
@@ -182,22 +214,24 @@ export default function ProfilePrivacyPage() {
               </div>
             ))
           ) : (
-            <p className="text-xs text-muted">Список блокировок пуст</p>
+            <p className="text-xs text-[#b4c2db]">Список блокировок пуст</p>
           )}
         </CardContent>
       </Card>
 
-      <Card className="mb-3">
-        <CardHeader><CardTitle className="text-sm">Кэш приложения</CardTitle></CardHeader>
+      <Card className="border-[#4C8DFF]/30 bg-[#4C8DFF]/9">
+        <CardHeader>
+          <CardTitle className="inline-flex items-center gap-2 text-sm text-[#eaf1ff]"><Shield className="h-4 w-4" /> Кэш приложения</CardTitle>
+        </CardHeader>
         <CardContent>
-          <p className="mb-2 text-xs text-muted">Если интерфейс работает нестабильно или видишь старые данные — очисти локальный кэш.</p>
+          <p className="mb-3 text-xs text-[#bbcae1]">Если видишь старые данные или интерфейс ведет себя нестабильно, можно очистить локальный кэш.</p>
           <Button variant="secondary" className="w-full" onClick={clearAppCache} disabled={cacheClearing}>
-            {cacheClearing ? "Очищаем..." : "Очистить кэш"}
+            <Trash2 className="mr-1 h-4 w-4" /> {cacheClearing ? "Очищаем..." : "Очистить кэш"}
           </Button>
         </CardContent>
       </Card>
 
-      {error ? <p className="mb-2 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
 
       <Button className="w-full" onClick={save} disabled={saving || privacyQuery.isLoading}>
         {saving ? "Сохраняем..." : "Сохранить приватность"}

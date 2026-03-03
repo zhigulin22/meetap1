@@ -163,16 +163,15 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <ProfileSettingsLayout title="Профиль" subtitle="Фото, био, факты, интересы и контекст для точных match">
-      <Card className="mb-3 overflow-hidden">
-        <div className="relative h-44 overflow-hidden rounded-[22px] border border-border bg-[linear-gradient(120deg,#0A1633,#0D2246)]">
-          <div className="absolute -left-16 top-1/2 h-44 w-44 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(125,154,255,0.28),transparent_68%)]" />
-          <div className="absolute -right-16 top-1/2 h-44 w-44 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(121,214,255,0.24),transparent_68%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.05)_50%,transparent_100%)]" />
+    <ProfileSettingsLayout title="Профиль" subtitle="Фото, bio, факты и интересы для качественных рекомендаций.">
+      <Card className="overflow-hidden border-white/15 bg-surface/90 backdrop-blur-2xl">
+        <div className="relative h-52 overflow-hidden rounded-[22px] border border-white/15 bg-[linear-gradient(140deg,#0b1736,#1d3970_56%,#4C8DFF)]">
+          <div className="absolute -left-14 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(82,204,131,0.34),transparent_68%)]" />
+          <div className="absolute -right-14 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,176,32,0.25),transparent_68%)]" />
 
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-3xl border-2 border-white/70">
-              <Image src={avatar || "https://placehold.co/300x300"} alt="avatar" width={128} height={128} className="h-28 w-28 rounded-3xl object-cover" unoptimized />
+            <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-[32px] border-2 border-white/75 transition active:scale-[0.98]">
+              <Image src={avatar || "https://placehold.co/360x360"} alt="avatar" width={164} height={164} className="h-36 w-36 rounded-[32px] object-cover" unoptimized />
               <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/70 p-1.5 text-white"><Camera className="h-4 w-4" /></span>
             </button>
             <input
@@ -188,7 +187,7 @@ export default function ProfileEditPage() {
           </div>
         </div>
         <CardContent className="p-3">
-          <p className="text-xs text-muted">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
+          <p className="text-xs text-[#afbdd5]">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
         </CardContent>
       </Card>
 
@@ -200,19 +199,19 @@ export default function ProfileEditPage() {
           <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" />
         </div>
 
-        <Card>
+        <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
           <CardContent className="space-y-2 p-3">
-            <p className="text-xs text-muted">Профессиональный контекст (необязательно)</p>
+            <p className="text-xs text-[#b4c2db]">Профессиональный контекст (необязательно: вуз / работа / деятельность / специальность)</p>
             <Input value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="ВУЗ (опционально)" />
             <Input value={work} onChange={(e) => setWork(e.target.value)} placeholder="Работа (опционально)" />
             <Input value={activity} onChange={(e) => setActivity(e.target.value)} placeholder="Деятельность (например: стартап, фриланс)" />
-            <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Специальность (например: product manager)" />
+            <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Специальность (например: Product Manager)" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
           <CardContent className="space-y-2 p-3">
-            <p className="text-xs text-muted">Факты о себе (2–3). Пример: «провёл 50 нетворк-встреч».</p>
+            <p className="text-xs text-[#b4c2db]">Факты о себе (2–3). Пример: «провёл 50 нетворк-встреч».</p>
             {facts.map((fact, idx) => (
               <Input
                 key={`fact-${idx}`}
@@ -228,16 +227,16 @@ export default function ProfileEditPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
           <CardContent className="space-y-2 p-3">
-            <p className="text-xs text-muted">Интересы (минимум 3)</p>
+            <p className="text-xs text-[#b4c2db]">Интересы (минимум 3)</p>
             <TagInput value={interests} onChange={setInterests} suggestions={popularTags} min={3} max={20} placeholder="Добавь интерес и Enter" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
           <CardContent className="space-y-2 p-3">
-            <p className="text-xs text-muted">Хобби (опционально)</p>
+            <p className="text-xs text-[#b4c2db]">Хобби (опционально)</p>
             <TagInput value={hobbies} onChange={setHobbies} suggestions={popularTags} max={20} placeholder="Хобби" />
           </CardContent>
         </Card>
