@@ -210,17 +210,30 @@ function formatKpi(key: string, value: number) {
 function parseError(error: unknown) {
   if (error instanceof ApiClientError) {
     if (error.code === "FORBIDDEN" || error.code === "UNAUTHORIZED") {
-      return `Нет прав на ${error.endpoint}. Проверь роль пользователя.`;
+      return "Недостаточно прав для этого действия. Проверь роль пользователя.";
     }
     if (error.code === "MISSING_ENV") {
       return `Сервер не настроен: ${error.hint ?? "добавь ключи env и redeploy"}.`;
     }
     if (error.code === "TIMEOUT") {
-      return `Сервер занят: ${error.endpoint}. Нажми retry через 1-2 секунды.`;
+      return "Сервер временно перегружен. Попробуй повторить через 1-2 секунды.";
     }
-    return `${error.endpoint}: ${error.message.replace(/\[[A-Z_]+\]\s*/g, "")}`;
+
+    const cleaned = error.message
+      .replace(/\[[A-Z_]+\]\s*/g, "")
+      .replace(/\/api\/[^\s:|]+/g, "API")
+      .replace(/https?:\/\/[^\s:|]+/g, "API")
+      .replace(/^\s*[^:]+:\s*/, "")
+      .trim();
+
+    return cleaned || "Не удалось загрузить данные. Попробуй повторить.";
   }
-  return error instanceof Error ? error.message : "Request failed";
+
+  if (error instanceof Error) {
+    return error.message.replace(/https?:\/\/\S+/g, "API");
+  }
+
+  return "Не удалось выполнить запрос";
 }
 
 function isTrafficStatusSoftError(error: unknown) {
@@ -455,6 +468,8 @@ export default function AdminPage() {
   const [drilldownAutoMapLoading, setDrilldownAutoMapLoading] = useState(false);
   const [drilldownExperimentLoading, setDrilldownExperimentLoading] = useState(false);
   const [updatedBadge, setUpdatedBadge] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const [retryingData, setRetryingData] = useState(false);
 
   const days = dateRange === "7d" ? 7 : dateRange === "14d" ? 14 : dateRange === "30d" ? 30 : 90;
   const summarySegment = ["all", "verified", "new", "active"].includes(segment) ? segment : "all";
@@ -722,6 +737,41 @@ export default function AdminPage() {
     .filter(Boolean)
     .map(parseError);
 
+  const retryDataRequests = async () => {
+    setRetryingData(true);
+    try {
+      await Promise.all([
+        health.refetch(),
+        summary.refetch(),
+        operations.refetch(),
+        trafficStatus.refetch(),
+        trafficProof.refetch(),
+        users.refetch(),
+        liveEvents.refetch(),
+        reports.refetch(),
+        risk.refetch(),
+        alerts.refetch(),
+      ]);
+    } finally {
+      setRetryingData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!healthOk || !activeErrors.length) {
+      setRetryAttempt(0);
+      return;
+    }
+
+    const delay = Math.min(15000, 2000 * Math.pow(2, Math.min(retryAttempt, 3)));
+    const timer = window.setTimeout(() => {
+      void retryDataRequests().finally(() => {
+        setRetryAttempt((prev) => prev + 1);
+      });
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [healthOk, activeErrors.length, retryAttempt]);
 
   useEffect(() => {
     if (!trafficStatusSoftError) return;
@@ -1047,6 +1097,9 @@ export default function AdminPage() {
 
   const metricsKeys = KPI_GROUPS[metricsTab] ?? [];
   const summaryData = summary.data ?? summarySnapshot?.data ?? null;
+  const summaryCache: any = (summary.data as any)?.cache ?? (summarySnapshot as any)?.data?.cache ?? null;
+  const summaryCacheMode = summaryCache?.mode ?? null;
+  const summaryCachedAt = summaryCache?.cached_at ?? summarySnapshot?.savedAt ?? null;
   const kpis = summaryData?.kpis ?? {};
   const offlineSnapshotMode = !healthOk && Boolean(summarySnapshot?.data);
   const viewReady = healthOk || offlineSnapshotMode;
@@ -1144,13 +1197,35 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {healthOk && activeErrors.length ? (
+      {healthOk && summaryCacheMode === "stale" ? (
+        <div className="col-span-12">
+          <Card className="border-warning/30 bg-warning/10">
+            <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+              <p>Показаны кэшированные данные. Обновлено: <strong>{summaryCachedAt ? new Date(summaryCachedAt).toLocaleString("ru-RU") : "—"}</strong></p>
+              <Button onClick={() => retryDataRequests()} disabled={retryingData}>
+                <RefreshCw className={retryingData ? "mr-1 h-4 w-4 animate-spin" : "mr-1 h-4 w-4"} />
+                {retryingData ? "Обновляем..." : "Повторить"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
+      {healthOk && activeErrors.length ? (
         <div className="col-span-12">
           <Card className="border-warning/30 bg-warning/10">
             <CardHeader><CardTitle>Проблемы загрузки данных</CardTitle></CardHeader>
-            <CardContent className="text-sm">
-              {activeErrors.slice(0, 10).map((x) => <p key={x}>• {x}</p>)}
+            <CardContent className="space-y-3 text-sm">
+              <div className="space-y-1">
+                {activeErrors.slice(0, 10).map((x) => <p key={x}>• {x}</p>)}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => retryDataRequests()} disabled={retryingData}>
+                  <RefreshCw className={retryingData ? "mr-1 h-4 w-4 animate-spin" : "mr-1 h-4 w-4"} />
+                  {retryingData ? "Повторяем..." : "Повторить"}
+                </Button>
+                <p className="text-xs text-muted">Автоповтор включен (backoff): попытка #{retryAttempt + 1}</p>
+              </div>
             </CardContent>
           </Card>
         </div>

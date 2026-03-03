@@ -45,6 +45,8 @@ const querySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   segment: z.enum(["all", "verified", "new", "active"]).default("all"),
+  async: z.coerce.boolean().optional().default(false),
+  job_id: z.string().uuid().optional(),
 });
 
 const autoMapSchema = z.object({
@@ -54,6 +56,40 @@ const autoMapSchema = z.object({
   to: z.string().datetime().optional(),
   segment: z.enum(["all", "verified", "new", "active"]).default("all"),
 });
+
+type DrilldownCacheEntry = { cachedAt: number; expiresAt: number; payload: any };
+type DrilldownJob = {
+  id: string;
+  status: "queued" | "running" | "done" | "failed";
+  cacheKey: string;
+  createdAt: number;
+  updatedAt: number;
+  payload?: any;
+  error?: string;
+};
+
+const DRILLDOWN_CACHE_TTL_MS = 120_000;
+const DRILLDOWN_STALE_MS = 15 * 60_000;
+const DRILLDOWN_CONCURRENCY_LIMIT = 2;
+const DRILLDOWN_SYNC_TIMEOUT_MS = 2_500;
+const DRILLDOWN_ASYNC_THRESHOLD_DAYS = 90;
+
+const drilldownCache = new Map<string, DrilldownCacheEntry>();
+const drilldownJobs = new Map<string, DrilldownJob>();
+const drilldownJobsByCacheKey = new Map<string, string>();
+let drilldownInFlight = 0;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("DRILLDOWN_TIMEOUT")), ms);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
+}
 
 function uniq(values: string[]) {
   return [...new Set(values.map((x) => x.trim()).filter(Boolean))];
@@ -422,6 +458,7 @@ async function loadUsersById(userIds: string[]) {
 
 function buildMetricBreakdowns(rows: EventRow[], usersById: Map<string, UserRow>) {
   const byDay = new Map<string, number>();
+  const byHour = new Map<string, number>();
   const byWeek = new Map<string, number>();
   const byMonth = new Map<string, number>();
   const byDemoGroup = new Map<string, number>();
@@ -431,10 +468,12 @@ function buildMetricBreakdowns(rows: EventRow[], usersById: Map<string, UserRow>
 
   for (const row of rows) {
     const dKey = dayKey(row.created_at);
+    const hKey = row.created_at.slice(0, 13) + ":00";
     const wKey = weekKey(row.created_at);
     const mKey = monthKey(row.created_at);
 
     byDay.set(dKey, (byDay.get(dKey) ?? 0) + 1);
+    byHour.set(hKey, (byHour.get(hKey) ?? 0) + 1);
     byWeek.set(wKey, (byWeek.get(wKey) ?? 0) + 1);
     byMonth.set(mKey, (byMonth.get(mKey) ?? 0) + 1);
 
@@ -453,6 +492,7 @@ function buildMetricBreakdowns(rows: EventRow[], usersById: Map<string, UserRow>
   }
 
   const dayRows = toSorted(byDay, "day", "value", 31) as Array<{ day: string; value: number }>;
+  const hourRows = toSorted(byHour, "hour", "value", 72) as Array<{ hour: string; value: number }>;
   const weekRows = toSorted(byWeek, "week_start", "value", 26) as Array<{ week_start: string; value: number }>;
   const monthRows = toSorted(byMonth, "month", "value", 24) as Array<{ month: string; value: number }>;
 
@@ -462,6 +502,7 @@ function buildMetricBreakdowns(rows: EventRow[], usersById: Map<string, UserRow>
 
   return {
     breakdown_by_day: dayRows,
+    breakdown_by_hour: hourRows,
     breakdown_by_week: weekRows,
     breakdown_by_month: monthRows,
     best_day: findExtremum(daySeries, "max"),
@@ -477,6 +518,77 @@ function buildMetricBreakdowns(rows: EventRow[], usersById: Map<string, UserRow>
   };
 }
 
+async function buildDrilldownPayload(input: z.infer<typeof querySchema>) {
+  const now = Date.now();
+  const toISO = input.to ?? new Date(now).toISOString();
+  const fromISO = input.from ?? new Date(new Date(toISO).getTime() - input.days * 24 * 60 * 60 * 1000).toISOString();
+
+  const currentWindow = parseWindow(fromISO, toISO, input.days);
+  const periodMs = Math.max(1, currentWindow.to.getTime() - currentWindow.from.getTime());
+  const prevToISO = new Date(currentWindow.from.getTime()).toISOString();
+  const prevFromISO = new Date(currentWindow.from.getTime() - periodMs).toISOString();
+  const previousWindow = parseWindow(prevFromISO, prevToISO, input.days);
+
+  const segmentUserIds = await getSegmentUserIds(input.segment, currentWindow.fromISO, currentWindow.toISO);
+
+  const config = resolveMetricConfig(input.metric);
+  const dynamicAliases = await getDynamicAliasesForFamily(config.family, input.metric);
+  const expectedVariants = config.variants.includes("*") ? uniq(dynamicAliases) : uniq([...config.variants, ...dynamicAliases]);
+
+  const [currentRowsForMetric, prevRowsForMetric, currentRowsSegmented] = await Promise.all([
+    loadMetricEvents(currentWindow.fromISO, currentWindow.toISO, segmentUserIds, expectedVariants),
+    loadMetricEvents(previousWindow.fromISO, previousWindow.toISO, segmentUserIds, expectedVariants),
+    loadEvents(currentWindow.fromISO, currentWindow.toISO, segmentUserIds),
+  ]);
+
+  const currentValue = countMetricValue(currentRowsForMetric, config);
+  const previousValue = countMetricValue(prevRowsForMetric, config);
+  const delta =
+    previousValue > 0
+      ? Number((((currentValue as number) - (previousValue as number)) / (previousValue as number)).toFixed(4))
+      : (currentValue as number) > 0
+        ? 1
+        : 0;
+
+  const totalCount = currentRowsForMetric.length;
+  const uniqueUsers = new Set(currentRowsForMetric.map((r) => r.user_id).filter(Boolean) as string[]).size;
+
+  const usersById = await loadUsersById([...new Set(currentRowsForMetric.map((r) => r.user_id).filter(Boolean) as string[])]);
+  const breakdowns = buildMetricBreakdowns(currentRowsForMetric, usersById);
+
+  const topEventNamesPeriod = buildTopEventNames(currentRowsSegmented, 10);
+  const topEventNames24h = buildTopEventNames(
+    currentRowsSegmented.filter((row) => new Date(row.created_at).getTime() >= now - 24 * 60 * 60 * 1000),
+    10,
+  );
+
+  const noDataReasons = totalCount === 0 ? buildNoDataReasons(input.metric, expectedVariants, topEventNamesPeriod) : [];
+
+  return {
+    metric: input.metric,
+    definition: DEFAULT_HELP_TEXTS[`metric.${input.metric}` as keyof typeof DEFAULT_HELP_TEXTS] ?? null,
+    source: kpiSource(input.metric),
+    period: {
+      from: currentWindow.fromISO,
+      to: currentWindow.toISO,
+      days: input.days,
+      segment: input.segment,
+    },
+    current_value: Number(currentValue ?? 0),
+    previous_value: Number(previousValue ?? 0),
+    delta,
+    status: totalCount === 0 ? "No data" : Number(currentValue ?? 0) > 0 ? "OK" : "Low",
+    total_count: totalCount,
+    unique_users: uniqueUsers,
+    expected_event_names: expectedVariants,
+    reasons: noDataReasons,
+    top_event_names_period: topEventNamesPeriod,
+    top_event_names_24h: topEventNames24h,
+    generated_at: new Date().toISOString(),
+    ...breakdowns,
+  };
+}
+
 export async function GET(req: Request) {
   try {
     await requireAdminUserId(["admin", "moderator", "analyst", "support"]);
@@ -488,74 +600,143 @@ export async function GET(req: Request) {
       from: searchParams.get("from") ?? undefined,
       to: searchParams.get("to") ?? undefined,
       segment: searchParams.get("segment") ?? "all",
+      async: ["1", "true", "yes", "on"].includes(String(searchParams.get("async") ?? "").toLowerCase()),
+      job_id: searchParams.get("job_id") ?? undefined,
     });
 
     if (!parsed.success) {
       return fail(parsed.error.issues[0]?.message ?? "Invalid query", 422);
     }
 
-    const now = Date.now();
-    const toISO = parsed.data.to ?? new Date(now).toISOString();
+    if (parsed.data.job_id) {
+      const job = drilldownJobs.get(parsed.data.job_id);
+      if (!job) {
+        return fail("Job not found", 404, { code: "DB", hint: "Проверь job_id и перезапусти запрос" });
+      }
+
+      if (job.status === "failed") {
+        return fail(job.error ?? "Drilldown job failed", 500, {
+          code: "DB",
+          hint: "Перезапусти drilldown или уменьши период",
+        });
+      }
+
+      if (job.status === "done" && job.payload) {
+        return ok({ ok: true, async: true, status: job.status, job_id: job.id, payload: job.payload });
+      }
+
+      return ok({ ok: true, async: true, status: job.status, job_id: job.id });
+    }
+
+    const toISO = parsed.data.to ?? new Date().toISOString();
     const fromISO = parsed.data.from ?? new Date(new Date(toISO).getTime() - parsed.data.days * 24 * 60 * 60 * 1000).toISOString();
+    const cacheKey = [parsed.data.metric, parsed.data.days, parsed.data.segment, fromISO.slice(0, 16), toISO.slice(0, 16)].join(":");
 
-    const currentWindow = parseWindow(fromISO, toISO, parsed.data.days);
-    const periodMs = Math.max(1, currentWindow.to.getTime() - currentWindow.from.getTime());
-    const prevToISO = new Date(currentWindow.from.getTime()).toISOString();
-    const prevFromISO = new Date(currentWindow.from.getTime() - periodMs).toISOString();
-    const previousWindow = parseWindow(prevFromISO, prevToISO, parsed.data.days);
+    const cached = drilldownCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return ok({
+        ...cached.payload,
+        cache: { mode: "hot", cached_at: new Date(cached.cachedAt).toISOString() },
+      });
+    }
 
-    const segmentUserIds = await getSegmentUserIds(parsed.data.segment, currentWindow.fromISO, currentWindow.toISO);
+    const staleCached = cached && Date.now() - cached.cachedAt <= DRILLDOWN_STALE_MS ? cached : null;
 
-    const config = resolveMetricConfig(parsed.data.metric);
-    const dynamicAliases = await getDynamicAliasesForFamily(config.family, parsed.data.metric);
-    const expectedVariants = config.variants.includes("*") ? uniq(dynamicAliases) : uniq([...config.variants, ...dynamicAliases]);
+    if (parsed.data.async || parsed.data.days > DRILLDOWN_ASYNC_THRESHOLD_DAYS) {
+      const existingJobId = drilldownJobsByCacheKey.get(cacheKey);
+      if (existingJobId) {
+        const existing = drilldownJobs.get(existingJobId);
+        if (existing) {
+          return ok({ ok: true, async: true, status: existing.status, job_id: existing.id });
+        }
+      }
 
-    const [currentRowsForMetric, prevRowsForMetric, currentRowsSegmented] = await Promise.all([
-      loadMetricEvents(currentWindow.fromISO, currentWindow.toISO, segmentUserIds, expectedVariants),
-      loadMetricEvents(previousWindow.fromISO, previousWindow.toISO, segmentUserIds, expectedVariants),
-      loadEvents(currentWindow.fromISO, currentWindow.toISO, segmentUserIds),
-    ]);
+      const jobId = crypto.randomUUID();
+      const job: DrilldownJob = {
+        id: jobId,
+        status: "queued",
+        cacheKey,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
 
-    const currentValue = countMetricValue(currentRowsForMetric, config);
-    const previousValue = countMetricValue(prevRowsForMetric, config);
-    const delta = previousValue > 0 ? Number((((currentValue as number) - (previousValue as number)) / (previousValue as number)).toFixed(4)) : ((currentValue as number) > 0 ? 1 : 0);
+      drilldownJobs.set(jobId, job);
+      drilldownJobsByCacheKey.set(cacheKey, jobId);
 
-    const totalCount = currentRowsForMetric.length;
-    const uniqueUsers = new Set(currentRowsForMetric.map((r) => r.user_id).filter(Boolean) as string[]).size;
+      void (async () => {
+        try {
+          job.status = "running";
+          job.updatedAt = Date.now();
+          const payload = await buildDrilldownPayload(parsed.data);
+          job.status = "done";
+          job.payload = payload;
+          job.updatedAt = Date.now();
+          drilldownCache.set(cacheKey, {
+            cachedAt: Date.now(),
+            expiresAt: Date.now() + DRILLDOWN_CACHE_TTL_MS,
+            payload,
+          });
+        } catch (error) {
+          job.status = "failed";
+          job.error = error instanceof Error ? error.message : "Failed to compute drilldown";
+          job.updatedAt = Date.now();
+        }
+      })();
 
-    const usersById = await loadUsersById([...new Set(currentRowsForMetric.map((r) => r.user_id).filter(Boolean) as string[])]);
-    const breakdowns = buildMetricBreakdowns(currentRowsForMetric, usersById);
+      return ok({ ok: true, async: true, status: "queued", job_id: jobId });
+    }
 
-    const topEventNamesPeriod = buildTopEventNames(currentRowsSegmented, 10);
-    const topEventNames24h = buildTopEventNames(
-      currentRowsSegmented.filter((row) => new Date(row.created_at).getTime() >= now - 24 * 60 * 60 * 1000),
-      10,
-    );
+    if (drilldownInFlight >= DRILLDOWN_CONCURRENCY_LIMIT) {
+      if (staleCached) {
+        return ok({
+          ...staleCached.payload,
+          warnings: [...(staleCached.payload?.warnings ?? []), "drilldown fallback: stale cache used"],
+          cache: { mode: "stale", cached_at: new Date(staleCached.cachedAt).toISOString() },
+        });
+      }
 
-    const noDataReasons = totalCount === 0 ? buildNoDataReasons(parsed.data.metric, expectedVariants, topEventNamesPeriod) : [];
+      return fail("Сервер метрик перегружен. Попробуй через пару секунд.", 503, {
+        code: "TIMEOUT",
+        hint: "Используй async=1 для длинных периодов или сократи окно анализа",
+      });
+    }
 
-    return ok({
-      metric: parsed.data.metric,
-      definition: DEFAULT_HELP_TEXTS[`metric.${parsed.data.metric}` as keyof typeof DEFAULT_HELP_TEXTS] ?? null,
-      source: kpiSource(parsed.data.metric),
-      period: {
-        from: currentWindow.fromISO,
-        to: currentWindow.toISO,
-        days: parsed.data.days,
-        segment: parsed.data.segment,
-      },
-      current_value: Number(currentValue ?? 0),
-      previous_value: Number(previousValue ?? 0),
-      delta,
-      status: totalCount === 0 ? "No data" : Number(currentValue ?? 0) > 0 ? "OK" : "Low",
-      total_count: totalCount,
-      unique_users: uniqueUsers,
-      expected_event_names: expectedVariants,
-      reasons: noDataReasons,
-      top_event_names_period: topEventNamesPeriod,
-      top_event_names_24h: topEventNames24h,
-      ...breakdowns,
-    });
+    drilldownInFlight += 1;
+
+    try {
+      const payload = await withTimeout(buildDrilldownPayload(parsed.data), DRILLDOWN_SYNC_TIMEOUT_MS);
+      drilldownCache.set(cacheKey, {
+        cachedAt: Date.now(),
+        expiresAt: Date.now() + DRILLDOWN_CACHE_TTL_MS,
+        payload,
+      });
+
+      return ok({
+        ...payload,
+        cache: { mode: "fresh", cached_at: new Date().toISOString() },
+      });
+    } catch (error) {
+      if (staleCached) {
+        return ok({
+          ...staleCached.payload,
+          warnings: [...(staleCached.payload?.warnings ?? []), "drilldown fallback: stale cache used"],
+          cache: { mode: "stale", cached_at: new Date(staleCached.cachedAt).toISOString() },
+        });
+      }
+
+      if (error instanceof Error && error.message === "DRILLDOWN_TIMEOUT") {
+        return fail("Drilldown запрос превысил лимит времени", 504, {
+          code: "TIMEOUT",
+          hint: "Сократи период или запусти async режим (?async=1)",
+        });
+      }
+
+      return fail(error instanceof Error ? error.message : "Failed to build metric drilldown", 500, {
+        code: "DB",
+      });
+    } finally {
+      drilldownInFlight = Math.max(0, drilldownInFlight - 1);
+    }
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Failed to build metric drilldown", 500);
   }

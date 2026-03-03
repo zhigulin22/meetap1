@@ -129,47 +129,58 @@ export default function MyProfileHubPage() {
       <TopBar title="Мой профиль" subtitle="Управление аккаунтом и настройками" right={<Pill>telegram-style</Pill>} />
 
       <Card className="mb-3 overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)]">
-        <div className="relative h-[20.5rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[#F5FFFB]">
-          <div className="pointer-events-none absolute -left-16 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(255_240_235/0.55),transparent_65%)] blur-2xl" />
-          <div className="pointer-events-none absolute -right-20 top-[44%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(231_255_247/0.5),transparent_66%)] blur-2xl" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(255_255_255/0.52),transparent_58%)]" />
-          <div className="pointer-events-none absolute inset-0 opacity-[0.018] mix-blend-multiply" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgb(18 32 28 / 0.55) 1px, transparent 0)", backgroundSize: "3px 3px" }} />
+        <div className="relative h-[21rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[#F5FFFB]">
+          <div className="pointer-events-none absolute -left-20 top-[48%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(255_240_235/0.6),transparent_64%)] blur-3xl" />
+          <div className="pointer-events-none absolute -right-24 top-[42%] h-96 w-96 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(231_255_247/0.55),transparent_66%)] blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(255_255_255/0.56),transparent_58%)]" />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.018] mix-blend-multiply"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgb(18 32 28 / 0.55) 1px, transparent 0)",
+              backgroundSize: "3px 3px",
+            }}
+          />
 
-          <div className="absolute inset-x-0 bottom-4 z-10 text-center">
-            <div className="mx-auto rounded-[44px] bg-[image:var(--grad-primary)] p-[2.5px] shadow-[0_12px_30px_rgba(18,32,28,0.14)]">
-              <div className="rounded-[41px] bg-white p-[2px]">
-                <Image
-                  src={profile?.avatar_url || "https://placehold.co/560x560"}
-                  alt="avatar"
-                  width={240}
-                  height={240}
-                  unoptimized
-                  className="h-44 w-44 rounded-[39px] object-cover"
-                />
+          <div className="absolute inset-x-0 bottom-5 z-10 px-4">
+            <div className="mx-auto flex max-w-md flex-col items-center text-center">
+              <div className="rounded-full bg-[image:var(--grad-primary)] p-[3px] shadow-[0_14px_34px_rgba(18,32,28,0.18)]">
+                <div className="rounded-full bg-white p-[2px]">
+                  <Image
+                    src={profile?.avatar_url || "https://placehold.co/560x560"}
+                    alt="avatar"
+                    width={240}
+                    height={240}
+                    unoptimized
+                    className="h-28 w-28 rounded-full object-cover"
+                  />
+                </div>
               </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <h1 className="text-[1.68rem] font-semibold leading-none text-text">{profile?.name || "Пользователь"}</h1>
+                <ProfileEmojiBadge value={profile?.preferences?.profileEmoji} />
+                {profile?.telegram_verified ? (
+                  <span title="Телефон подтвержден">
+                    <CheckCircle2 className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
+                  </span>
+                ) : null}
+              </div>
+
+              {profile?.city ? <p className="mt-1 text-xs text-text2">{profile.city}</p> : null}
             </div>
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-white/86 px-3 py-1.5 backdrop-blur-xl">
-              <p className="text-[1.05rem] font-semibold leading-none text-text">{profile?.name || "Пользователь"}</p>
-              <ProfileEmojiBadge value={profile?.preferences?.profileEmoji} />
-              {profile?.telegram_verified ? (
-                <span title="Телефон подтвержден">
-                  <CheckCircle2 className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
-                </span>
-              ) : null}
-            </div>
-            {profile?.city ? <p className="mt-1 text-xs text-text2">{profile.city}</p> : null}
           </div>
         </div>
 
         <CardContent className="space-y-3 p-4">
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.78)] px-3 py-2">
-              <p className="text-[11px] text-text2">Публикации</p>
-              <p className="text-[18px] font-semibold leading-none text-text">{activity?.posts ?? 0}</p>
+            <div className="rounded-2xl border border-[rgb(var(--peach-rgb)/0.24)] bg-[rgb(255_240_235/0.88)] px-3 py-2">
+              <p className="text-[11px] text-[rgb(var(--text-2-rgb))]">Публикации</p>
+              <p className="text-[20px] font-semibold leading-none text-[rgb(var(--text-rgb))]">{activity?.posts ?? 0}</p>
             </div>
-            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.78)] px-3 py-2">
-              <p className="text-[11px] text-text2">Посещено ивентов</p>
-              <p className="text-[18px] font-semibold leading-none text-text">{activity?.eventJoins ?? 0}</p>
+            <div className="rounded-2xl border border-[rgb(var(--peach-rgb)/0.24)] bg-[rgb(255_240_235/0.88)] px-3 py-2">
+              <p className="text-[11px] text-[rgb(var(--text-2-rgb))]">Посещено ивентов</p>
+              <p className="text-[20px] font-semibold leading-none text-[rgb(var(--text-rgb))]">{activity?.eventJoins ?? 0}</p>
             </div>
           </div>
 
@@ -181,10 +192,10 @@ export default function MyProfileHubPage() {
 
           <div className="grid grid-cols-2 gap-2">
             <Link href={`/profile/${profile?.id ?? "me"}`} className="block">
-              <Button variant="secondary" className="h-11 w-full">Как видят другие</Button>
+              <Button variant="secondary" className="h-11 w-full border-[rgb(var(--teal-rgb)/0.35)] bg-white text-[rgb(var(--text-rgb))] hover:bg-[rgb(var(--mint-rgb)/0.22)]">Как видят другие</Button>
             </Link>
             <Link href="/profile/me/edit" className="block">
-              <Button variant="secondary" className="h-11 w-full">Редактировать</Button>
+              <Button className="h-11 w-full text-base font-semibold">Редактировать</Button>
             </Link>
           </div>
         </CardContent>
@@ -231,11 +242,11 @@ export default function MyProfileHubPage() {
         <Card className="mb-3 border-[rgb(var(--sky-rgb)/0.28)] bg-[rgb(var(--sky-rgb)/0.08)]">
           <CardContent className="flex items-center justify-between gap-3 p-4">
             <div>
-              <p className="text-sm font-medium text-text">Админ-панель доступна</p>
+              <p className="text-sm font-semibold text-[rgb(var(--peach-rgb))]">Админ-панель доступна</p>
               <p className="text-xs text-text2">Модерация, метрики, роли и операционный контроль</p>
             </div>
             <Link href="/admin" className="shrink-0">
-              <Button>
+              <Button className="text-base font-semibold">
                 <ShieldCheck className="mr-1 h-4 w-4" /> Открыть Admin
               </Button>
             </Link>
@@ -245,10 +256,10 @@ export default function MyProfileHubPage() {
         <Card className="mb-3 border-[rgb(var(--sky-rgb)/0.22)] bg-[rgb(var(--sky-rgb)/0.06)]">
           <CardContent className="space-y-3 p-4">
             <div>
-              <p className="text-sm font-medium text-text">Нет кнопки Admin?</p>
+              <p className="text-sm font-semibold text-[rgb(var(--peach-rgb))]">Нет кнопки Admin?</p>
               <p className="text-xs text-text2">Нажми один раз, если этот аккаунт должен быть админом.</p>
             </div>
-            <Button onClick={activateAdminAccess} disabled={activatingAdmin}>
+            <Button onClick={activateAdminAccess} disabled={activatingAdmin} className="text-base font-semibold">
               <ShieldCheck className="mr-1 h-4 w-4" /> {activatingAdmin ? "Активируем..." : "Активировать админ-доступ"}
             </Button>
           </CardContent>
@@ -257,7 +268,7 @@ export default function MyProfileHubPage() {
 
       <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.96)]">
         <CardHeader>
-          <CardTitle className="text-text">Настройки</CardTitle>
+          <CardTitle className="text-[rgb(var(--peach-rgb))]">Настройки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} iconToneClass="bg-[#2AB3FF] text-white" title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
