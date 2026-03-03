@@ -221,6 +221,14 @@ function parseError(error: unknown) {
   return error instanceof Error ? error.message : "Request failed";
 }
 
+function isTrafficStatusSoftError(error: unknown) {
+  if (!(error instanceof ApiClientError)) return false;
+  if (!error.endpoint.includes("/api/admin/traffic/status")) return false;
+  if (error.code === "TIMEOUT") return true;
+  const m = error.message.toLowerCase();
+  return m.includes("сервер занят") || m.includes("server busy") || m.includes("timeout");
+}
+
 function EmptyNote({ text, onOpenStream }: { text: string; onOpenStream?: () => void }) {
   return (
     <AdminEmptyState
@@ -531,7 +539,10 @@ export default function AdminPage() {
     queryKey: ["admin-traffic-status-v3"],
     queryFn: () => api<any>("/api/admin/traffic/status"),
     enabled: healthOk,
-    refetchInterval: section === "traffic" || section === "operations" ? 4000 : false,
+    staleTime: 2000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: section === "traffic" || section === "operations" ? 3000 : false,
   });
 
   const trafficProof = useQuery({
@@ -656,6 +667,8 @@ export default function AdminPage() {
     }
   }, [helpTextsQuery.data]);
 
+  const trafficStatusSoftError = isTrafficStatusSoftError(trafficStatus.error);
+
   const activeErrors = [
     health.error,
     summary.error,
@@ -663,7 +676,7 @@ export default function AdminPage() {
     drilldown.error,
     users.error,
     liveEvents.error,
-    trafficStatus.error,
+    trafficStatusSoftError ? null : trafficStatus.error,
     trafficProof.error,
     operations.error,
     auditLog.error,
@@ -684,6 +697,16 @@ export default function AdminPage() {
   ]
     .filter(Boolean)
     .map(parseError);
+
+
+  useEffect(() => {
+    if (!trafficStatusSoftError) return;
+    const timer = window.setTimeout(() => {
+      void trafficStatus.refetch();
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [trafficStatusSoftError]);
 
   const coverage = useMemo(() => {
     const items = trafficCoverageEvents.data?.items ?? [];
@@ -1445,6 +1468,11 @@ export default function AdminPage() {
                 <p>Last event: <strong>{trafficProof.data?.last_event_at ? new Date(trafficProof.data.last_event_at).toLocaleString("ru-RU") : "—"}</strong></p>
                 <p>Last tick: <strong>{trafficLastTick ? `${trafficLastTick.events_written} @ ${trafficLastTick.last_db_event_at ?? "—"}` : "—"}</strong></p>
               </div>
+
+              {trafficStatusSoftError ? (
+                <div className="rounded-xl border border-cyan/40 bg-cyan/10 p-3 text-cyan">Обновляем… статус генератора временно недоступен, повтор через 2 секунды.</div>
+              ) : null}
+              {trafficStatus.isFetching ? <p className="text-xs text-muted">Обновляем…</p> : null}
 
               {trafficProof.data && trafficStatus.data?.runtime_status === "RUNNING" && (trafficProof.data.events_last_window ?? 0) === 0 ? (
                 <div className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-danger">RUNNING (NO DB EVENTS). Проверь tick/status и diagnostics.</div>
