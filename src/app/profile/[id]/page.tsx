@@ -136,23 +136,33 @@ export default function ProfilePage() {
     <PageShell>
       <TopBar title="Профиль" subtitle="Визитка пользователя" />
 
-      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[image:var(--grad-hero-1)] p-5 shadow-soft">
-        <div className="pointer-events-none absolute inset-0 opacity-70">
-          <div className="absolute left-[-18%] top-[-24%] h-60 w-60 rounded-full bg-[radial-gradient(circle,rgb(var(--peach-rgb)/0.22),transparent_66%)]" />
-          <div className="absolute right-[-18%] top-[-18%] h-56 w-56 rounded-full bg-[radial-gradient(circle,rgb(var(--teal-rgb)/0.2),transparent_68%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,rgb(255_255_255/0.5),transparent_60%)]" />
+      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[#F5FFFB] p-5 shadow-soft">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-16 top-[45%] h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(255_240_235/0.55),transparent_65%)] blur-2xl" />
+          <div className="absolute -right-20 top-[38%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(231_255_247/0.5),transparent_66%)] blur-2xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgb(255_255_255/0.52),transparent_60%)]" />
+          <div
+            className="absolute inset-0 opacity-[0.018] mix-blend-multiply"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgb(18 32 28 / 0.55) 1px, transparent 0)",
+              backgroundSize: "3px 3px",
+            }}
+          />
         </div>
 
         <div className="relative flex flex-col items-center text-center">
-          <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-white/80 p-1.5 shadow-soft">
-            <Image
-              src={p.avatar_url || "https://placehold.co/560x560"}
-              alt={p.name}
-              width={224}
-              height={224}
-              className="h-28 w-28 rounded-full object-cover"
-              unoptimized
-            />
+          <div className="rounded-full bg-[image:var(--grad-primary)] p-[2.5px] shadow-[0_10px_26px_rgba(18,32,28,0.14)]">
+            <div className="rounded-full bg-white p-[2px]">
+              <Image
+                src={p.avatar_url || "https://placehold.co/560x560"}
+                alt={p.name}
+                width={224}
+                height={224}
+                className="h-28 w-28 rounded-full object-cover"
+                unoptimized
+              />
+            </div>
           </div>
           <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[rgb(var(--text-2-rgb)/0.8)]">public vibe</p>
         </div>
@@ -171,7 +181,7 @@ export default function ProfilePage() {
 
           {p.city ? (
             <p className="inline-flex items-center gap-1 text-xs text-text2">
-              <MapPin className="h-3.5 w-3.5 text-cyan" /> {p.city}
+              <MapPin className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" /> {p.city}
             </p>
           ) : null}
 

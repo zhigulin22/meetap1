@@ -29,7 +29,6 @@ import { ProfileSettingsRow } from "@/components/profile-settings-row";
 import { ProfileEmojiBadge } from "@/components/profile-emoji-badge";
 import { TopBar } from "@/components/top-bar";
 import { api } from "@/lib/api-client";
-import { getThemeGradient } from "@/lib/profile-style";
 
 const PSYCH_REMINDER_KEY = "meetap_psych_reminder_until";
 const PSYCH_REMINDER_DAYS = 7;
@@ -58,8 +57,6 @@ export default function MyProfileHubPage() {
   const activity = meQuery.data?.activity;
   const psychCompleted = Boolean(profile?.personality_profile);
   const mood = profile?.preferences?.mood || profile?.mood || null;
-  const themeGradient = getThemeGradient(profile?.preferences?.profileColor);
-
   useEffect(() => {
     if (psychCompleted) {
       setShowPsychCard(false);
@@ -132,20 +129,25 @@ export default function MyProfileHubPage() {
       <TopBar title="Мой профиль" subtitle="Управление аккаунтом и настройками" right={<Pill>telegram-style</Pill>} />
 
       <Card className="mb-3 overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)]">
-        <div className="relative h-[20.5rem] overflow-hidden border-b border-[color:var(--border-soft)]" style={{ background: themeGradient }}>
-          <div className="absolute -left-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--peach-rgb)/0.2),transparent_68%)]" />
-          <div className="absolute -right-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--teal-rgb)/0.18),transparent_68%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgb(255_255_255/0.45),transparent_58%)]" />
+        <div className="relative h-[20.5rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[#F5FFFB]">
+          <div className="pointer-events-none absolute -left-16 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(255_240_235/0.55),transparent_65%)] blur-2xl" />
+          <div className="pointer-events-none absolute -right-20 top-[44%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(231_255_247/0.5),transparent_66%)] blur-2xl" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(255_255_255/0.52),transparent_58%)]" />
+          <div className="pointer-events-none absolute inset-0 opacity-[0.018] mix-blend-multiply" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgb(18 32 28 / 0.55) 1px, transparent 0)", backgroundSize: "3px 3px" }} />
 
           <div className="absolute inset-x-0 bottom-4 z-10 text-center">
-            <Image
-              src={profile?.avatar_url || "https://placehold.co/560x560"}
-              alt="avatar"
-              width={240}
-              height={240}
-              unoptimized
-              className="mx-auto h-44 w-44 rounded-[40px] border-2 border-[rgb(var(--border-strong-rgb)/0.6)] object-cover shadow-[0_18px_42px_rgba(58,106,90,0.18)]"
-            />
+            <div className="mx-auto rounded-[44px] bg-[image:var(--grad-primary)] p-[2.5px] shadow-[0_12px_30px_rgba(18,32,28,0.14)]">
+              <div className="rounded-[41px] bg-white p-[2px]">
+                <Image
+                  src={profile?.avatar_url || "https://placehold.co/560x560"}
+                  alt="avatar"
+                  width={240}
+                  height={240}
+                  unoptimized
+                  className="h-44 w-44 rounded-[39px] object-cover"
+                />
+              </div>
+            </div>
             <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-white/86 px-3 py-1.5 backdrop-blur-xl">
               <p className="text-[1.05rem] font-semibold leading-none text-text">{profile?.name || "Пользователь"}</p>
               <ProfileEmojiBadge value={profile?.preferences?.profileEmoji} />
@@ -258,16 +260,16 @@ export default function MyProfileHubPage() {
           <CardTitle className="text-text">Настройки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} iconToneClass="bg-[linear-gradient(135deg,rgb(var(--sky-rgb)/0.95),rgb(var(--sky-rgb)/0.72))] text-white" title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
-          <ProfileSettingsRow href="/profile/me/edit" icon={<Sparkles className="h-4 w-4" />} iconToneClass="bg-[linear-gradient(135deg,rgb(var(--teal-rgb)/0.96),rgb(var(--teal-rgb)/0.72))] text-white" title="Профиль" subtitle="Фото, bio, факты, интересы, город" />
-          <ProfileSettingsRow href="/profile/me/privacy" icon={<Shield className="h-4 w-4" />} iconToneClass="bg-[linear-gradient(135deg,rgb(var(--violet-rgb)/0.95),rgb(var(--violet-rgb)/0.72))] text-white" title="Конфиденциальность и безопасность" subtitle="Кто видит данные и кто может писать" />
-          <ProfileSettingsRow href="/profile/me/sessions" icon={<Monitor className="h-4 w-4" />} iconToneClass="bg-[linear-gradient(135deg,rgb(var(--teal-rgb)/0.9),rgb(var(--sky-rgb)/0.72))] text-white" title="Устройства и активные сессии" subtitle="Управление входами, завершение сессий" />
-          <ProfileSettingsRow href="/profile/me/notifications" icon={<Bell className="h-4 w-4" />} iconToneClass="bg-[linear-gradient(135deg,rgb(var(--amber-rgb)/0.95),rgb(var(--amber-rgb)/0.72))] text-white" title="Уведомления" subtitle="Коннекты, ответы, ивенты" />
-          <ProfileSettingsRow href="/profile/me/preferences" icon={<Users className="h-4 w-4" />} iconToneClass="bg-[image:var(--grad-primary)] text-white" title="Настройки знакомств/нетворкинга" subtitle="Что ищу и как match-имся" />
+          <ProfileSettingsRow href="/profile/me/account" icon={<User className="h-4 w-4" />} iconToneClass="bg-[#2AB3FF] text-white" title="Аккаунт" subtitle="Имя, email, телефон, удаление" />
+          <ProfileSettingsRow href="/profile/me/edit" icon={<Sparkles className="h-4 w-4" />} iconToneClass="bg-[#00D2A8] text-white" title="Профиль" subtitle="Фото, bio, факты, интересы, город" />
+          <ProfileSettingsRow href="/profile/me/privacy" icon={<Shield className="h-4 w-4" />} iconToneClass="bg-[#6C4DFF] text-white" title="Конфиденциальность и безопасность" subtitle="Кто видит данные и кто может писать" />
+          <ProfileSettingsRow href="/profile/me/sessions" icon={<Monitor className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Устройства и активные сессии" subtitle="Управление входами, завершение сессий" />
+          <ProfileSettingsRow href="/profile/me/notifications" icon={<Bell className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Уведомления" subtitle="Коннекты, ответы, ивенты" />
+          <ProfileSettingsRow href="/profile/me/preferences" icon={<Users className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Настройки знакомств/нетворкинга" subtitle="Что ищу и как match-имся" />
           <ProfileSettingsRow
             href="/profile/me/psych-test"
             icon={<Brain className="h-4 w-4" />}
-            iconToneClass="bg-[linear-gradient(135deg,rgb(var(--violet-rgb)/0.88),rgb(var(--sky-rgb)/0.6))] text-white"
+            iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2"
             title="Психотест"
             subtitle={psychCompleted ? "Пройден, можно обновить" : "Не пройден — влияет на качество рекомендаций"}
             badge={
@@ -278,8 +280,8 @@ export default function MyProfileHubPage() {
               )
             }
           />
-          <ProfileSettingsRow href="/profile/me/achievements" icon={<Trophy className="h-4 w-4" />} iconToneClass="bg-[image:var(--grad-badge)] text-white" title="Достижения" subtitle="Яркие полученные и цели на будущее" />
-          <ProfileSettingsRow href="/profile/me/help" icon={<CircleHelp className="h-4 w-4" />} iconToneClass="bg-[linear-gradient(135deg,#8EA3A0,#A9BDB7)] text-white" title="Помощь / О приложении" subtitle="Как использовать профиль" />
+          <ProfileSettingsRow href="/profile/me/achievements" icon={<Trophy className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Достижения" subtitle="Яркие полученные и цели на будущее" />
+          <ProfileSettingsRow href="/profile/me/help" icon={<CircleHelp className="h-4 w-4" />} iconToneClass="bg-[rgb(var(--surface-2-rgb))] text-text2" title="Помощь / О приложении" subtitle="Как использовать профиль" />
 
           <button
             type="button"
