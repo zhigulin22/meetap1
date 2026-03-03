@@ -115,11 +115,11 @@ export default function AdminUserPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            <div className="rounded-xl border border-border bg-black/10 p-2"><p className="text-xs text-muted">posts duo/video</p><p className="text-lg font-semibold">{d.summary.dailyDuoCount}/{d.summary.videoCount}</p></div>
-            <div className="rounded-xl border border-border bg-black/10 p-2"><p className="text-xs text-muted">event views/joins</p><p className="text-lg font-semibold">{d.summary.eventViews}/{d.summary.eventJoins}</p></div>
-            <div className="rounded-xl border border-border bg-black/10 p-2"><p className="text-xs text-muted">connect sent/replied</p><p className="text-lg font-semibold">{d.summary.connectSent}/{d.summary.connectReplied}</p></div>
-            <div className="rounded-xl border border-border bg-black/10 p-2"><p className="text-xs text-muted">continued D+1</p><p className="text-lg font-semibold">{d.summary.continuedD1}</p></div>
-            <div className="rounded-xl border border-border bg-black/10 p-2"><p className="text-xs text-muted">reports received</p><p className="text-lg font-semibold">{d.summary.reportsReceived}</p></div>
+            <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2"><p className="text-xs text-muted">posts duo/video</p><p className="text-lg font-semibold">{d.summary.dailyDuoCount}/{d.summary.videoCount}</p></div>
+            <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2"><p className="text-xs text-muted">event views/joins</p><p className="text-lg font-semibold">{d.summary.eventViews}/{d.summary.eventJoins}</p></div>
+            <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2"><p className="text-xs text-muted">connect sent/replied</p><p className="text-lg font-semibold">{d.summary.connectSent}/{d.summary.connectReplied}</p></div>
+            <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2"><p className="text-xs text-muted">continued D+1</p><p className="text-lg font-semibold">{d.summary.continuedD1}</p></div>
+            <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2"><p className="text-xs text-muted">reports received</p><p className="text-lg font-semibold">{d.summary.reportsReceived}</p></div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -174,7 +174,7 @@ export default function AdminUserPage() {
             <CardHeader><CardTitle>Timeline (latest 200)</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {(d.timeline ?? []).map((t: any) => (
-                <div key={`${t.created_at}-${t.label}`} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
+                <div key={`${t.created_at}-${t.label}`} className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2 text-xs">
                   <p className="font-medium">{t.label}</p>
                   <p className="text-muted">{new Date(t.created_at).toLocaleString("ru-RU")}</p>
                 </div>
@@ -191,7 +191,7 @@ export default function AdminUserPage() {
             <CardContent className="space-y-2">
               {(d.risk?.signals ?? []).length ? (
                 (d.risk.signals ?? []).map((sig: any) => (
-                  <div key={sig.key} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
+                  <div key={sig.key} className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2 text-xs">
                     <p className="flex items-center gap-1 font-medium"><AlertTriangle className="h-3.5 w-3.5 text-warning" />{sig.label}</p>
                     <p className="text-muted">severity {sig.severity} · value {sig.value}</p>
                   </div>
@@ -207,7 +207,7 @@ export default function AdminUserPage() {
             <CardContent className="space-y-2">
               {(d.moderation?.actions ?? []).length ? (
                 d.moderation.actions.map((a: any) => (
-                  <div key={a.id} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
+                  <div key={a.id} className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2 text-xs">
                     <p className="font-medium">{a.action}</p>
                     <p className="text-muted">{a.reason ?? "—"} · {new Date(a.created_at).toLocaleString("ru-RU")}</p>
                   </div>
@@ -231,7 +231,7 @@ export default function AdminUserPage() {
             <div className="max-h-[360px] space-y-2 overflow-auto">
               {(supportQ.data?.notes ?? []).length ? (
                 supportQ.data.notes.map((n: any) => (
-                  <div key={n.id} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
+                  <div key={n.id} className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2 text-xs">
                     <p className="font-medium">{n.text}</p>
                     <p className="text-muted">{n.author_role} · {new Date(n.created_at).toLocaleString("ru-RU")}</p>
                   </div>
@@ -249,7 +249,7 @@ export default function AdminUserPage() {
           <CardHeader><CardTitle>Admin Audit</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {(d.adminAudit ?? []).map((a: any) => (
-              <div key={a.id} className="rounded-xl border border-border bg-black/10 p-2 text-xs">
+              <div key={a.id} className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2 text-xs">
                 <p className="font-medium">{a.action}</p>
                 <p className="text-muted">{new Date(a.created_at).toLocaleString("ru-RU")}</p>
               </div>

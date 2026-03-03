@@ -121,7 +121,7 @@ export default function PsychTestPage() {
           <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--mint-rgb) / 0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--blue-rgb) / 0.5),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
           <CardContent className="-mt-8 space-y-2 p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-white/25 bg-black/20 p-2"><Brain className="h-5 w-5" /></div>
+              <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] p-2"><Brain className="h-5 w-5" /></div>
               <h1 className="text-xl font-semibold">Психологический профиль знакомства</h1>
             </div>
             <p className="text-sm text-muted">Основа: валидированные черты Big Five (адаптированная короткая форма для соцсценариев).</p>
@@ -130,7 +130,7 @@ export default function PsychTestPage() {
         </Card>
 
         {QUESTIONS.map((q, idx) => (
-          <Card key={q.id} className="border-white/10">
+          <Card key={q.id} className="border-border">
             <CardContent className="space-y-3 p-4">
               <p className="text-sm font-medium">{idx + 1}. {q.text}</p>
               <div className="grid grid-cols-1 gap-2">
@@ -141,7 +141,7 @@ export default function PsychTestPage() {
                       key={`${q.id}-${option.value}`}
                       onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
                       className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                        active ? "border-mint/70 bg-mint/18 text-mint/90" : "border-border bg-black/10 text-muted hover:bg-surface2/56"
+                        active ? "border-mint/70 bg-mint/18 text-mint/90" : "border-border bg-[rgb(var(--surface-1-rgb)/0.6)] text-muted hover:bg-surface2/56"
                       }`}
                     >
                       {option.label}
@@ -153,7 +153,7 @@ export default function PsychTestPage() {
           </Card>
         ))}
 
-        <Card className="border-white/10">
+        <Card className="border-border">
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-action" />

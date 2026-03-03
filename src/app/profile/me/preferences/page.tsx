@@ -210,7 +210,7 @@ export default function ProfilePreferencesPage() {
                   onClick={() => setEmojiPresetId(preset.id)}
                   className={`rounded-xl border p-2 ${emojiPresetId === preset.id ? "border-blue/45 ring-1 ring-blue/45" : "border-border"}`}
                 >
-                  <span className="mx-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/30 text-sm text-white" style={{ background: preset.bg }}>
+                  <span className="mx-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 text-sm text-[rgb(var(--text-rgb)/0.92)]" style={{ background: preset.bg }}>
                     {preset.glyph}
                   </span>
                   <p className="mt-1 text-[11px] text-text">{preset.label}</p>

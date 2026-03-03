@@ -101,10 +101,10 @@ export default function ProfilePage() {
               alt={p.name}
               width={220}
               height={220}
-              className="mx-auto h-44 w-44 rounded-[38px] border-2 border-white/55 object-cover shadow-[0_22px_54px_rgba(5,12,28,0.45)]"
+              className="mx-auto h-44 w-44 rounded-[38px] border-2 border-borderStrong object-cover shadow-[0_22px_54px_rgba(5,12,28,0.45)]"
               unoptimized
             />
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/22 px-3 py-1.5 backdrop-blur-xl">
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] px-3 py-1.5 backdrop-blur-xl">
               <h1 className="font-display text-[1.35rem] font-semibold leading-none text-text">{p.name}</h1>
               <ProfileEmojiBadge value={p.profileEmoji} />
               {p.telegram_verified ? <span title="Профиль подтвержден"><CheckCircle2 className="h-4 w-4 text-mint" /></span> : null}

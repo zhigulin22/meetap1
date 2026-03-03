@@ -170,9 +170,9 @@ export default function ProfileEditPage() {
           <div className="absolute -right-14 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--amber-rgb)/0.25),transparent_68%)]" />
 
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-[32px] border-2 border-white/75 transition active:scale-[0.98]">
+            <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-[32px] border-2 border-borderStrong transition active:scale-[0.98]">
               <Image src={avatar || "https://placehold.co/360x360"} alt="avatar" width={164} height={164} className="h-36 w-36 rounded-[32px] object-cover" unoptimized />
-              <span className="absolute -bottom-1 -right-1 rounded-full border border-borderStrong bg-black/70 p-1.5 text-white"><Camera className="h-4 w-4" /></span>
+              <span className="absolute -bottom-1 -right-1 rounded-full border border-borderStrong bg-[rgb(var(--bg-rgb)/0.64)] p-1.5 text-white"><Camera className="h-4 w-4" /></span>
             </button>
             <input
               ref={fileRef}

@@ -145,7 +145,7 @@ export default function ProfileSessionsPage() {
           {current ? (
             <div className="rounded-2xl border border-teal-400/45 bg-[linear-gradient(125deg,rgb(28_156_178_/0.18),rgb(46_197_207_/0.14))] p-3">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-white/15 bg-[linear-gradient(145deg,#1C9CB2,#2EC5CF)] p-2 text-white"><Smartphone className="h-4 w-4" /></div>
+                <div className="rounded-xl border border-border bg-[linear-gradient(145deg,#1C9CB2,#2EC5CF)] p-2 text-white"><Smartphone className="h-4 w-4" /></div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-text">{current.device_label || "Текущее устройство"}</p>
                   <p className="text-xs text-text2">{parsePlatform(current.user_agent)}</p>

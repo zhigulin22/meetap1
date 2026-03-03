@@ -1,0 +1,106 @@
+:root {
+  --bg: #07131a;
+  --surface-1: #0b1e27;
+  --surface-2: #0e2530;
+  --surface-3: #123344;
+
+  --border-soft: rgba(231, 246, 255, 0.06);
+  --border: rgba(231, 246, 255, 0.1);
+
+  --text: #e7f6ff;
+  --text-2: rgba(231, 246, 255, 0.72);
+  --text-3: rgba(231, 246, 255, 0.52);
+
+  --primary-teal: #2ed3b7;
+  --link-sky: #7ccbff;
+  --success-mint: #46c77a;
+  --warning: #ffb020;
+  --danger: #ff4d4f;
+
+  --event-night: #07060f;
+  --event-surface: #141225;
+  --event-gold: #d6b25e;
+  --event-ivory: #fff1c2;
+
+  --badge-violet: #7c5cff;
+  --badge-citrus: #ffd43b;
+  --badge-aqua: #2ed3b7;
+
+  --grad-primary: linear-gradient(135deg, #2ed3b7 0%, #e7f6ff 100%);
+  --grad-event: linear-gradient(135deg, #d6b25e 0%, #fff1c2 100%);
+  --grad-badge: linear-gradient(135deg, #7c5cff 0%, #ffd43b 100%);
+
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 12px;
+
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+
+  --bg-rgb: 7 19 26;
+  --surface-1-rgb: 11 30 39;
+  --surface-2-rgb: 14 37 48;
+  --surface-3-rgb: 18 51 68;
+  --border-rgb: 124 157 170;
+  --border-strong-rgb: 168 201 214;
+  --text-rgb: 231 246 255;
+  --text-2-rgb: 231 246 255;
+  --text-3-rgb: 231 246 255;
+
+  --teal-rgb: 46 211 183;
+  --sky-rgb: 124 203 255;
+  --success-rgb: 70 199 122;
+  --amber-rgb: 255 176 32;
+  --danger-rgb: 255 77 79;
+  --gold-rgb: 214 178 94;
+  --ivory-rgb: 255 241 194;
+  --event-night-rgb: 7 6 15;
+  --event-surface-rgb: 20 18 37;
+  --violet-rgb: 124 92 255;
+  --citrus-rgb: 255 212 59;
+  --badge-aqua-rgb: 46 211 183;
+
+  /* backward compatibility aliases */
+  --surface: var(--surface-1);
+  --muted: var(--text-2);
+  --blue: var(--link-sky);
+  --mint: var(--primary-teal);
+  --amber: var(--warning);
+
+  --blue-rgb: var(--sky-rgb);
+  --mint-rgb: var(--teal-rgb);
+}
+
+.light {
+  --bg: #f2fbff;
+  --surface-1: #ffffff;
+  --surface-2: #f3fbff;
+  --surface-3: #e5f5ff;
+  --border-soft: rgba(19, 65, 85, 0.08);
+  --border: rgba(19, 65, 85, 0.14);
+  --text: #0f2430;
+  --text-2: rgba(15, 36, 48, 0.72);
+  --text-3: rgba(15, 36, 48, 0.52);
+
+  --bg-rgb: 242 251 255;
+  --surface-1-rgb: 255 255 255;
+  --surface-2-rgb: 243 251 255;
+  --surface-3-rgb: 229 245 255;
+  --border-rgb: 68 105 121;
+  --border-strong-rgb: 46 83 99;
+  --text-rgb: 15 36 48;
+  --text-2-rgb: 15 36 48;
+  --text-3-rgb: 15 36 48;
+}
+
+.event-mode {
+  --bg: var(--event-night);
+  --surface-1: var(--event-surface);
+  --surface-2: #1b1730;
+  --surface-3: #262047;
+}
+
+.badge-mode {
+  --link-sky: #9aa7ff;
+  --primary-teal: var(--badge-aqua);
+}

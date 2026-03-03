@@ -31,7 +31,7 @@ export function ProfileSettingsRow({
         }}
       />
       <div
-        className={`relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/12 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.18)] ${iconToneClass ?? "bg-surface3/60 text-text2"}`}
+        className={`relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-border shadow-[inset_0_1px_0_rgb(var(--border-strong-rgb)/0.16)] ${iconToneClass ?? "bg-surface3/60 text-text2"}`}
       >
         {icon}
       </div>

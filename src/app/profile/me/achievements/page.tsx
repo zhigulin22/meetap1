@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Lock, Sparkles, Trophy } from "lucide-react";
+import { CheckCircle2, Lock, Trophy } from "lucide-react";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { BadgeIcon } from "@/components/badge-icon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,26 +120,26 @@ export default function ProfileAchievementsPage() {
   }, [items]);
 
   return (
-    <ProfileSettingsLayout title="Достижения" subtitle="Бейджи рассчитаны на месяцы и годы: прогресс копится постепенно и дает долгую мотивацию.">
-      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
+    <ProfileSettingsLayout title="Достижения" subtitle="Бейджи рассчитаны на месяцы и годы. Не полученные — монохромные, полученные — яркие и поднимаются вверх.">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl badge-mode">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-text">Прогресс по бейджам</p>
               <p className="text-xs text-text2">Получено {badgesQuery.data?.earnedCount ?? 0} из {badgesQuery.data?.totalCount ?? 0}</p>
             </div>
-            <div className="inline-flex rounded-xl border border-border bg-surface2/68 p-1">
+            <div className="inline-flex rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.78)] p-1">
               <button
                 type="button"
                 onClick={() => setMode("earned")}
-                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "earned" ? "bg-blue/24 text-text" : "text-text3"}`}
+                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "earned" ? "bg-[rgb(var(--violet-rgb)/0.2)] text-text" : "text-text3"}`}
               >
                 Получено
               </button>
               <button
                 type="button"
                 onClick={() => setMode("all")}
-                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "all" ? "bg-blue/24 text-text" : "text-text3"}`}
+                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "all" ? "bg-[rgb(var(--violet-rgb)/0.2)] text-text" : "text-text3"}`}
               >
                 Все
               </button>
@@ -153,7 +153,7 @@ export default function ProfileAchievementsPage() {
                 type="button"
                 onClick={() => setCategory(tab)}
                 className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition ${
-                  category === tab ? "border-blue/45 bg-blue/16 text-text" : "border-border bg-surface2/60 text-text3"
+                  category === tab ? "border-violet/45 bg-[rgb(var(--violet-rgb)/0.16)] text-text" : "border-border bg-[rgb(var(--surface-1-rgb)/0.72)] text-text3"
                 }`}
               >
                 {tab}
@@ -163,7 +163,7 @@ export default function ProfileAchievementsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border bg-surface/88 backdrop-blur-2xl">
+      <Card className="border-border bg-[rgb(var(--surface-2-rgb)/0.9)] shadow-card backdrop-blur-2xl badge-mode">
         <CardHeader>
           <CardTitle className="text-sm text-text">Каталог бейджей</CardTitle>
         </CardHeader>
@@ -176,7 +176,9 @@ export default function ProfileAchievementsPage() {
                   type="button"
                   onClick={() => setSelected(badge)}
                   className={`group rounded-2xl border p-3 text-left transition active:scale-[0.985] ${
-                    badge.earned ? "border-borderStrong bg-white/9" : "border-white/12 bg-white/4"
+                    badge.earned
+                      ? "border-violet/35 bg-[linear-gradient(135deg,rgb(var(--violet-rgb)/0.14),rgb(var(--citrus-rgb)/0.12))]"
+                      : "border-border bg-[rgb(var(--surface-1-rgb)/0.6)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -194,14 +196,14 @@ export default function ProfileAchievementsPage() {
                   </p>
 
                   <div className="mt-2 h-1.5 rounded-full bg-surface2/72">
-                    <div className="h-1.5 rounded-full bg-[linear-gradient(90deg,var(--blue),var(--mint))]" style={{ width: `${Math.min(100, badge.progress.percent)}%` }} />
+                    <div className="h-1.5 rounded-full bg-[image:var(--grad-badge)]" style={{ width: `${Math.min(100, badge.progress.percent)}%` }} />
                   </div>
                   <p className="mt-1 text-[11px] text-text3">{badge.progress.current}/{badge.progress.target}</p>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-border bg-surface2/60 p-4 text-sm text-text2">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-4 text-sm text-text2">
               <p>Пока пусто для выбранного фильтра.</p>
               <p className="mt-1 text-xs text-text3">Сбрось фильтр или открывай “Все”, чтобы увидеть полный каталог.</p>
             </div>
@@ -210,7 +212,7 @@ export default function ProfileAchievementsPage() {
       </Card>
 
       {mode === "all" && category !== "Получено" ? (
-        <Card className="border-border bg-surface2/60">
+        <Card className="border-border bg-[rgb(var(--surface-1-rgb)/0.72)]">
           <CardContent className="p-3 text-xs text-text3">
             Сопоставление метрик: {topEventNamesHint || "—"}
           </CardContent>
@@ -223,8 +225,8 @@ export default function ProfileAchievementsPage() {
         </DialogHeader>
 
         {selected ? (
-          <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-1">
-            <div className="rounded-2xl border border-border bg-surface2/64 p-3">
+          <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-1 badge-mode">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3">
               <div className="flex items-center gap-3">
                 <BadgeIcon name={selected.icon} rarity={selected.rarity} earned={selected.earned} />
                 <div>
@@ -234,21 +236,21 @@ export default function ProfileAchievementsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border bg-surface2/64 p-3">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3">
               <p className="text-xs text-text3">Что это</p>
               <p className="mt-1 text-sm text-text">{selected.description}</p>
               <p className="mt-2 text-xs text-text3">Почему ценно: {selected.rules.why || "Повышает качество профиля и рекомендаций."}</p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-surface2/64 p-3">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3">
               <p className="text-xs text-text3">Прогресс</p>
               <div className="mt-2 h-2 rounded-full bg-surface2/72">
-                <div className="h-2 rounded-full bg-[linear-gradient(90deg,var(--blue),var(--mint))]" style={{ width: `${Math.min(100, selected.progress.percent)}%` }} />
+                <div className="h-2 rounded-full bg-[image:var(--grad-badge)]" style={{ width: `${Math.min(100, selected.progress.percent)}%` }} />
               </div>
               <p className="mt-1 text-sm text-text">{selected.progress.current}/{selected.progress.target} {selected.rules.value_label || "шагов"}</p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-surface2/64 p-3 text-sm">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-sm">
               <p className="text-xs text-text3">Условия</p>
               <p className="mt-1 text-text">Нужно: {selected.progress.target} {selected.rules.value_label || "действий"}.</p>
               <p className="text-text2">Cooldown: {selected.rules.cooldown_days ?? 30} дн.</p>
@@ -260,7 +262,7 @@ export default function ProfileAchievementsPage() {
                 <Trophy className="mr-1 h-4 w-4" /> Сделать главным бейджем
               </Button>
             ) : (
-              <div className="rounded-2xl border border-border bg-surface2/60 p-3 text-xs text-text2">
+              <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3 text-xs text-text2">
                 Бейдж еще не получен. Прогресс сохранен и продолжит расти автоматически.
               </div>
             )}

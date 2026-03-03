@@ -140,7 +140,7 @@ export function PostCard({
               />
               <button
                 onClick={() => setMuted((v) => !v)}
-                className="absolute right-3 top-3 rounded-full border border-white/35 bg-black/45 p-2"
+                className="absolute right-3 top-3 rounded-full border border-border bg-[rgb(var(--bg-rgb)/0.45)] p-2"
                 aria-label="Toggle sound"
               >
                 {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}

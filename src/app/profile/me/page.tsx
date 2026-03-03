@@ -151,9 +151,9 @@ export default function MyProfileHubPage() {
               width={240}
               height={240}
               unoptimized
-              className="mx-auto h-44 w-44 rounded-[40px] border-2 border-white/55 object-cover shadow-[0_22px_54px_rgba(5,12,28,0.45)]"
+              className="mx-auto h-44 w-44 rounded-[40px] border-2 border-borderStrong object-cover shadow-[0_22px_54px_rgba(5,12,28,0.45)]"
             />
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-3 py-1.5 backdrop-blur-xl">
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-[rgb(var(--surface-1-rgb)/0.62)] px-3 py-1.5 backdrop-blur-xl">
               <p className="text-[1.05rem] font-semibold leading-none text-text">{profile?.name || "Пользователь"}</p>
               <ProfileEmojiBadge value={profile?.preferences?.profileEmoji} />
               {profile?.telegram_verified ? <span title="Телефон подтвержден"><CheckCircle2 className="h-4 w-4 text-mint" /></span> : null}

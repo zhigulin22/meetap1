@@ -57,7 +57,7 @@ export default function EventsPage() {
     <PageShell>
       <div className="mb-3">
         <h1 className="text-2xl font-semibold">Мероприятия</h1>
-        <p className="text-xs text-muted">Живые встречи с понятным профитом и подбором людей рядом</p>
+        <p className="text-xs text-muted">Живые встречи с подбором людей рядом и мягким golden-акцентом на важных CTA.</p>
       </div>
 
       {isLoading ? (
@@ -65,11 +65,16 @@ export default function EventsPage() {
           <Skeleton className="h-56 w-full rounded-3xl" />
           <Skeleton className="h-56 w-full rounded-3xl" />
         </div>
-      ) : (
+      ) : data?.items?.length ? (
         <div className="space-y-3">
-          {data?.items.map((event) => (
+          {data.items.map((event) => (
             <EventCard key={event.id} event={event} onJoin={join} joining={joiningId === event.id} />
           ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <p>Пока нет доступных ивентов.</p>
+          <p className="mt-1 text-xs text-text2">Почему пусто: в системе нет активных событий. Что сделать: зайти позже или обновить экран.</p>
         </div>
       )}
     </PageShell>

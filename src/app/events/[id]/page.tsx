@@ -128,7 +128,7 @@ export default function EventDetailPage() {
           </div>
 
           {suggested?.length ? (
-            <div className="rounded-2xl border border-border bg-black/20 p-3">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.68)] p-3">
               <p className="mb-2 text-sm font-medium">Кого лучше поймать на событии:</p>
               {suggested.map((person) => (
                 <Link key={person.id} href={`/profile/${person.id}`} className="block text-sm text-muted hover:text-text">
@@ -138,7 +138,7 @@ export default function EventDetailPage() {
             </div>
           ) : null}
 
-          <div className="space-y-2 rounded-2xl border border-border bg-black/10 p-3">
+          <div className="space-y-2 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-3">
             <p className="text-sm font-medium">Кого хочешь отметить после события?</p>
             <p className="text-xs text-muted">Только 👍, без текста. Это улучшает рекомендации и уровни.</p>
             <Input value={endorseSearch} onChange={(e) => setEndorseSearch(e.target.value)} placeholder="Поиск участника по имени" />
@@ -148,7 +148,7 @@ export default function EventDetailPage() {
                 if (!user) return null;
                 const sent = endorsedIds.includes(user.id);
                 return (
-                  <div key={user.id} className="flex items-center justify-between rounded-xl border border-border bg-black/10 p-2">
+                  <div key={user.id} className="flex items-center justify-between rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-2">
                     <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm text-muted hover:text-text">
                       <Image src={user.avatar_url || "https://placehold.co/100"} alt={user.name} width={100} height={100} className="h-8 w-8 rounded-full object-cover" unoptimized />
                       {user.name}
@@ -185,7 +185,7 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-black/10 p-3 text-sm text-muted">
+          <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.58)] p-3 text-sm text-muted">
             Чат события (MVP): структура готова, подключим realtime на следующем шаге.
           </div>
         </CardContent>

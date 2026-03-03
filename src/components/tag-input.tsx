@@ -5,11 +5,11 @@ import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const palette = [
-  "bg-blue/14 text-text border-blue/35",
-  "bg-mint/14 text-text border-mint/35",
-  "bg-amber/14 text-text border-amber/35",
-  "bg-surface3/70 text-text border-borderStrong",
-  "bg-surface3/72 text-text border-blue/30",
+  "bg-[rgb(var(--teal-rgb)/0.14)] text-text border-[rgb(var(--teal-rgb)/0.32)]",
+  "bg-[rgb(var(--sky-rgb)/0.14)] text-text border-[rgb(var(--sky-rgb)/0.32)]",
+  "bg-[rgb(var(--amber-rgb)/0.14)] text-text border-[rgb(var(--amber-rgb)/0.34)]",
+  "bg-surface3/62 text-text border-borderStrong",
+  "bg-[rgb(var(--surface-3-rgb)/0.7)] text-text border-border",
 ];
 
 export function TagInput({
@@ -71,7 +71,7 @@ export function TagInput({
               key={s}
               type="button"
               onClick={() => addTag(s)}
-              className="rounded-full border border-border bg-surface2/62 px-3 py-1 text-xs text-muted hover:text-text"
+              className="rounded-full border border-border bg-[rgb(var(--surface-2-rgb)/0.78)] px-3 py-1 text-xs text-text2 hover:text-text"
             >
               {s}
             </button>

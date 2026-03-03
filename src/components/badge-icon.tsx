@@ -57,10 +57,10 @@ const ICONS = {
 } as const;
 
 const RARITY_GRADIENT: Record<string, string> = {
-  common: "linear-gradient(135deg,rgb(var(--text-2-rgb) / 0.33),rgb(var(--text-3-rgb) / 0.26))",
-  rare: "linear-gradient(135deg,rgb(var(--blue-rgb) / 0.38),rgb(var(--blue-rgb) / 0.22))",
-  epic: "linear-gradient(135deg,rgb(var(--mint-rgb) / 0.34),rgb(var(--blue-rgb) / 0.26))",
-  legendary: "linear-gradient(135deg,rgb(var(--amber-rgb) / 0.40),rgb(var(--blue-rgb) / 0.30))",
+  common: "linear-gradient(135deg,rgb(var(--text-2-rgb) / 0.22),rgb(var(--text-3-rgb) / 0.18))",
+  rare: "linear-gradient(135deg,rgb(var(--badge-aqua-rgb, 46 211 183) / 0.34),rgb(var(--sky-rgb) / 0.24))",
+  epic: "linear-gradient(135deg,rgb(var(--violet-rgb) / 0.42),rgb(var(--sky-rgb) / 0.28))",
+  legendary: "linear-gradient(135deg,rgb(var(--violet-rgb) / 0.45),rgb(var(--citrus-rgb) / 0.4))",
 };
 
 export function BadgeIcon({
@@ -82,8 +82,8 @@ export function BadgeIcon({
       className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-borderStrong ${className ?? ""}`}
       style={{
         background,
-        filter: earned ? "none" : "grayscale(0.78) saturate(0.55)",
-        opacity: earned ? 1 : 0.72,
+        filter: earned ? "none" : "grayscale(0.8) saturate(0.45)",
+        opacity: earned ? 1 : 0.7,
       }}
     >
       <Icon className="h-6 w-6 text-text" strokeWidth={2} />

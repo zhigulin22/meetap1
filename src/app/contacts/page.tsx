@@ -70,7 +70,7 @@ export default function ContactsPage() {
     <PageShell>
       <div className="mb-3 space-y-2">
         <h1 className="text-2xl font-semibold">Найти людей</h1>
-        <p className="text-xs text-muted">AI подскажет, как лучше познакомиться и о чём начать разговор.</p>
+        <p className="text-xs text-muted">Умные подсказки помогают начать знакомство спокойно и по делу.</p>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Имя, интерес, событие" />
       </div>
 
@@ -81,12 +81,12 @@ export default function ContactsPage() {
 
         <div className="space-y-2 text-sm">
           {ice?.insight.profileSummary ? (
-            <div className="rounded-xl border border-border bg-surface2/56 p-3 text-muted">{ice.insight.profileSummary}</div>
+            <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.74)] p-3 text-muted">{ice.insight.profileSummary}</div>
           ) : null}
 
           <p className="text-muted">Тема: {ice?.insight.topic}</p>
           {ice?.insight.messages.map((m) => (
-            <div key={m} className="rounded-xl border border-border bg-black/20 p-2">
+            <div key={m} className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-2">
               {m}
             </div>
           ))}
@@ -107,15 +107,15 @@ export default function ContactsPage() {
       <div className="space-y-3 pb-2">
         {isLoading ? <Skeleton className="h-24 w-full" /> : null}
 
-        <Card className="overflow-hidden border-white/10 bg-surface/90 backdrop-blur-xl">
+        <Card className="overflow-hidden border-border bg-[rgb(var(--surface-1-rgb)/0.92)] shadow-card backdrop-blur-xl">
           <CardContent className="space-y-3 p-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Лучшие совпадения</h2>
               <span className="rounded-full border border-border px-2 py-1 text-[10px] text-muted">TOP</span>
             </div>
 
-            {(data?.hotMatches ?? []).map((person) => (
-              <div key={person.id} className="rounded-2xl border border-border/80 bg-black/10 p-3">
+            {(data?.hotMatches ?? []).length ? (data?.hotMatches ?? []).map((person) => (
+              <div key={person.id} className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
                 <div className="flex items-center gap-2">
                   <Image
                     src={person.avatar_url || "https://placehold.co/100"}
@@ -126,12 +126,12 @@ export default function ContactsPage() {
                     unoptimized
                   />
                   <div className="flex-1">
-                    <Link href={`/profile/${person.id}`} className="text-sm font-medium hover:text-action">
+                    <Link href={`/profile/${person.id}`} className="text-sm font-medium hover:text-mint">
                       {person.name}
                     </Link>
                     <p className="text-xs text-muted">{person.reason}</p>
                   </div>
-                  <div className="rounded-full border border-border bg-surface2/56 px-2 py-1 text-xs">
+                  <div className="rounded-full border border-border bg-[rgb(var(--surface-2-rgb)/0.72)] px-2 py-1 text-xs">
                     {person.compatibility}%
                   </div>
                 </div>
@@ -146,24 +146,24 @@ export default function ContactsPage() {
                   </Button>
                 </div>
               </div>
-            ))}
+            )) : (<div className="empty-state">Пока нет точных совпадений. Обнови интересы в профиле, чтобы улучшить подбор.</div>)}
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-white/10 bg-surface/90 backdrop-blur-xl">
+        <Card className="overflow-hidden border-border bg-[rgb(var(--surface-1-rgb)/0.92)] shadow-card backdrop-blur-xl">
           <CardContent className="space-y-2 p-3">
             <h2 className="text-sm font-semibold">Группы и события</h2>
-            {(data?.groups ?? []).map((group) => (
-              <Link key={group.id} href={`/events/${group.id}`} className="flex items-center justify-between rounded-xl border border-border/70 p-2 text-sm hover:bg-surface2/56">
+            {(data?.groups ?? []).length ? (data?.groups ?? []).map((group) => (
+              <Link key={group.id} href={`/events/${group.id}`} className="flex items-center justify-between rounded-xl border border-border p-2 text-sm hover:bg-[rgb(var(--surface-2-rgb)/0.76)]">
                 <div>
                   <p>{group.title}</p>
                   <p className="text-xs text-muted">
                     {group.city} · {new Date(group.event_date).toLocaleDateString("ru-RU")}
                   </p>
                 </div>
-                <Sparkles className="h-4 w-4 text-action" />
+                <Sparkles className="h-4 w-4 text-gold" />
               </Link>
-            ))}
+            )) : (<div className="empty-state">Пока нет подходящих групп/ивентов. Почему пусто: мало событий в твоем сегменте.</div>)}
           </CardContent>
         </Card>
       </div>

@@ -29,7 +29,7 @@ export function Tabs({
 }
 
 export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("inline-flex rounded-[var(--radius-md)] border border-border bg-surface2/75 p-1", className)} {...props} />;
+  return <div className={cn("inline-flex rounded-[var(--radius-md)] border border-border bg-[rgb(var(--surface-2-rgb)/0.82)] p-1", className)} {...props} />;
 }
 
 export function TabsTrigger({
@@ -47,9 +47,9 @@ export function TabsTrigger({
   return (
     <button
       className={cn(
-        "rounded-xl px-3 py-1.5 text-sm transition-all duration-150 active:scale-[0.98]",
+        "rounded-[10px] px-3 py-1.5 text-sm transition-all duration-150 active:scale-[0.98]",
         active
-          ? "border border-blue/35 bg-[linear-gradient(135deg,rgb(var(--blue-rgb)/0.2),rgb(var(--mint-rgb)/0.16))] text-text shadow-glow"
+          ? "border border-borderStrong bg-[linear-gradient(135deg,rgb(var(--teal-rgb)/0.18),rgb(var(--sky-rgb)/0.14))] text-text shadow-glow"
           : "text-text2 hover:text-text",
         className,
       )}

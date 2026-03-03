@@ -162,7 +162,7 @@ export default function FeedPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Лента</h1>
-            <p className="text-xs text-muted">Свайпай вверх: видео, одиночные фото и Daily Duo</p>
+            <p className="text-xs text-muted">Видео, одиночные фото и Daily Duo в единой палитре Teal Ocean.</p>
           </div>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             DUO
@@ -175,7 +175,7 @@ export default function FeedPage() {
               key={x}
               onClick={() => setMode(x as typeof mode)}
               className={`rounded-full border px-3 py-1.5 text-xs capitalize ${
-                mode === x ? "border-action bg-action/20 text-action" : "border-border bg-surface2/56 text-muted"
+                mode === x ? "border-action bg-action/20 text-action" : "border-border bg-[rgb(var(--surface-2-rgb)/0.76)] text-muted"
               }`}
             >
               {x === "all" ? "all" : x}
@@ -203,12 +203,12 @@ export default function FeedPage() {
           ) : null}
 
           {connectData?.insight.profileSummary ? (
-            <div className="rounded-2xl border border-border bg-surface2/56 p-3 text-muted">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.76)] p-3 text-muted">
               {connectData.insight.profileSummary}
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-border bg-black/20 p-3">
+          <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
             <p className="text-xs text-muted">Тема</p>
             <p className="font-medium">{connectData?.insight.topic}</p>
           </div>
@@ -217,7 +217,7 @@ export default function FeedPage() {
             <div className="space-y-2">
               <p className="text-xs font-medium">Варианты первого сообщения</p>
               {connectData?.insight.firstMessages?.map((m) => (
-                <div key={m} className="rounded-2xl border border-blue/40 bg-blue/10 p-3 text-[13px]">
+                <div key={m} className="rounded-2xl border border-cyan/35 bg-[rgb(var(--sky-rgb)/0.12)] p-3 text-[13px]">
                   {m}
                 </div>
               ))}
@@ -251,13 +251,13 @@ export default function FeedPage() {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-border bg-black/20 p-3">
+          <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
             <p className="mb-1 text-xs text-muted">Контрольный вопрос</p>
             <p>{connectData?.insight.question}</p>
           </div>
 
           {(connectData?.insight.sharedSignals ?? []).length ? (
-            <div className="rounded-2xl border border-border bg-black/20 p-3">
+            <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
               <p className="mb-1 text-xs text-muted">Сигналы, на которых основана подсказка</p>
               <p className="text-xs text-muted">{connectData?.insight.sharedSignals?.join(" · ")}</p>
             </div>
@@ -270,10 +270,10 @@ export default function FeedPage() {
           <DialogTitle>Комментарии</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-black/15 p-2 pr-1">
+          <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.68)] p-2 pr-1">
             {commentsLoading ? <Skeleton className="h-16 w-full" /> : null}
             {(commentsData?.items ?? []).map((comment) => (
-              <div key={comment.id} className="rounded-2xl border border-border/80 bg-surface2/56 p-3">
+              <div key={comment.id} className="rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.76)] p-3">
                 <p className="text-xs text-muted">{comment.user?.name ?? "Пользователь"}</p>
                 <p className="text-sm leading-5">{comment.content}</p>
               </div>
@@ -306,7 +306,7 @@ export default function FeedPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <Card className="overflow-hidden rounded-[24px]">
             <CardContent className="space-y-4 p-5 text-center">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-action/35 bg-action/15 text-action">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-mint/35 bg-mint/12 text-mint">
                 <Sparkles className="h-4 w-4" />
               </div>
               <h2 className="text-xl font-semibold">Лента закрыта</h2>
@@ -325,9 +325,7 @@ export default function FeedPage() {
             <PostCard key={post.id} post={post} onReact={react} onConnect={connect} onOpenComments={openComments} />
           ))}
           {!filtered.length ? (
-            <Card>
-              <CardContent className="p-4 text-sm text-muted">По этому фильтру пока нет постов.</CardContent>
-            </Card>
+            <div className="empty-state">По этому фильтру пока нет постов. Попробуй соседний режим или опубликуй новый контент.</div>
           ) : null}
         </div>
       ) : null}

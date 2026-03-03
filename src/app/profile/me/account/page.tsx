@@ -117,10 +117,10 @@ export default function ProfileAccountPage() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="relative rounded-3xl border-2 border-white/70 outline-none transition active:scale-[0.98]"
+              className="relative rounded-3xl border-2 border-borderStrong outline-none transition active:scale-[0.98]"
             >
               <Image src={avatar || "https://placehold.co/200x200"} alt="avatar" width={132} height={132} className="h-24 w-24 rounded-3xl object-cover" unoptimized />
-              <span className="absolute -bottom-1 -right-1 rounded-full border border-borderStrong bg-black/70 p-1.5 text-white"><Camera className="h-4 w-4" /></span>
+              <span className="absolute -bottom-1 -right-1 rounded-full border border-borderStrong bg-[rgb(var(--bg-rgb)/0.64)] p-1.5 text-white"><Camera className="h-4 w-4" /></span>
             </button>
             <input
               ref={fileRef}
