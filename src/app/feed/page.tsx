@@ -175,7 +175,7 @@ export default function FeedPage() {
               key={x}
               onClick={() => setMode(x as typeof mode)}
               className={`rounded-full border px-3 py-1.5 text-xs capitalize ${
-                mode === x ? "border-action bg-action/20 text-action" : "border-border bg-white/5 text-muted"
+                mode === x ? "border-action bg-action/20 text-action" : "border-border bg-surface2/56 text-muted"
               }`}
             >
               {x === "all" ? "all" : x}
@@ -197,13 +197,13 @@ export default function FeedPage() {
 
         <div className="max-h-[74vh] space-y-3 overflow-y-auto pr-1 text-sm">
           {connectData?.insight.vibeStatus ? (
-            <div className="rounded-full border border-[#52cc83]/40 bg-[#52cc83]/15 px-3 py-1 text-xs text-[#aef0c8]">
+            <div className="rounded-full border border-mint/40 bg-mint/14 px-3 py-1 text-xs text-mint/90">
               {connectData.insight.vibeStatus}
             </div>
           ) : null}
 
           {connectData?.insight.profileSummary ? (
-            <div className="rounded-2xl border border-border bg-white/5 p-3 text-muted">
+            <div className="rounded-2xl border border-border bg-surface2/56 p-3 text-muted">
               {connectData.insight.profileSummary}
             </div>
           ) : null}
@@ -217,7 +217,7 @@ export default function FeedPage() {
             <div className="space-y-2">
               <p className="text-xs font-medium">Варианты первого сообщения</p>
               {connectData?.insight.firstMessages?.map((m) => (
-                <div key={m} className="rounded-2xl border border-[#8eb8ff]/40 bg-[#8eb8ff]/10 p-3 text-[13px]">
+                <div key={m} className="rounded-2xl border border-blue/40 bg-blue/10 p-3 text-[13px]">
                   {m}
                 </div>
               ))}
@@ -273,7 +273,7 @@ export default function FeedPage() {
           <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-border bg-black/15 p-2 pr-1">
             {commentsLoading ? <Skeleton className="h-16 w-full" /> : null}
             {(commentsData?.items ?? []).map((comment) => (
-              <div key={comment.id} className="rounded-2xl border border-border/80 bg-white/5 p-3">
+              <div key={comment.id} className="rounded-2xl border border-border/80 bg-surface2/56 p-3">
                 <p className="text-xs text-muted">{comment.user?.name ?? "Пользователь"}</p>
                 <p className="text-sm leading-5">{comment.content}</p>
               </div>

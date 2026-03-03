@@ -137,47 +137,47 @@ export default function ProfileSessionsPage() {
 
   return (
     <ProfileSettingsLayout title="Устройства и активные сессии" subtitle="Контролируй входы как в Telegram: текущая сессия и безопасное завершение остальных.">
-      <Card className="border-white/15 bg-surface/90 backdrop-blur-2xl">
+      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
         <CardHeader>
-          <CardTitle className="text-sm text-[#edf3ff]">Текущее устройство</CardTitle>
+          <CardTitle className="text-sm text-text">Текущее устройство</CardTitle>
         </CardHeader>
         <CardContent>
           {current ? (
-            <div className="rounded-2xl border border-[#4C8DFF]/35 bg-[#4C8DFF]/14 p-3">
+            <div className="rounded-2xl border border-blue/35 bg-blue/14 p-3">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-white/15 bg-white/10 p-2 text-[#dbe8ff]"><Smartphone className="h-4 w-4" /></div>
+                <div className="rounded-xl border border-border bg-surface2/72 p-2 text-text"><Smartphone className="h-4 w-4" /></div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[#eef4ff]">{current.device_label || "Текущее устройство"}</p>
-                  <p className="text-xs text-[#bfd0e8]">{parsePlatform(current.user_agent)}</p>
-                  <p className="mt-1 text-xs text-[#bfd0e8]">Локация: {current.approx_location || "—"}</p>
-                  <p className="text-xs text-[#bfd0e8]">Активность: {formatDate(current.last_active_at)}</p>
+                  <p className="text-sm font-semibold text-text">{current.device_label || "Текущее устройство"}</p>
+                  <p className="text-xs text-text2">{parsePlatform(current.user_agent)}</p>
+                  <p className="mt-1 text-xs text-text2">Локация: {current.approx_location || "—"}</p>
+                  <p className="text-xs text-text2">Активность: {formatDate(current.last_active_at)}</p>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/15 bg-white/7 p-3 text-xs text-[#b7c4db]">Текущая сессия не найдена.</div>
+            <div className="rounded-2xl border border-border bg-surface2/64 p-3 text-xs text-text2">Текущая сессия не найдена.</div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
+      <Card className="border-border bg-surface/88 backdrop-blur-2xl">
         <CardHeader>
-          <CardTitle className="text-sm text-[#edf3ff]">Активные сессии ({activeCount})</CardTitle>
+          <CardTitle className="text-sm text-text">Активные сессии ({activeCount})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {items.length ? (
             items.map((s) => (
-              <div key={s.id} className="rounded-2xl border border-white/15 bg-white/7 p-3">
+              <div key={s.id} className="rounded-2xl border border-border bg-surface2/64 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#edf3ff]">{s.device_label || "Устройство"}</p>
-                    <p className="text-xs text-[#aebcd4]">{parsePlatform(s.user_agent)} · {s.approx_location || "Локация недоступна"}</p>
-                    <p className="text-xs text-[#aebcd4]">Был(а): {formatDate(s.last_active_at)}</p>
-                    <p className="text-[11px] text-[#8fa1bf]">Вход: {formatDate(s.created_at)}</p>
+                    <p className="text-sm font-medium text-text">{s.device_label || "Устройство"}</p>
+                    <p className="text-xs text-text2">{parsePlatform(s.user_agent)} · {s.approx_location || "Локация недоступна"}</p>
+                    <p className="text-xs text-text2">Был(а): {formatDate(s.last_active_at)}</p>
+                    <p className="text-[11px] text-text3">Вход: {formatDate(s.created_at)}</p>
                   </div>
 
                   {s.is_current ? (
-                    <span className="rounded-full border border-[#52CC83]/45 bg-[#52CC83]/12 px-2 py-1 text-[10px] text-[#ddffe9]">Текущее</span>
+                    <span className="rounded-full border border-mint/45 bg-mint/12 px-2 py-1 text-[10px] text-mint/90">Текущее</span>
                   ) : (
                     <Button
                       variant="secondary"
@@ -193,20 +193,20 @@ export default function ProfileSessionsPage() {
               </div>
             ))
           ) : (
-            <div className="rounded-2xl border border-white/15 bg-white/7 p-3 text-xs text-[#b7c4db]">Других активных сессий нет.</div>
+            <div className="rounded-2xl border border-border bg-surface2/64 p-3 text-xs text-text2">Других активных сессий нет.</div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-[#ffb020]/35 bg-[#ffb020]/10">
+      <Card className="border-amber/35 bg-amber/10">
         <CardContent className="space-y-3 p-4">
-          <p className="inline-flex items-center gap-2 text-xs text-[#ffe9c1]">
+          <p className="inline-flex items-center gap-2 text-xs text-amber/90">
             <ShieldAlert className="h-4 w-4" /> Если устройство не твое, заверши все сессии кроме текущей.
           </p>
           <Button variant="danger" className="w-full" onClick={revokeAll} disabled={revokeAllLoading || sessionsQuery.isLoading}>
             <Trash2 className="mr-1 h-4 w-4" /> {revokeAllLoading ? "Завершаем..." : "Завершить все кроме текущей"}
           </Button>
-          <div className="inline-flex items-center gap-2 text-[11px] text-[#d7e3f6]">
+          <div className="inline-flex items-center gap-2 text-[11px] text-text2">
             <Monitor className="h-3.5 w-3.5" /> Изменения применяются сразу и сохраняются в безопасности аккаунта.
           </div>
         </CardContent>

@@ -81,7 +81,7 @@ export default function ContactsPage() {
 
         <div className="space-y-2 text-sm">
           {ice?.insight.profileSummary ? (
-            <div className="rounded-xl border border-border bg-white/5 p-3 text-muted">{ice.insight.profileSummary}</div>
+            <div className="rounded-xl border border-border bg-surface2/56 p-3 text-muted">{ice.insight.profileSummary}</div>
           ) : null}
 
           <p className="text-muted">Тема: {ice?.insight.topic}</p>
@@ -131,7 +131,7 @@ export default function ContactsPage() {
                     </Link>
                     <p className="text-xs text-muted">{person.reason}</p>
                   </div>
-                  <div className="rounded-full border border-border bg-white/5 px-2 py-1 text-xs">
+                  <div className="rounded-full border border-border bg-surface2/56 px-2 py-1 text-xs">
                     {person.compatibility}%
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export default function ContactsPage() {
           <CardContent className="space-y-2 p-3">
             <h2 className="text-sm font-semibold">Группы и события</h2>
             {(data?.groups ?? []).map((group) => (
-              <Link key={group.id} href={`/events/${group.id}`} className="flex items-center justify-between rounded-xl border border-border/70 p-2 text-sm hover:bg-white/5">
+              <Link key={group.id} href={`/events/${group.id}`} className="flex items-center justify-between rounded-xl border border-border/70 p-2 text-sm hover:bg-surface2/56">
                 <div>
                   <p>{group.title}</p>
                   <p className="text-xs text-muted">

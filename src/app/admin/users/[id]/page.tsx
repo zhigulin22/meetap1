@@ -164,7 +164,7 @@ export default function AdminUserPage() {
               </div>
               <div className="grid grid-cols-7 gap-1 md:grid-cols-15">
                 {visibleHeat.map((h: any) => (
-                  <div key={h.day} title={`${h.day}: ${h.value}`} className="h-6 rounded" style={{ background: `rgba(82,204,131,${Math.min(0.9, 0.1 + h.value / 20)})` }} />
+                  <div key={h.day} title={`${h.day}: ${h.value}`} className="h-6 rounded" style={{ background: `rgb(var(--mint-rgb)/${Math.min(0.9, 0.1 + h.value / 20)})` }} />
                 ))}
               </div>
             </CardContent>

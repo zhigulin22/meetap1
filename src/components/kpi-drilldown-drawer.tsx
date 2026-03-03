@@ -109,7 +109,7 @@ export function KpiDrilldownDrawer({
         }`}
       >
         <div
-          className={`flex h-[100dvh] w-full flex-col border border-border bg-surface shadow-[0_0_80px_rgba(0,0,0,0.55)] transition-transform md:h-[calc(100dvh-3rem)] md:max-w-5xl md:rounded-2xl ${
+          className={`flex h-[100dvh] w-full flex-col border border-border bg-surface shadow-soft transition-transform md:h-[calc(100dvh-3rem)] md:max-w-5xl md:rounded-2xl ${
             open ? "scale-100" : "scale-[0.98]"
           }`}
           onClick={(e) => e.stopPropagation()}

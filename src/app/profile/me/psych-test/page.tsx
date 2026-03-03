@@ -27,7 +27,7 @@ export default function ProfilePsychIntroPage() {
   return (
     <ProfileSettingsLayout title="Психотест" subtitle="Нужен для более точных рекомендаций и подсказок знакомства">
       <Card className="mb-3 overflow-hidden">
-        <div className="h-24 bg-[linear-gradient(125deg,rgba(9,16,48,0.98),rgba(82,204,131,0.25),rgba(108,176,255,0.35))]" />
+        <div className="h-24 bg-[linear-gradient(125deg,rgb(var(--surface-2-rgb) / 0.98),rgb(var(--mint-rgb) / 0.25),rgb(var(--blue-rgb) / 0.35))]" />
         <CardContent className="-mt-6 p-4">
           <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-border bg-surface2/75 px-3 py-2 text-sm text-text">
             <Brain className="h-4 w-4 text-action" />
@@ -58,7 +58,7 @@ export default function ProfilePsychIntroPage() {
       </Card>
 
       <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-surface2/70 px-3 py-2 text-sm text-muted">
-        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#52CC83]" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-mint" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
         Я понимаю, что результаты используются для внутренних рекомендаций знакомств и подсказок первого шага.
       </label>
 

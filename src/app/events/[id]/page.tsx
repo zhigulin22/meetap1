@@ -114,7 +114,7 @@ export default function EventDetailPage() {
 
           <div className="grid grid-cols-2 gap-2">
             {data.joined ? (
-              <div className="col-span-1 flex h-11 items-center justify-center rounded-2xl border border-[#52cc83]/50 bg-[#52cc83]/15 text-sm font-semibold text-[#52cc83]">
+              <div className="col-span-1 flex h-11 items-center justify-center rounded-2xl border border-mint/50 bg-mint/14 text-sm font-semibold text-mint">
                 Регистрация успешна
               </div>
             ) : (

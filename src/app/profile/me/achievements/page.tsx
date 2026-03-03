@@ -121,25 +121,25 @@ export default function ProfileAchievementsPage() {
 
   return (
     <ProfileSettingsLayout title="Достижения" subtitle="Бейджи рассчитаны на месяцы и годы: прогресс копится постепенно и дает долгую мотивацию.">
-      <Card className="border-white/15 bg-surface/90 backdrop-blur-2xl">
+      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#edf3ff]">Прогресс по бейджам</p>
-              <p className="text-xs text-[#b4c2db]">Получено {badgesQuery.data?.earnedCount ?? 0} из {badgesQuery.data?.totalCount ?? 0}</p>
+              <p className="text-sm font-semibold text-text">Прогресс по бейджам</p>
+              <p className="text-xs text-text2">Получено {badgesQuery.data?.earnedCount ?? 0} из {badgesQuery.data?.totalCount ?? 0}</p>
             </div>
-            <div className="inline-flex rounded-xl border border-white/15 bg-white/8 p-1">
+            <div className="inline-flex rounded-xl border border-border bg-surface2/68 p-1">
               <button
                 type="button"
                 onClick={() => setMode("earned")}
-                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "earned" ? "bg-[#4C8DFF]/24 text-[#e6efff]" : "text-[#9fb0ca]"}`}
+                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "earned" ? "bg-blue/24 text-text" : "text-text3"}`}
               >
                 Получено
               </button>
               <button
                 type="button"
                 onClick={() => setMode("all")}
-                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "all" ? "bg-[#4C8DFF]/24 text-[#e6efff]" : "text-[#9fb0ca]"}`}
+                className={`rounded-lg px-3 py-1 text-xs transition ${mode === "all" ? "bg-blue/24 text-text" : "text-text3"}`}
               >
                 Все
               </button>
@@ -153,7 +153,7 @@ export default function ProfileAchievementsPage() {
                 type="button"
                 onClick={() => setCategory(tab)}
                 className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition ${
-                  category === tab ? "border-[#4C8DFF]/45 bg-[#4C8DFF]/16 text-[#e5efff]" : "border-white/15 bg-white/6 text-[#9eafc9]"
+                  category === tab ? "border-blue/45 bg-blue/16 text-text" : "border-border bg-surface2/60 text-text3"
                 }`}
               >
                 {tab}
@@ -163,9 +163,9 @@ export default function ProfileAchievementsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-white/15 bg-surface/88 backdrop-blur-2xl">
+      <Card className="border-border bg-surface/88 backdrop-blur-2xl">
         <CardHeader>
-          <CardTitle className="text-sm text-[#edf3ff]">Каталог бейджей</CardTitle>
+          <CardTitle className="text-sm text-text">Каталог бейджей</CardTitle>
         </CardHeader>
         <CardContent>
           {filtered.length ? (
@@ -176,42 +176,42 @@ export default function ProfileAchievementsPage() {
                   type="button"
                   onClick={() => setSelected(badge)}
                   className={`group rounded-2xl border p-3 text-left transition active:scale-[0.985] ${
-                    badge.earned ? "border-white/20 bg-white/9" : "border-white/12 bg-white/4"
+                    badge.earned ? "border-borderStrong bg-white/9" : "border-white/12 bg-white/4"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <BadgeIcon name={badge.icon} rarity={badge.rarity} earned={badge.earned} />
                     {badge.earned ? (
-                      <CheckCircle2 className="h-4 w-4 text-[#52CC83]" />
+                      <CheckCircle2 className="h-4 w-4 text-mint" />
                     ) : (
-                      <Lock className="h-4 w-4 text-[#8a9db8]" />
+                      <Lock className="h-4 w-4 text-text3" />
                     )}
                   </div>
 
-                  <p className={`mt-2 text-sm font-semibold ${badge.earned ? "text-[#eef4ff]" : "text-[#aab9d1]"}`}>{badge.title}</p>
-                  <p className={`mt-0.5 text-[11px] ${badge.earned ? "text-[#bdcee6]" : "text-[#8f9fb8]"}`}>
+                  <p className={`mt-2 text-sm font-semibold ${badge.earned ? "text-text" : "text-text2"}`}>{badge.title}</p>
+                  <p className={`mt-0.5 text-[11px] ${badge.earned ? "text-text2" : "text-text3"}`}>
                     {badge.category} · {RARITY_LABEL[badge.rarity]}
                   </p>
 
-                  <div className="mt-2 h-1.5 rounded-full bg-white/10">
-                    <div className="h-1.5 rounded-full bg-[linear-gradient(90deg,#4C8DFF,#52CC83)]" style={{ width: `${Math.min(100, badge.progress.percent)}%` }} />
+                  <div className="mt-2 h-1.5 rounded-full bg-surface2/72">
+                    <div className="h-1.5 rounded-full bg-[linear-gradient(90deg,var(--blue),var(--mint))]" style={{ width: `${Math.min(100, badge.progress.percent)}%` }} />
                   </div>
-                  <p className="mt-1 text-[11px] text-[#9fb0ca]">{badge.progress.current}/{badge.progress.target}</p>
+                  <p className="mt-1 text-[11px] text-text3">{badge.progress.current}/{badge.progress.target}</p>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/15 bg-white/6 p-4 text-sm text-[#b5c3da]">
+            <div className="rounded-2xl border border-border bg-surface2/60 p-4 text-sm text-text2">
               <p>Пока пусто для выбранного фильтра.</p>
-              <p className="mt-1 text-xs text-[#98a9c3]">Сбрось фильтр или открывай “Все”, чтобы увидеть полный каталог.</p>
+              <p className="mt-1 text-xs text-text3">Сбрось фильтр или открывай “Все”, чтобы увидеть полный каталог.</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {mode === "all" && category !== "Получено" ? (
-        <Card className="border-white/15 bg-white/6">
-          <CardContent className="p-3 text-xs text-[#9fb0ca]">
+        <Card className="border-border bg-surface2/60">
+          <CardContent className="p-3 text-xs text-text3">
             Сопоставление метрик: {topEventNamesHint || "—"}
           </CardContent>
         </Card>
@@ -224,35 +224,35 @@ export default function ProfileAchievementsPage() {
 
         {selected ? (
           <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-1">
-            <div className="rounded-2xl border border-white/15 bg-white/7 p-3">
+            <div className="rounded-2xl border border-border bg-surface2/64 p-3">
               <div className="flex items-center gap-3">
                 <BadgeIcon name={selected.icon} rarity={selected.rarity} earned={selected.earned} />
                 <div>
-                  <p className="text-sm font-semibold text-[#edf3ff]">{selected.title}</p>
-                  <p className="text-xs text-[#b5c4dc]">{selected.category} · {RARITY_LABEL[selected.rarity]} · Tier {selected.tier}</p>
+                  <p className="text-sm font-semibold text-text">{selected.title}</p>
+                  <p className="text-xs text-text2">{selected.category} · {RARITY_LABEL[selected.rarity]} · Tier {selected.tier}</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/15 bg-white/7 p-3">
-              <p className="text-xs text-[#9fb1cb]">Что это</p>
-              <p className="mt-1 text-sm text-[#eaf1ff]">{selected.description}</p>
-              <p className="mt-2 text-xs text-[#9fb1cb]">Почему ценно: {selected.rules.why || "Повышает качество профиля и рекомендаций."}</p>
+            <div className="rounded-2xl border border-border bg-surface2/64 p-3">
+              <p className="text-xs text-text3">Что это</p>
+              <p className="mt-1 text-sm text-text">{selected.description}</p>
+              <p className="mt-2 text-xs text-text3">Почему ценно: {selected.rules.why || "Повышает качество профиля и рекомендаций."}</p>
             </div>
 
-            <div className="rounded-2xl border border-white/15 bg-white/7 p-3">
-              <p className="text-xs text-[#9fb1cb]">Прогресс</p>
-              <div className="mt-2 h-2 rounded-full bg-white/10">
-                <div className="h-2 rounded-full bg-[linear-gradient(90deg,#4C8DFF,#52CC83)]" style={{ width: `${Math.min(100, selected.progress.percent)}%` }} />
+            <div className="rounded-2xl border border-border bg-surface2/64 p-3">
+              <p className="text-xs text-text3">Прогресс</p>
+              <div className="mt-2 h-2 rounded-full bg-surface2/72">
+                <div className="h-2 rounded-full bg-[linear-gradient(90deg,var(--blue),var(--mint))]" style={{ width: `${Math.min(100, selected.progress.percent)}%` }} />
               </div>
-              <p className="mt-1 text-sm text-[#eaf1ff]">{selected.progress.current}/{selected.progress.target} {selected.rules.value_label || "шагов"}</p>
+              <p className="mt-1 text-sm text-text">{selected.progress.current}/{selected.progress.target} {selected.rules.value_label || "шагов"}</p>
             </div>
 
-            <div className="rounded-2xl border border-white/15 bg-white/7 p-3 text-sm">
-              <p className="text-xs text-[#9fb1cb]">Условия</p>
-              <p className="mt-1 text-[#eaf1ff]">Нужно: {selected.progress.target} {selected.rules.value_label || "действий"}.</p>
-              <p className="text-[#c6d5eb]">Cooldown: {selected.rules.cooldown_days ?? 30} дн.</p>
-              <p className="text-[#c6d5eb]">Дата получения: {formatDate(selected.earned_at)}</p>
+            <div className="rounded-2xl border border-border bg-surface2/64 p-3 text-sm">
+              <p className="text-xs text-text3">Условия</p>
+              <p className="mt-1 text-text">Нужно: {selected.progress.target} {selected.rules.value_label || "действий"}.</p>
+              <p className="text-text2">Cooldown: {selected.rules.cooldown_days ?? 30} дн.</p>
+              <p className="text-text2">Дата получения: {formatDate(selected.earned_at)}</p>
             </div>
 
             {selected.earned ? (
@@ -260,7 +260,7 @@ export default function ProfileAchievementsPage() {
                 <Trophy className="mr-1 h-4 w-4" /> Сделать главным бейджем
               </Button>
             ) : (
-              <div className="rounded-2xl border border-white/15 bg-white/6 p-3 text-xs text-[#a7b8d2]">
+              <div className="rounded-2xl border border-border bg-surface2/60 p-3 text-xs text-text2">
                 Бейдж еще не получен. Прогресс сохранен и продолжит расти автоматически.
               </div>
             )}

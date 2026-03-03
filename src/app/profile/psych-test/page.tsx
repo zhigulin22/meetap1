@@ -117,8 +117,8 @@ export default function PsychTestPage() {
   return (
     <PageShell>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-        <Card className="overflow-hidden border-white/20">
-          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(82,204,131,0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(93,121,235,0.5),transparent_45%),linear-gradient(130deg,#0a1238,#0a1b43)]" />
+        <Card className="overflow-hidden border-borderStrong">
+          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--mint-rgb) / 0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--blue-rgb) / 0.5),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
           <CardContent className="-mt-8 space-y-2 p-4">
             <div className="flex items-center gap-2">
               <div className="rounded-xl border border-white/25 bg-black/20 p-2"><Brain className="h-5 w-5" /></div>
@@ -141,7 +141,7 @@ export default function PsychTestPage() {
                       key={`${q.id}-${option.value}`}
                       onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
                       className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                        active ? "border-[#52CC83]/70 bg-[#52CC83]/18 text-[#dfffea]" : "border-border bg-black/10 text-muted hover:bg-white/5"
+                        active ? "border-mint/70 bg-mint/18 text-mint/90" : "border-border bg-black/10 text-muted hover:bg-surface2/56"
                       }`}
                     >
                       {option.label}

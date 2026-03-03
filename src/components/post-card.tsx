@@ -25,7 +25,7 @@ function renderCaption(caption: string) {
     <p className="mt-2 text-[14px] leading-5 text-text/95">
       {parts.map((part, idx) =>
         part.startsWith("@") ? (
-          <span key={`${part}-${idx}`} className="font-medium text-[#8eb8ff]">
+          <span key={`${part}-${idx}`} className="font-medium text-blue/80">
             {part}
           </span>
         ) : (
@@ -85,7 +85,7 @@ export function PostCard({
       transition={{ duration: 0.3 }}
       className="snap-start"
     >
-      <div className="overflow-hidden rounded-[28px] border border-white/15 bg-surface/90 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+      <div className="overflow-hidden rounded-[28px] border border-border bg-surface/90 shadow-card backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
           <div className="flex items-center gap-3">
             <Image
@@ -93,7 +93,7 @@ export function PostCard({
               alt={post.user?.name ?? "avatar"}
               width={96}
               height={96}
-              className="h-10 w-10 rounded-full border border-white/25 object-cover"
+              className="h-10 w-10 rounded-full border border-borderStrong object-cover"
               unoptimized
             />
             <div>
@@ -165,7 +165,7 @@ export function PostCard({
               size="default"
               onClick={() => onReact(post.id, "like")}
               disabled={post.viewer.liked}
-              className={post.viewer.liked ? "h-11 border-[#52cc83]/50 bg-[#52cc83]/15 text-[#52cc83]" : "h-11"}
+              className={post.viewer.liked ? "h-11 border-mint/50 bg-mint/14 text-mint" : "h-11"}
             >
               <Heart className="mr-1 h-4 w-4" /> {post.reactions.like}
             </Button>
@@ -178,7 +178,7 @@ export function PostCard({
               variant="secondary"
               size="icon"
               onClick={() => onConnect(post)}
-              className={post.viewer.connected ? "h-11 w-11 border-[#8eb8ff]/50 bg-[#8eb8ff]/15 text-[#8eb8ff]" : "h-11 w-11"}
+              className={post.viewer.connected ? "h-11 w-11 border-blue/50 bg-blue/15 text-blue/80" : "h-11 w-11"}
               aria-label="Хочу познакомиться"
             >
               <Handshake className="h-4 w-4" />
@@ -189,7 +189,7 @@ export function PostCard({
               size="default"
               onClick={() => onReact(post.id, "star")}
               disabled={post.viewer.starred}
-              className={post.viewer.starred ? "h-11 border-[#ffcf70]/60 bg-[#ffcf70]/20 text-[#ffcf70]" : "h-11"}
+              className={post.viewer.starred ? "h-11 border-amber/55 bg-amber/16 text-amber" : "h-11"}
             >
               <Star className="mr-1 h-4 w-4" /> {post.reactions.star}
             </Button>

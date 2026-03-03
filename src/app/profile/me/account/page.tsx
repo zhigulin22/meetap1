@@ -111,7 +111,7 @@ export default function ProfileAccountPage() {
 
   return (
     <ProfileSettingsLayout title="Аккаунт" subtitle="Основные данные и контроль аккаунта">
-      <Card className="border-white/15 bg-surface/90 backdrop-blur-2xl">
+      <Card className="border-border bg-surface/90 backdrop-blur-2xl">
         <CardContent className="p-4">
           <div className="flex items-end gap-3">
             <button
@@ -120,7 +120,7 @@ export default function ProfileAccountPage() {
               className="relative rounded-3xl border-2 border-white/70 outline-none transition active:scale-[0.98]"
             >
               <Image src={avatar || "https://placehold.co/200x200"} alt="avatar" width={132} height={132} className="h-24 w-24 rounded-3xl object-cover" unoptimized />
-              <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/70 p-1.5 text-white"><Camera className="h-4 w-4" /></span>
+              <span className="absolute -bottom-1 -right-1 rounded-full border border-borderStrong bg-black/70 p-1.5 text-white"><Camera className="h-4 w-4" /></span>
             </button>
             <input
               ref={fileRef}
@@ -133,9 +133,9 @@ export default function ProfileAccountPage() {
               }}
             />
             <div>
-              <p className="text-sm font-semibold text-[#eef4ff]">{profile?.name || "Пользователь"}</p>
-              <p className="text-xs text-[#b7c6de]">{maskPhone(profile?.phone)}</p>
-              <p className="text-xs text-[#9fc0ff]">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
+              <p className="text-sm font-semibold text-text">{profile?.name || "Пользователь"}</p>
+              <p className="text-xs text-text2">{maskPhone(profile?.phone)}</p>
+              <p className="text-xs text-blue/70">{uploading ? "Загрузка фото..." : "Нажми на фото для обновления"}</p>
             </div>
           </div>
         </CardContent>
@@ -149,8 +149,8 @@ export default function ProfileAccountPage() {
         {typeof profile?.email === "string" ? (
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
         ) : (
-          <Card className="border-white/15 bg-white/7">
-            <CardContent className="p-3 text-xs text-[#b7c6de]">Email не подключен для этого аккаунта</CardContent>
+          <Card className="border-border bg-surface2/64">
+            <CardContent className="p-3 text-xs text-text2">Email не подключен для этого аккаунта</CardContent>
           </Card>
         )}
 

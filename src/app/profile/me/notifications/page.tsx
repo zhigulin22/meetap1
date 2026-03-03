@@ -14,7 +14,7 @@ function SwitchRow({ label, hint, checked, onChange }: { label: string; hint: st
         <p className="text-sm text-text">{label}</p>
         <p className="text-xs text-muted">{hint}</p>
       </div>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[#52CC83]" />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-mint" />
     </label>
   );
 }

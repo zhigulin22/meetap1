@@ -20,7 +20,7 @@ export function ProfileEmojiBadge({
 
     return (
       <span
-        className={`${base} inline-flex items-center justify-center rounded-full border border-white/30 text-white shadow-[0_4px_12px_rgba(0,0,0,0.25)]`}
+        className={`${base} inline-flex items-center justify-center rounded-full border border-borderStrong text-white shadow-card`}
         style={{ background: preset.bg }}
         title={preset.label}
       >
@@ -31,7 +31,7 @@ export function ProfileEmojiBadge({
 
   return (
     <span
-      className={`${base} inline-flex items-center justify-center rounded-full border border-white/30 text-white shadow-[0_4px_12px_rgba(0,0,0,0.25)]`}
+      className={`${base} inline-flex items-center justify-center rounded-full border border-borderStrong text-white shadow-card`}
       style={{ background: config.color }}
       title="Custom emoji"
     >

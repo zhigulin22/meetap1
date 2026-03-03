@@ -37,7 +37,7 @@ export function EventCard({
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-lg font-semibold leading-tight">{event.title}</h3>
-          <span className="rounded-full border border-border bg-black/20 px-2 py-1 text-xs text-muted">
+          <span className="rounded-full border border-border bg-surface2/62 px-2 py-1 text-xs text-muted">
             {event.price === 0 ? "Бесплатно" : `${event.price} ₽`}
           </span>
         </div>
@@ -67,7 +67,7 @@ export function EventCard({
           </Link>
 
           {event.joined ? (
-            <div className="flex h-11 items-center justify-center rounded-2xl border border-[#52cc83]/50 bg-[#52cc83]/15 text-sm font-semibold text-[#52cc83]">
+            <div className="flex h-11 items-center justify-center rounded-2xl border border-mint/50 bg-mint/14 text-sm font-semibold text-mint">
               Регистрация успешна
             </div>
           ) : (
