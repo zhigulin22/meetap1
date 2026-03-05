@@ -78,6 +78,15 @@ function parseError(error: unknown) {
   return "Не удалось отправить заявку";
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="dual-edge space-y-2 rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.86)] p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-text3">{title}</p>
+      {children}
+    </section>
+  );
+}
+
 export function CreateEventSheet({ open, onOpenChange, onCreated }: CreateEventSheetProps) {
   const [form, setForm] = useState<FormState>(initialState);
   const [loading, setLoading] = useState(false);
@@ -158,24 +167,26 @@ export function CreateEventSheet({ open, onOpenChange, onCreated }: CreateEventS
       </DialogHeader>
 
       <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-1">
-        <section className="rounded-2xl border border-[#2a4f8a] bg-[linear-gradient(120deg,rgba(9,17,39,0.92),rgba(19,11,44,0.9))] p-3 text-[13px] text-white/85">
-          <p className="font-medium text-white">Заявка проходит модерацию в Telegram-боте</p>
-          <p className="mt-1 text-white/70">Заполни подробности, чтобы карточка события сразу выглядела качественно и прошла быстрее.</p>
+        <section className="rounded-2xl border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.1)] p-3 text-[13px] text-text2">
+          <p className="font-medium text-text">Заявка проходит модерацию в Telegram-боте</p>
+          <p className="mt-1 text-text2">Заполни подробности, чтобы карточка события сразу выглядела качественно и прошла быстрее.</p>
         </section>
 
-        <section className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-[rgb(13,19,38)] p-3 md:grid-cols-2">
-          <Input placeholder="Название события*" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <Input placeholder="Категория* (концерт, спорт, квест...)" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
-          <Input placeholder="Город*" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
-          <Input placeholder="Адрес / место*" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
-          <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-          <div className="grid grid-cols-2 gap-2">
-            <Input type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} />
-            <Input type="time" value={form.end_time} onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))} />
+        <Section title="Шаг 1: Основное">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <Input placeholder="Название события*" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+            <Input placeholder="Категория* (концерт, спорт, квест...)" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+            <Input placeholder="Город*" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+            <Input placeholder="Адрес / место*" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+            <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} />
+              <Input type="time" value={form.end_time} onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))} />
+            </div>
           </div>
-        </section>
+        </Section>
 
-        <section className="space-y-2 rounded-2xl border border-white/10 bg-[rgb(13,19,38)] p-3">
+        <Section title="Шаг 2: Описание и медиа">
           <Textarea
             rows={2}
             placeholder="Краткое описание* (для карточки)"
@@ -194,65 +205,67 @@ export function CreateEventSheet({ open, onOpenChange, onCreated }: CreateEventS
             value={form.cover_urls}
             onChange={(e) => setForm((f) => ({ ...f, cover_urls: e.target.value }))}
           />
-        </section>
+        </Section>
 
-        <section className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-[rgb(13,19,38)] p-3 md:grid-cols-2">
-          <label className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
-            <span className="mb-1 block text-xs text-white/60">Формат*</span>
-            <select
-              className="w-full bg-transparent text-sm text-white outline-none"
-              value={form.mode}
-              onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
-            >
-              <option value="organize" className="bg-[#0A1024]">Организую событие</option>
-              <option value="looking_company" className="bg-[#0A1024]">Ищу компанию</option>
-              <option value="collect_group" className="bg-[#0A1024]">Собираю группу</option>
-            </select>
-          </label>
+        <Section title="Шаг 3: Формат и контакты">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <label className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
+              <span className="mb-1 block text-xs text-text3">Формат*</span>
+              <select
+                className="w-full bg-transparent text-sm text-text outline-none"
+                value={form.mode}
+                onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
+              >
+                <option value="organize">Организую событие</option>
+                <option value="looking_company">Ищу компанию</option>
+                <option value="collect_group">Собираю группу</option>
+              </select>
+            </label>
 
-          <Input
-            placeholder="Telegram контакт* (@username или https://t.me/...)"
-            value={form.telegram_contact}
-            onChange={(e) => setForm((f) => ({ ...f, telegram_contact: e.target.value }))}
-          />
-
-          <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
-            <input
-              type="checkbox"
-              checked={form.is_paid}
-              onChange={(e) => setForm((f) => ({ ...f, is_paid: e.target.checked }))}
+            <Input
+              placeholder="Telegram контакт* (@username или https://t.me/...)"
+              value={form.telegram_contact}
+              onChange={(e) => setForm((f) => ({ ...f, telegram_contact: e.target.value }))}
             />
-            Платное событие
-          </label>
 
-          <Input placeholder="Цена (если платное)" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
+            <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
+              <input
+                type="checkbox"
+                checked={form.is_paid}
+                onChange={(e) => setForm((f) => ({ ...f, is_paid: e.target.checked }))}
+              />
+              Платное событие
+            </label>
 
-          <Input
-            placeholder="Ссылка на оплату (QTickets и т.п.)"
-            value={form.payment_url}
-            onChange={(e) => setForm((f) => ({ ...f, payment_url: e.target.value }))}
-          />
+            <Input placeholder="Цена (если платное)" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
 
-          <Input
-            placeholder="Лимит участников (опционально)"
-            value={form.participant_limit}
-            onChange={(e) => setForm((f) => ({ ...f, participant_limit: e.target.value }))}
-          />
+            <Input
+              placeholder="Ссылка на оплату (QTickets и т.п.)"
+              value={form.payment_url}
+              onChange={(e) => setForm((f) => ({ ...f, payment_url: e.target.value }))}
+            />
 
-          <Input
-            placeholder="Сколько человек ищу (опционально)"
-            value={form.looking_for_count}
-            onChange={(e) => setForm((f) => ({ ...f, looking_for_count: e.target.value }))}
-          />
+            <Input
+              placeholder="Лимит участников (опционально)"
+              value={form.participant_limit}
+              onChange={(e) => setForm((f) => ({ ...f, participant_limit: e.target.value }))}
+            />
 
-          <Input
-            placeholder="Комментарий к оплате"
-            value={form.payment_note}
-            onChange={(e) => setForm((f) => ({ ...f, payment_note: e.target.value }))}
-          />
-        </section>
+            <Input
+              placeholder="Сколько человек ищу (опционально)"
+              value={form.looking_for_count}
+              onChange={(e) => setForm((f) => ({ ...f, looking_for_count: e.target.value }))}
+            />
 
-        <section className="space-y-2 rounded-2xl border border-white/10 bg-[rgb(13,19,38)] p-3">
+            <Input
+              placeholder="Комментарий к оплате"
+              value={form.payment_note}
+              onChange={(e) => setForm((f) => ({ ...f, payment_note: e.target.value }))}
+            />
+          </div>
+        </Section>
+
+        <Section title="Шаг 4: Модерация">
           <Textarea
             rows={2}
             placeholder="Комментарий для модератора (опционально)"
@@ -260,7 +273,7 @@ export function CreateEventSheet({ open, onOpenChange, onCreated }: CreateEventS
             onChange={(e) => setForm((f) => ({ ...f, moderator_comment: e.target.value }))}
           />
 
-          <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-white/80">
+          <label className="flex items-start gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-2 text-xs text-text2">
             <input
               type="checkbox"
               checked={form.trust_confirmed}
@@ -268,12 +281,12 @@ export function CreateEventSheet({ open, onOpenChange, onCreated }: CreateEventS
             />
             Подтверждаю, что событие реальное, не мошенническое и содержит актуальные контакты.
           </label>
-        </section>
+        </Section>
 
-        {error ? <div className="rounded-xl border border-[#ff3b5c]/45 bg-[#ff3b5c]/12 p-2 text-sm text-[#ff9fb0]">{error}</div> : null}
-        {success ? <div className="rounded-xl border border-[#00D2A8]/45 bg-[#00D2A8]/12 p-2 text-sm text-[#8bf5df]">{success}</div> : null}
+        {error ? <div className="rounded-xl border border-[rgb(var(--danger-rgb)/0.4)] bg-[rgb(var(--danger-rgb)/0.1)] p-2 text-sm text-[rgb(var(--danger-rgb))]">{error}</div> : null}
+        {success ? <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.12)] p-2 text-sm text-text">{success}</div> : null}
 
-        <div className="sticky bottom-0 z-10 flex gap-2 rounded-t-2xl border-t border-white/10 bg-[rgba(10,16,36,0.95)] p-2 backdrop-blur">
+        <div className="sticky bottom-0 z-10 flex gap-2 rounded-t-2xl border-t border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] p-2 backdrop-blur">
           <Button variant="secondary" className="h-11 flex-1" onClick={() => onOpenChange(false)} disabled={loading}>
             Отмена
           </Button>

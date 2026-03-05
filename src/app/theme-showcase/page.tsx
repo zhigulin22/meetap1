@@ -12,8 +12,8 @@ export default function ThemeShowcasePage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6">
-      <h1 className="mb-2">Theme Showcase</h1>
-      <p className="mb-4 text-sm text-text2">Демонстрация base режима, event mode и badges mode в системе Mint Peach.</p>
+      <h1 className="mb-2 text-2xl font-semibold text-text">Theme Showcase</h1>
+      <p className="mb-4 text-sm text-text2">Light-first Black/Blue/Violet: базовые компоненты, event mode и badges mode.</p>
 
       <SegmentedTabs
         value={tab}
@@ -33,9 +33,9 @@ export default function ThemeShowcasePage() {
             <CardContent className="space-y-3">
               <Input placeholder="Поиск, сообщение или фильтр" />
               <div className="flex flex-wrap gap-2">
-                <Button>Primary</Button>
-                <Button variant="secondary">Secondary</Button>
-                <Button variant="ghost">Ghost</Button>
+                <Button>Primary (blue)</Button>
+                <Button variant="secondary">Secondary (violet-outline)</Button>
+                <Button variant="ghost">Ghost (violet)</Button>
                 <Button variant="danger">Danger</Button>
               </div>
               <div className="empty-state">Empty state: нет данных. Проверь источник или обнови фильтр.</div>
@@ -62,7 +62,7 @@ export default function ThemeShowcasePage() {
           <Card>
             <CardHeader><CardTitle>Badges mode</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-text2">Violet + Citrus только для достижений.</p>
+              <p className="text-sm text-text2">Violet + Citrus только в достижениях.</p>
               <div className="flex items-center gap-2">
                 <BadgeIcon name="Trophy" rarity="legendary" earned={true} />
                 <BadgeIcon name="CalendarCheck" rarity="epic" earned={false} />

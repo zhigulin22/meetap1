@@ -8,11 +8,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[rgb(var(--peach-rgb))] text-[rgb(var(--text-rgb))] shadow-[0_8px_18px_rgb(var(--peach-rgb)/0.22)] hover:bg-[rgb(var(--peach-pressed-rgb))] focus-visible:ring-[rgb(var(--peach-rgb)/0.28)]",
+          "bg-[rgb(var(--peach-rgb))] text-white shadow-[0_10px_22px_rgb(var(--peach-rgb)/0.26)] hover:bg-[rgb(var(--peach-pressed-rgb))] focus-visible:ring-[rgb(var(--peach-rgb)/0.34)]",
         event:
           "bg-[image:var(--grad-event)] text-[rgb(var(--text-rgb))] shadow-[0_8px_18px_rgb(var(--gold-rgb)/0.24)] hover:brightness-[1.02] focus-visible:ring-[rgb(var(--gold-rgb)/0.35)]",
         secondary:
-          "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text hover:bg-[rgb(var(--surface-2-rgb))] focus-visible:ring-[rgb(var(--sky-rgb)/0.28)]",
+          "border border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--surface-1-rgb))] text-[rgb(var(--text-rgb))] hover:border-[rgb(var(--teal-rgb)/0.42)] hover:bg-[rgb(var(--teal-rgb)/0.06)] focus-visible:ring-[rgb(var(--teal-rgb)/0.28)]",
         ghost:
           "text-[rgb(var(--teal-rgb))] hover:bg-[rgb(var(--teal-rgb)/0.1)] hover:text-[rgb(var(--teal-hover-rgb))] focus-visible:ring-[rgb(var(--teal-rgb)/0.25)]",
         danger:

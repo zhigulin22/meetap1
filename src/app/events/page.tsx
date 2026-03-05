@@ -11,6 +11,10 @@ import { EventPosterCard } from "@/components/events/event-poster-card";
 import { EventSocialCard } from "@/components/events/event-social-card";
 import type { EventListItem } from "@/components/events/types";
 import { ApiClientError, api } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
+import { cn } from "@/lib/utils";
 
 const FLOW_TABS = [
   { key: "all", label: "Все" },
@@ -138,50 +142,39 @@ export default function EventsPage() {
     <PageShell>
       <TopBar
         title="События"
-        subtitle="Афиши + комьюнити: найди куда пойти и с кем"
+        subtitle="Афиши и комьюнити-сборы в одном потоке"
         right={
-          <button
-            type="button"
-            onClick={() => setSheetOpen(true)}
-            className="inline-flex h-10 items-center gap-1 rounded-xl bg-[linear-gradient(135deg,#4c70ff,#6b4dff)] px-3 text-xs font-semibold text-white shadow-[0_10px_24px_rgba(76,112,255,0.4)] transition hover:brightness-110 active:scale-[0.98]"
-          >
-            <Plus className="h-4 w-4" />
+          <Button type="button" onClick={() => setSheetOpen(true)} className="h-10 px-3 text-xs">
+            <Plus className="mr-1 h-4 w-4" />
             Добавить
-          </button>
+          </Button>
         }
       />
 
-      <section className="relative mb-3 overflow-hidden rounded-[24px] border border-[rgba(83,108,176,0.36)] bg-[linear-gradient(135deg,#080d21,#110b2b)] p-4 shadow-[0_20px_42px_rgba(4,7,22,0.45)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(82,124,255,0.3),transparent_40%),radial-gradient(circle_at_84%_16%,rgba(139,92,246,0.28),transparent_38%)]" />
-        <div className="relative">
-          <p className="mb-1 inline-flex items-center gap-1 rounded-full border border-[rgba(130,152,224,0.44)] bg-[rgba(16,21,45,0.72)] px-2.5 py-1 text-[11px] font-medium text-[#d6e2ff]">
-            <Sparkles className="h-3.5 w-3.5 text-[#84a6ff]" />
-            Агентский режим событий
-          </p>
-          <h2 className="text-[1.15rem] font-semibold text-[#eef3ff]">Актуальные афиши и комьюнити-сборы в одном потоке</h2>
-          <p className="mt-1 text-sm text-[#aab9dd]">Публикуй свою встречу через Telegram-модерацию и сразу собирай компанию.</p>
+      <Card className="relative mb-3 overflow-hidden bg-[rgb(var(--surface-1-rgb)/0.95)]">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-20 top-0 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.16),transparent_65%)] blur-2xl" />
+          <div className="absolute -right-20 top-2 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.16),transparent_65%)] blur-2xl" />
         </div>
-      </section>
+        <CardContent className="relative p-4">
+          <p className="mb-2 inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1 text-[11px] font-semibold text-text2">
+            <Sparkles className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" />
+            Events hub
+          </p>
+          <h2 className="text-[1.1rem] font-semibold text-text">Найди событие и компанию в одном экране</h2>
+          <p className="mt-1 text-sm text-text2">Фокус на карточках, быстрых фильтрах и действиях “Я иду / Ищу компанию”.</p>
+          <div className="mt-3 signature-line" />
+        </CardContent>
+      </Card>
 
-      <section className="mb-3 flex gap-2 overflow-x-auto pb-1">
-        {FLOW_TABS.map((tab) => {
-          const active = feedTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setFeedTab(tab.key)}
-              className={`tap-press whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                active
-                  ? "border-[rgba(116,137,255,0.62)] bg-[linear-gradient(135deg,rgba(70,102,245,0.34),rgba(105,74,250,0.34))] text-[#edf1ff] shadow-[0_0_16px_rgba(96,119,255,0.36)]"
-                  : "border-[rgba(84,106,168,0.35)] bg-[rgba(10,16,36,0.9)] text-[#aebfe5] hover:text-[#d8e2ff]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </section>
+      <div className="mb-3">
+        <SegmentedTabs
+          value={feedTab}
+          onChange={(next) => setFeedTab(next as FeedTab)}
+          options={FLOW_TABS.map((tab) => ({ value: tab.key, label: tab.label }))}
+          className="w-full"
+        />
+      </div>
 
       <section className="mb-3 flex gap-2 overflow-x-auto pb-1">
         {CATEGORY_TABS.map((tab) => {
@@ -191,11 +184,12 @@ export default function EventsPage() {
               key={tab.key}
               type="button"
               onClick={() => setCategoryTab(tab.key)}
-              className={`tap-press whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+              className={cn(
+                "tap-press whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition",
                 active
-                  ? "border-[rgba(116,137,255,0.62)] bg-[linear-gradient(135deg,rgba(71,111,255,0.3),rgba(129,68,255,0.3))] text-[#ecf1ff] shadow-[0_0_14px_rgba(96,119,255,0.34)]"
-                  : "border-[rgba(84,106,168,0.32)] bg-[rgba(10,16,36,0.86)] text-[#9fb2dd]"
-              }`}
+                  ? "border-[rgb(var(--teal-rgb)/0.34)] bg-[image:var(--grad-primary)] text-white shadow-[0_0_12px_rgb(var(--teal-rgb)/0.22)]"
+                  : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2 hover:text-text",
+              )}
             >
               {tab.label}
             </button>
@@ -203,48 +197,44 @@ export default function EventsPage() {
         })}
       </section>
 
-      <section className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск: название, описание, место"
-          className="h-11 rounded-xl border border-[rgba(84,106,168,0.34)] bg-[rgba(9,15,35,0.86)] px-3 text-sm text-[#edf2ff] placeholder:text-[#7f95c5] focus:border-[rgba(111,145,255,0.65)] focus:outline-none"
-        />
-        <div className="flex gap-2">
+      <Card className="mb-4 bg-[rgb(var(--surface-1-rgb)/0.94)]">
+        <CardContent className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
           <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Город"
-            className="h-11 flex-1 rounded-xl border border-[rgba(84,106,168,0.34)] bg-[rgba(9,15,35,0.86)] px-3 text-sm text-[#edf2ff] placeholder:text-[#7f95c5] focus:border-[rgba(111,145,255,0.65)] focus:outline-none"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск: название, описание, место"
+            className="h-11 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 text-sm text-text placeholder:text-text3 focus:border-[rgb(var(--teal-rgb)/0.4)] focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="h-11 rounded-xl border border-[rgba(114,137,214,0.42)] bg-[rgba(17,27,60,0.92)] px-3 text-sm font-medium text-[#d8e4ff] transition hover:border-[rgba(144,170,236,0.6)] hover:text-white active:scale-[0.98]"
-          >
-            Обновить
-          </button>
-        </div>
-      </section>
+          <div className="flex gap-2">
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Город"
+              className="h-11 flex-1 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 text-sm text-text placeholder:text-text3 focus:border-[rgb(var(--teal-rgb)/0.4)] focus:outline-none"
+            />
+            <Button type="button" variant="secondary" onClick={() => refetch()} className="h-11 px-3 text-sm">
+              Обновить
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {actionError ? (
-        <div className="mb-3 rounded-xl border border-[rgba(255,79,143,0.45)] bg-[rgba(255,79,143,0.12)] px-3 py-2 text-xs text-[#ffc0db]">
+        <div className="mb-3 rounded-xl border border-[rgb(var(--danger-rgb)/0.24)] bg-[rgb(var(--danger-rgb)/0.08)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
           {actionError}
         </div>
       ) : null}
 
       {error ? (
-        <div className="mb-3 rounded-xl border border-[rgba(255,79,143,0.45)] bg-[rgba(255,79,143,0.12)] p-3 text-sm text-[#ffd2e2]">
-          <p className="font-semibold">Не удалось загрузить события</p>
-          <p className="mt-1 text-xs text-[#ffd2e2]/80">{error instanceof Error ? error.message : "Ошибка загрузки"}</p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="mt-2 h-9 rounded-lg bg-[linear-gradient(135deg,#4c70ff,#6b4dff)] px-3 text-xs font-semibold text-white"
-          >
-            Повторить
-          </button>
-        </div>
+        <Card className="mb-3 border-[rgb(var(--danger-rgb)/0.26)] bg-[rgb(var(--danger-rgb)/0.06)]">
+          <CardContent className="p-3 text-sm">
+            <p className="font-semibold text-[rgb(var(--danger-rgb))]">Не удалось загрузить события</p>
+            <p className="mt-1 text-xs text-text2">{error instanceof Error ? error.message : "Ошибка загрузки"}</p>
+            <Button type="button" onClick={() => refetch()} className="mt-2 h-9 px-3 text-xs">
+              Повторить
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
       {isLoading ? (
@@ -276,37 +266,35 @@ export default function EventsPage() {
           )}
         </div>
       ) : (
-        <div className="rounded-[22px] border border-[rgba(84,106,168,0.35)] bg-[linear-gradient(135deg,rgba(10,16,35,0.94),rgba(16,10,36,0.94))] p-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(118,143,224,0.4)] bg-[rgba(17,24,56,0.8)]">
-            <Users2 className="h-5 w-5 text-[#8bacff]" />
-          </div>
-          <h3 className="text-base font-semibold text-[#edf2ff]">Событий пока нет</h3>
-          <p className="mt-1 text-sm text-[#a9badd]">Запусти комьюнити-встречу или переключись на другой фильтр.</p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              className="h-10 rounded-xl bg-[linear-gradient(135deg,#4c70ff,#6b4dff)] px-4 text-sm font-semibold text-white"
-            >
-              Добавить событие
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFeedTab("all");
-                setCategoryTab("all");
-                setSearch("");
-                setCity("");
-              }}
-              className="h-10 rounded-xl border border-[rgba(126,153,214,0.35)] bg-[rgba(18,27,58,0.9)] px-4 text-sm font-medium text-[#d9e4ff]"
-            >
-              Сбросить фильтры
-            </button>
-          </div>
-        </div>
+        <Card className="bg-[rgb(var(--surface-1-rgb)/0.95)]">
+          <CardContent className="p-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.12)]">
+              <Users2 className="h-5 w-5 text-[rgb(var(--teal-rgb))]" />
+            </div>
+            <h3 className="text-base font-semibold text-text">Событий пока нет</h3>
+            <p className="mt-1 text-sm text-text2">Создай комьюнити-событие или сбрось фильтры, чтобы увидеть больше вариантов.</p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Button type="button" onClick={() => setSheetOpen(true)}>
+                Добавить событие
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setFeedTab("all");
+                  setCategoryTab("all");
+                  setSearch("");
+                  setCity("");
+                }}
+              >
+                Сбросить фильтры
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="mt-2 text-center text-[11px] text-[#7f95c5]">
+      <div className="mt-2 text-center text-[11px] text-text3">
         {isFetching && !isLoading ? "Обновляем события..." : `Найдено: ${data?.meta?.total ?? 0}`}
       </div>
 

@@ -9,6 +9,10 @@ import { CalendarClock, ExternalLink, MapPin, MessageCircleHeart, Users2 } from 
 import { PageShell } from "@/components/page-shell";
 import { ApiClientError, api } from "@/lib/api-client";
 import type { EventListItem } from "@/components/events/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
 
 type EventParticipantRow = {
   user_id: string;
@@ -127,12 +131,14 @@ export default function EventDetailPage() {
   if (isLoading || !data) {
     return (
       <PageShell>
-        <div className="overflow-hidden rounded-[24px] border border-[rgba(88,110,168,0.24)] bg-[linear-gradient(140deg,rgba(8,13,33,0.98),rgba(16,11,40,0.98))] p-4">
-          <div className="mb-3 h-56 animate-pulse rounded-2xl bg-[rgba(89,108,171,0.22)]" />
-          <div className="h-5 w-2/3 animate-pulse rounded bg-[rgba(89,108,171,0.2)]" />
-          <div className="mt-2 h-4 w-full animate-pulse rounded bg-[rgba(89,108,171,0.18)]" />
-          <div className="mt-2 h-4 w-5/6 animate-pulse rounded bg-[rgba(89,108,171,0.18)]" />
-        </div>
+        <Card className="overflow-hidden bg-[rgb(var(--surface-1-rgb)/0.95)]">
+          <CardContent className="p-4">
+            <div className="mb-3 h-56 animate-pulse rounded-2xl bg-[rgb(var(--surface-3-rgb)/0.64)]" />
+            <div className="h-5 w-2/3 animate-pulse rounded bg-[rgb(var(--surface-3-rgb)/0.64)]" />
+            <div className="mt-2 h-4 w-full animate-pulse rounded bg-[rgb(var(--surface-3-rgb)/0.58)]" />
+            <div className="mt-2 h-4 w-5/6 animate-pulse rounded bg-[rgb(var(--surface-3-rgb)/0.58)]" />
+          </CardContent>
+        </Card>
       </PageShell>
     );
   }
@@ -141,39 +147,42 @@ export default function EventDetailPage() {
 
   return (
     <PageShell>
-      <article className="relative overflow-hidden rounded-[26px] bg-[linear-gradient(145deg,rgba(10,16,36,0.98),rgba(16,10,40,0.98))] p-[1px] shadow-[0_22px_48px_rgba(3,8,21,0.55)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_12%,rgba(70,112,255,0.32),transparent_42%),radial-gradient(circle_at_88%_10%,rgba(127,79,255,0.3),transparent_40%)]" />
+      <article className="dual-edge relative overflow-hidden rounded-[26px] bg-[rgb(var(--surface-1-rgb)/0.96)]">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-12 top-2 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.12),transparent_65%)] blur-2xl" />
+          <div className="absolute -right-12 top-2 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.12),transparent_65%)] blur-2xl" />
+        </div>
 
-        <div className="relative overflow-hidden rounded-[25px] border border-[rgba(92,112,170,0.3)] bg-[#080f24]">
+        <div className="relative overflow-hidden rounded-[25px]">
           <div className="relative">
             <Image
-              src={event.cover_url || "https://placehold.co/1280x800/070a12/e8eeff?text=EVENT"}
+              src={event.cover_url || "https://placehold.co/1280x800/eff3ff/6b74b6?text=EVENT"}
               alt={event.title}
               width={1280}
               height={800}
               className="h-60 w-full object-cover"
               unoptimized
             />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,10,23,0.12),rgba(5,10,23,0.84))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.04),rgba(17,24,39,0.48))]" />
 
-            <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-[rgba(122,146,230,0.42)] bg-[rgba(14,22,48,0.8)] px-2.5 py-1 text-[11px] font-medium text-[#dce8ff]">
+            <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2.5 py-1 text-[11px] font-medium text-text">
               {event.source_kind === "community" ? "Комьюнити" : "Афиша"}
             </div>
 
             <div className="absolute bottom-4 left-3 right-3">
-              <h1 className="text-2xl font-semibold leading-tight text-[#f3f7ff]">{event.title}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#c1ceea]">
-                <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(120,149,214,0.32)] bg-[rgba(13,20,44,0.72)] px-2 py-1">
-                  <CalendarClock className="h-3.5 w-3.5 text-[#84a8ff]" />
+              <h1 className="text-2xl font-semibold leading-tight text-white">{event.title}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/90">
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/20 px-2 py-1">
+                  <CalendarClock className="h-3.5 w-3.5" />
                   {formatDate(event.starts_at)}
                 </span>
                 {event.city ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(120,149,214,0.32)] bg-[rgba(13,20,44,0.72)] px-2 py-1">
-                    <MapPin className="h-3.5 w-3.5 text-[#9b8bff]" />
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/20 px-2 py-1">
+                    <MapPin className="h-3.5 w-3.5" />
                     {event.city}
                   </span>
                 ) : null}
-                <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(120,149,214,0.32)] bg-[rgba(13,20,44,0.72)] px-2 py-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/20 px-2 py-1">
                   {event.category || "Событие"}
                 </span>
               </div>
@@ -182,38 +191,33 @@ export default function EventDetailPage() {
 
           <div className="space-y-4 p-4">
             {errorBanner ? (
-              <div className="rounded-xl border border-[rgba(255,79,143,0.45)] bg-[rgba(255,79,143,0.12)] px-3 py-2 text-xs text-[#ffc0db]">
+              <div className="rounded-xl border border-[rgb(var(--danger-rgb)/0.24)] bg-[rgb(var(--danger-rgb)/0.08)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
                 {errorBanner}
               </div>
             ) : null}
 
-            <p className="text-sm leading-relaxed text-[#bac5df]">{event.full_description || event.short_description || "Описание скоро появится."}</p>
+            <p className="text-sm leading-relaxed text-text2">{event.full_description || event.short_description || "Описание скоро появится."}</p>
 
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-[rgba(102,124,194,0.35)] bg-[rgba(13,21,48,0.78)] p-3">
-                <p className="text-xs text-[#93a8d1]">Идут</p>
-                <p className="text-lg font-semibold text-[#f4f7ff]">{data.going_count}</p>
+              <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.22)] bg-[rgb(var(--teal-rgb)/0.08)] p-3">
+                <p className="text-xs text-text3">Идут</p>
+                <p className="text-lg font-semibold text-text">{data.going_count}</p>
               </div>
-              <div className="rounded-xl border border-[rgba(102,124,194,0.35)] bg-[rgba(13,21,48,0.78)] p-3">
-                <p className="text-xs text-[#93a8d1]">Ищут компанию</p>
-                <p className="text-lg font-semibold text-[#f4f7ff]">{data.companion_count}</p>
+              <div className="rounded-xl border border-[rgb(var(--sky-rgb)/0.22)] bg-[rgb(var(--sky-rgb)/0.08)] p-3">
+                <p className="text-xs text-text3">Ищут компанию</p>
+                <p className="text-lg font-semibold text-text">{data.companion_count}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {data.joined ? (
-                <span className="inline-flex h-11 items-center justify-center rounded-xl border border-[rgba(122,147,255,0.45)] bg-[rgba(96,119,255,0.18)] text-sm font-semibold text-[#dce4ff]">
+                <span className="inline-flex h-11 items-center justify-center rounded-xl border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.14)] text-sm font-semibold text-text">
                   Вы идёте
                 </span>
               ) : (
-                <button
-                  type="button"
-                  onClick={joinEvent}
-                  disabled={joining}
-                  className="inline-flex h-11 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#4c70ff,#6b4dff)] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(76,112,255,0.42)] transition hover:brightness-110 disabled:opacity-60 active:scale-[0.98]"
-                >
+                <Button type="button" onClick={joinEvent} disabled={joining} className="h-11 text-sm">
                   {joining ? "..." : "Я иду"}
-                </button>
+                </Button>
               )}
 
               {event.source_kind === "community" ? (
@@ -223,8 +227,8 @@ export default function EventDetailPage() {
                   onClick={toggleCompanion}
                   className={`inline-flex h-11 items-center justify-center gap-1 rounded-xl border px-4 text-sm font-semibold transition disabled:opacity-60 active:scale-[0.98] ${
                     data.looking_company
-                      ? "border-[rgba(137,117,255,0.56)] bg-[rgba(137,117,255,0.2)] text-[#ece7ff]"
-                      : "border-[rgba(126,153,214,0.35)] bg-[rgba(18,27,58,0.9)] text-[#d9e4ff] hover:border-[rgba(156,178,235,0.45)]"
+                      ? "border-[rgb(var(--teal-rgb)/0.42)] bg-[rgb(var(--teal-rgb)/0.14)] text-text"
+                      : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text hover:bg-[rgb(var(--surface-2-rgb))]"
                   }`}
                 >
                   <MessageCircleHeart className="h-4 w-4" />
@@ -235,24 +239,20 @@ export default function EventDetailPage() {
                   href={event.external_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-11 items-center justify-center gap-1 rounded-xl border border-[rgba(242,196,109,0.48)] bg-[rgba(242,196,109,0.18)] px-4 text-sm font-semibold text-[#ffe6ae] transition hover:brightness-105 active:scale-[0.98]"
+                  className="inline-flex h-11 items-center justify-center gap-1 rounded-xl border border-[rgb(var(--gold-rgb)/0.42)] bg-[rgb(var(--gold-rgb)/0.22)] px-4 text-sm font-semibold text-[rgb(98,75,20)] transition hover:brightness-[1.02] active:scale-[0.98]"
                 >
                   Купить билет
                   <ExternalLink className="h-4 w-4" />
                 </a>
               ) : null}
 
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-[rgba(126,153,214,0.35)] bg-[rgba(18,27,58,0.9)] px-4 text-sm font-medium text-[#d9e4ff] transition hover:border-[rgba(156,178,235,0.45)] hover:text-white active:scale-[0.98]"
-              >
+              <Button type="button" variant="secondary" onClick={() => refetch()} className="h-11 text-sm">
                 {isFetching ? "Обновляем..." : "Обновить"}
-              </button>
+              </Button>
             </div>
 
             {event.source_kind === "community" ? (
-              <div className="rounded-xl border border-[rgba(110,133,204,0.34)] bg-[rgba(14,21,46,0.75)] p-3 text-xs text-[#a8bbdf]">
+              <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3 text-xs text-text2">
                 <p>Формат: {socialModeLabel(event.social_mode)}</p>
                 {event.organizer_telegram ? <p className="mt-1">Контакт организатора: {event.organizer_telegram}</p> : null}
                 {event.is_paid ? (
@@ -264,10 +264,10 @@ export default function EventDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="rounded-xl border border-[rgba(110,133,204,0.34)] bg-[rgba(14,21,46,0.75)] p-3 text-xs text-[#a8bbdf]">
+              <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3 text-xs text-text2">
                 <p>Источник: {event.external_source || "Партнёрская афиша"}</p>
                 {event.external_url ? (
-                  <a href={event.external_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[#93b5ff] hover:text-[#d3e2ff]">
+                  <a href={event.external_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[rgb(var(--sky-rgb))] hover:opacity-85">
                     Открыть оригинал
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -275,13 +275,13 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            <section className="rounded-xl border border-[rgba(110,133,204,0.34)] bg-[rgba(14,21,46,0.75)] p-3">
-              <p className="mb-2 text-sm font-semibold text-[#eef3ff]">Кто уже идёт</p>
-              <input
+            <section className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3">
+              <p className="mb-2 text-sm font-semibold text-text">Кто уже идёт</p>
+              <Input
                 value={participantSearch}
                 onChange={(e) => setParticipantSearch(e.target.value)}
                 placeholder="Поиск участника"
-                className="mb-2 h-10 w-full rounded-xl border border-[rgba(84,106,168,0.34)] bg-[rgba(9,15,35,0.86)] px-3 text-sm text-[#edf2ff] placeholder:text-[#7f95c5] focus:border-[rgba(111,145,255,0.65)] focus:outline-none"
+                className="mb-2 h-10"
               />
 
               <div className="space-y-2">
@@ -290,24 +290,24 @@ export default function EventDetailPage() {
                     <Link
                       key={person.id}
                       href={`/profile/${person.id}`}
-                      className="tap-press flex items-center justify-between rounded-xl border border-[rgba(100,123,192,0.34)] bg-[rgba(15,23,50,0.78)] p-2"
+                      className="tap-press flex items-center justify-between rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-2"
                     >
-                      <span className="flex items-center gap-2 text-sm text-[#d9e4ff]">
+                      <span className="flex items-center gap-2 text-sm text-text">
                         <Image
-                          src={person.avatar_url || "https://placehold.co/80/0a1530/eaf0ff?text=U"}
+                          src={person.avatar_url || "https://placehold.co/80/f0f3ff/6b74b6?text=U"}
                           alt={person.name || "Участник"}
                           width={40}
                           height={40}
-                          className="h-8 w-8 rounded-full border border-[rgba(97,120,194,0.45)] object-cover"
+                          className="h-8 w-8 rounded-full border border-[rgb(var(--teal-rgb)/0.24)] object-cover"
                           unoptimized
                         />
                         {person.name || "Участник"}
                       </span>
-                      <span className="text-xs text-[#9fb1d9]">Профиль</span>
+                      <span className="text-xs text-text2">Профиль</span>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-lg border border-[rgba(102,124,194,0.35)] bg-[rgba(13,21,48,0.72)] px-3 py-2 text-xs text-[#9eb2dc]">
+                  <div className="rounded-lg border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-xs text-text2">
                     Участники пока не найдены по текущему фильтру.
                   </div>
                 )}

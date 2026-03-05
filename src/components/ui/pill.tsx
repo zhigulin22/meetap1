@@ -12,12 +12,12 @@ export function Pill({
 }) {
   const toneClass =
     tone === "teal"
-      ? "border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--teal-hover-rgb))]"
+      ? "border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.14)] text-[rgb(var(--text-rgb))]"
       : tone === "gold"
-      ? "border-[rgb(var(--gold-rgb)/0.46)] bg-[rgb(var(--gold-rgb)/0.22)] text-[rgb(146,102,12)]"
+      ? "border-[rgb(var(--gold-rgb)/0.5)] bg-[rgb(var(--gold-rgb)/0.24)] text-[rgb(var(--text-rgb))]"
       : tone === "mint"
-      ? "border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.1)] text-[rgb(var(--teal-hover-rgb))]"
-      : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2";
+      ? "border-[rgb(var(--sky-rgb)/0.35)] bg-[rgb(var(--sky-rgb)/0.14)] text-[rgb(var(--text-rgb))]"
+      : "border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--text-rgb))]";
 
   return (
     <span

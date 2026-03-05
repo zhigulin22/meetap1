@@ -29,15 +29,15 @@ export function SegmentedTabs<T extends string>({
             type="button"
             onClick={() => onChange(option.value)}
             className={cn(
-              "relative z-10 min-w-[70px] rounded-[10px] px-3 py-1.5 text-xs font-medium transition tap-press",
-              active ? "text-text" : "text-text2 hover:text-text",
+              "relative z-10 min-w-[72px] rounded-[10px] px-3 py-1.5 text-xs font-medium transition tap-press",
+              active ? "text-white" : "text-text2 hover:text-text",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="segmented-active"
-                className="absolute inset-0 -z-10 rounded-[10px] border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.12)]"
-                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="absolute inset-0 -z-10 rounded-[10px] border border-[rgb(var(--teal-rgb)/0.3)] bg-[image:var(--grad-primary)] shadow-[0_0_14px_rgb(var(--teal-rgb)/0.26)]"
+                transition={{ duration: 0.22, ease: "easeOut" }}
               />
             ) : null}
             {option.label}

@@ -134,37 +134,29 @@ export default function ProfilePage() {
 
   return (
     <PageShell>
-      <TopBar title="Профиль" subtitle="Визитка пользователя" />
+      <TopBar title="Профиль" subtitle="Публичная визитка" />
 
-      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[linear-gradient(145deg,rgba(10,16,38,0.98),rgba(18,12,44,0.98))] p-5 shadow-soft">
+      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-5 shadow-soft">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-16 top-[45%] h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.26),transparent_65%)] blur-2xl" />
-          <div className="absolute -right-20 top-[38%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.24),transparent_66%)] blur-2xl" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,24,0.12),rgba(8,11,24,0.58))]" />
-          <div
-            className="absolute inset-0 opacity-[0.018]"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgb(246 248 255 / 0.55) 1px, transparent 0)",
-              backgroundSize: "3px 3px",
-            }}
-          />
+          <div className="absolute left-[-12%] top-[14%] h-48 w-48 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.14),transparent_65%)] blur-2xl" />
+          <div className="absolute right-[-12%] top-[22%] h-52 w-52 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.15),transparent_66%)] blur-2xl" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgb(var(--surface-1-rgb)),rgb(var(--surface-2-rgb)))] opacity-85" />
         </div>
 
         <div className="relative flex flex-col items-center text-center">
-          <div className="rounded-full bg-[image:var(--grad-primary)] p-[2.5px] shadow-[0_10px_26px_rgba(14,20,44,0.45)]">
-            <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
+          <div className="rounded-full bg-[image:var(--grad-primary)] p-[3px] shadow-[0_10px_26px_rgb(var(--teal-rgb)/0.2)]">
+            <div className="rounded-full border-2 border-white bg-white p-[2px]">
               <Image
                 src={p.avatar_url || "https://placehold.co/560x560"}
                 alt={p.name}
-                width={224}
-                height={224}
+                width={232}
+                height={232}
                 className="h-28 w-28 rounded-full object-cover"
                 unoptimized
               />
             </div>
           </div>
-          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[rgb(var(--text-2-rgb)/0.8)]">public vibe</p>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text3">public preview</p>
         </div>
       </section>
 
@@ -186,21 +178,21 @@ export default function ProfilePage() {
           ) : null}
 
           {data?.positiveFact ? (
-            <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.26)] bg-[rgb(var(--teal-rgb)/0.1)] px-3 py-2 text-xs text-[rgb(var(--teal-hover-rgb))]">
-              <Sparkles className="mr-1 inline h-3.5 w-3.5" /> {data.positiveFact}
+            <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.26)] bg-[rgb(var(--teal-rgb)/0.1)] px-3 py-2 text-xs text-text2">
+              <Sparkles className="mr-1 inline h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> {data.positiveFact}
             </div>
           ) : null}
 
           <div className="grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => setTab("posts")} className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.82)] px-2 py-2 text-center">
+            <button type="button" onClick={() => setTab("posts")} className="tap-press rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.84)] px-2 py-2 text-center">
               <p className="text-[17px] font-semibold text-text">{stats.posts}</p>
               <p className="text-[11px] text-text3">Посты</p>
             </button>
-            <button type="button" className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.82)] px-2 py-2 text-center">
+            <button type="button" className="tap-press rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.84)] px-2 py-2 text-center">
               <p className="text-[17px] font-semibold text-text">{stats.followers}</p>
               <p className="text-[11px] text-text3">Подписчики</p>
             </button>
-            <button type="button" onClick={() => setTab("duo")} className="tap-press rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.82)] px-2 py-2 text-center">
+            <button type="button" onClick={() => setTab("duo")} className="tap-press rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.84)] px-2 py-2 text-center">
               <p className="text-[17px] font-semibold text-text">{stats.duos}</p>
               <p className="text-[11px] text-text3">DUO</p>
             </button>
@@ -208,7 +200,7 @@ export default function ProfilePage() {
 
           <div className="flex flex-wrap gap-2">
             {(p.interests ?? []).slice(0, 4).map((interest: string) => (
-              <span key={interest} className="rounded-full border border-[rgb(var(--teal-rgb)/0.2)] bg-[rgb(var(--teal-rgb)/0.08)] px-3 py-1 text-xs text-[rgb(var(--teal-hover-rgb))]">
+              <span key={interest} className="rounded-full border border-[rgb(var(--teal-rgb)/0.2)] bg-[rgb(var(--teal-rgb)/0.08)] px-3 py-1 text-xs text-text2">
                 {interest}
               </span>
             ))}
@@ -234,10 +226,10 @@ export default function ProfilePage() {
       ) : null}
 
       {pinned.length ? (
-        <Card className="mb-3 border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--surface-2-rgb)/0.82)]">
+        <Card className="mb-3 bg-[rgb(var(--surface-2-rgb)/0.88)]">
           <CardContent className="p-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--sky-rgb))]">Pinned</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--teal-rgb))]">Pinned</p>
               <Pill>top</Pill>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -271,11 +263,11 @@ export default function ProfilePage() {
               const src = firstPhoto(post);
               const video = isVideoUrl(src);
               return (
-                <Link key={post.id} href="/feed" className="group relative block overflow-hidden rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)]">
+                <Link key={post.id} href="/feed" className="group relative block overflow-hidden rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)]">
                   {video ? (
                     <div className="relative aspect-square">
                       <video src={src} className="h-full w-full object-cover" muted playsInline />
-                      <div className="absolute inset-0 flex items-center justify-center bg-[rgb(18_32_28/0.18)]">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                         <Play className="h-5 w-5 text-white" />
                       </div>
                     </div>
@@ -295,7 +287,7 @@ export default function ProfilePage() {
         reposts.length ? (
           <div className="grid grid-cols-3 gap-2 pb-2">
             {reposts.map((post) => (
-              <Link key={post.id} href="/feed" className="block overflow-hidden rounded-2xl bg-[rgb(var(--surface-2-rgb)/0.72)]">
+              <Link key={post.id} href="/feed" className="block overflow-hidden rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)]">
                 <Image src={firstPhoto(post)} alt="repost" width={400} height={400} className="aspect-square w-full object-cover" unoptimized />
               </Link>
             ))}
@@ -323,7 +315,7 @@ export default function ProfilePage() {
                 onClick={() => setDuoFilter(filter.id as typeof duoFilter)}
                 className={`tap-press rounded-full border px-3 py-1.5 text-xs ${
                   duoFilter === filter.id
-                    ? "border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--teal-hover-rgb))]"
+                    ? "border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.12)] text-text"
                     : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.72)] text-text2"
                 }`}
               >
@@ -380,7 +372,7 @@ export default function ProfilePage() {
 
         <div className="max-h-[74vh] space-y-3 overflow-y-auto pr-1 text-sm">
           {connectData?.vibeStatus ? (
-            <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.12)] px-3 py-1 text-xs text-[rgb(var(--teal-hover-rgb))]">
+            <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.12)] px-3 py-1 text-xs text-text">
               {connectData.vibeStatus}
             </div>
           ) : null}
@@ -393,12 +385,12 @@ export default function ProfilePage() {
 
           <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
             <p className="text-xs text-text3">Тема</p>
-            <p className="font-medium">{connectData?.topic}</p>
+            <p className="font-medium text-text">{connectData?.topic}</p>
           </div>
 
           {(connectData?.firstMessages ?? []).length
             ? connectData?.firstMessages?.map((m: string) => (
-                <div key={m} className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--sky-rgb)/0.1)] p-3 text-[13px]">
+                <div key={m} className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.26)] bg-[rgb(var(--sky-rgb)/0.1)] p-3 text-[13px] text-text">
                   {m}
                 </div>
               ))
@@ -406,7 +398,7 @@ export default function ProfilePage() {
 
           <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.72)] p-3">
             <p className="mb-1 text-xs text-text3">Контрольный вопрос</p>
-            <p>{connectData?.question}</p>
+            <p className="text-text">{connectData?.question}</p>
           </div>
         </div>
       </Dialog>

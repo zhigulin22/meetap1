@@ -41,7 +41,10 @@ export default function MyProfileHubPage() {
 
   const meQuery = useQuery({
     queryKey: ["profile-me-hub-v7"],
-    queryFn: () => api<{ profile: any; activity: { posts: number; eventJoins: number; connections: number; reactions: number } }>("/api/profile/me"),
+    queryFn: () =>
+      api<{ profile: any; activity: { posts: number; eventJoins: number; connections: number; reactions: number } }>(
+        "/api/profile/me",
+      ),
   });
 
   const adminAccessQuery = useQuery({
@@ -57,6 +60,7 @@ export default function MyProfileHubPage() {
   const activity = meQuery.data?.activity;
   const psychCompleted = Boolean(profile?.personality_profile);
   const mood = profile?.preferences?.mood || profile?.mood || null;
+
   useEffect(() => {
     if (psychCompleted) {
       setShowPsychCard(false);
@@ -126,28 +130,28 @@ export default function MyProfileHubPage() {
 
   return (
     <PageShell>
-      <TopBar title="Мой профиль" subtitle="Управление аккаунтом и настройками" right={<Pill>telegram-style</Pill>} />
+      <TopBar title="Мой профиль" subtitle="Управление аккаунтом и настройками" right={<Pill>profile hub</Pill>} />
 
       <Card className="mb-3 overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)]">
-        <div className="relative h-[21rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[linear-gradient(145deg,rgba(10,16,38,0.98),rgba(18,12,44,0.98))]">
+        <div className="relative h-[21rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))]">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-24 top-[46%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.28),transparent_64%)] blur-3xl" />
-            <div className="absolute -right-24 top-[38%] h-96 w-96 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.24),transparent_66%)] blur-3xl" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,24,0.12),rgba(8,11,24,0.64))]" />
+            <div className="absolute -left-20 top-[46%] h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.16),transparent_64%)] blur-3xl" />
+            <div className="absolute -right-20 top-[38%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.16),transparent_66%)] blur-3xl" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgb(var(--surface-1-rgb)/0.54),rgb(var(--surface-2-rgb)/0.9))]" />
             <div
-              className="absolute inset-0 opacity-[0.018]"
+              className="absolute inset-0 opacity-[0.02]"
               style={{
                 backgroundImage:
-                  "radial-gradient(circle at 1px 1px, rgb(246 248 255 / 0.55) 1px, transparent 0)",
-                backgroundSize: "3px 3px",
+                  "radial-gradient(circle at 1px 1px, rgb(76 112 255 / 0.24) 1px, transparent 0)",
+                backgroundSize: "2px 2px",
               }}
             />
           </div>
 
           <div className="absolute inset-x-0 bottom-5 z-10 px-4">
             <div className="mx-auto flex max-w-md flex-col items-center text-center">
-              <div className="rounded-full bg-[image:var(--grad-primary)] p-[3px] shadow-[0_14px_34px_rgba(16,23,46,0.45)]">
-                <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
+              <div className="rounded-full bg-[image:var(--grad-primary)] p-[3px] shadow-[0_14px_34px_rgb(var(--teal-rgb)/0.2)]">
+                <div className="rounded-full border-2 border-white bg-[rgb(var(--surface-1-rgb))] p-[2px]">
                   <Image
                     src={profile?.avatar_url || "https://placehold.co/560x560"}
                     alt="avatar"
@@ -176,19 +180,19 @@ export default function MyProfileHubPage() {
 
         <CardContent className="space-y-3 p-4">
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.28)] bg-[rgb(var(--surface-2-rgb)/0.88)] px-3 py-2">
+            <div className="rounded-2xl border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.09)] px-3 py-2">
               <p className="text-[11px] text-[rgb(var(--text-2-rgb))]">Публикации</p>
               <p className="text-[20px] font-semibold leading-none text-[rgb(var(--text-rgb))]">{activity?.posts ?? 0}</p>
             </div>
-            <div className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.28)] bg-[rgb(var(--surface-2-rgb)/0.88)] px-3 py-2">
+            <div className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.24)] bg-[rgb(var(--sky-rgb)/0.08)] px-3 py-2">
               <p className="text-[11px] text-[rgb(var(--text-2-rgb))]">Посещено ивентов</p>
               <p className="text-[20px] font-semibold leading-none text-[rgb(var(--text-rgb))]">{activity?.eventJoins ?? 0}</p>
             </div>
           </div>
 
           {mood ? (
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.1)] px-3 py-1 text-xs text-[rgb(var(--teal-hover-rgb))]">
-              <Sparkles className="h-3.5 w-3.5" /> Настроение: {mood}
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.1)] px-3 py-1 text-xs text-text">
+              <Sparkles className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> Настроение: {mood}
             </div>
           ) : null}
 
@@ -204,7 +208,7 @@ export default function MyProfileHubPage() {
       </Card>
 
       {completion < 100 ? (
-        <Card className="mb-3 border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--mint-rgb)/0.1)]">
+        <Card className="mb-3 border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.08)]">
           <CardContent className="space-y-2 p-4">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-text">Улучшить профиль</p>
@@ -220,8 +224,8 @@ export default function MyProfileHubPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.08)] px-3 py-1 text-xs text-[rgb(var(--teal-hover-rgb))]">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Профиль заполнен на 100%
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.08)] px-3 py-1 text-xs text-text">
+          <CheckCircle2 className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> Профиль заполнен на 100%
         </div>
       )}
 
@@ -287,7 +291,7 @@ export default function MyProfileHubPage() {
             subtitle={psychCompleted ? "Пройден, можно обновить" : "Не пройден — влияет на качество рекомендаций"}
             badge={
               psychCompleted ? (
-                <span className="rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.12)] px-2 py-0.5 text-[10px] text-[rgb(var(--teal-hover-rgb))]">OK</span>
+                <span className="rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.12)] px-2 py-0.5 text-[10px] text-text">OK</span>
               ) : (
                 <span className="rounded-full border border-[rgb(var(--amber-rgb)/0.5)] bg-[rgb(var(--amber-rgb)/0.12)] px-2 py-0.5 text-[10px] text-[rgb(160,98,0)]">Важно</span>
               )
@@ -315,7 +319,7 @@ export default function MyProfileHubPage() {
             <Link key={item.key} href={item.cta} onClick={() => setQualityOpen(false)}>
               <div className={`tap-press flex items-center justify-between rounded-xl border px-3 py-2 ${item.done ? "border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.08)]" : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.68)]"}`}>
                 <p className="text-sm text-text">{item.label}</p>
-                {item.done ? <span className="text-xs text-[rgb(var(--teal-hover-rgb))]">Готово</span> : <span className="text-xs text-text2">Заполнить</span>}
+                {item.done ? <span className="text-xs text-text">Готово</span> : <span className="text-xs text-text2">Заполнить</span>}
               </div>
             </Link>
           ))}
