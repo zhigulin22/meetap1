@@ -11,6 +11,7 @@ const serverSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
+  TELEGRAM_MODERATION_CHAT_ID: z.string().default(""),
   FACE_DETECT_MODEL: z.string().min(1).default("gpt-4o-mini"),
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
   QA_BOTS_CONTROL_TOKEN: z.string().min(1).default("qa-bots-control-disabled"),
@@ -20,6 +21,29 @@ const serverSchema = z.object({
 
 let publicCache: z.infer<typeof publicSchema> | null = null;
 let serverCache: z.infer<typeof serverSchema> | null = null;
+
+function decodeBase64(value: string | undefined | null) {
+  if (!value) return null;
+  try {
+    return Buffer.from(value, "base64").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function resolveSecret(params: {
+  plain?: string;
+  b64?: string;
+  placeholder?: string;
+}) {
+  const plain = params.plain?.trim();
+  if (plain && (!params.placeholder || plain !== params.placeholder)) return plain;
+
+  const decoded = decodeBase64(params.b64);
+  if (decoded?.trim()) return decoded.trim();
+
+  return params.placeholder ?? "";
+}
 
 export function getPublicEnv() {
   if (publicCache) return publicCache;
@@ -45,9 +69,18 @@ export function getServerEnv() {
     SUPABASE_SERVICE_ROLE_KEY:
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-service-role",
     OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-openai",
-    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ?? "placeholder-telegram",
+    TELEGRAM_BOT_TOKEN: resolveSecret({
+      plain: process.env.TELEGRAM_BOT_TOKEN,
+      b64: process.env.TELEGRAM_BOT_TOKEN_B64,
+      placeholder: "placeholder-telegram",
+    }),
     TELEGRAM_WEBHOOK_SECRET:
       process.env.TELEGRAM_WEBHOOK_SECRET ?? "placeholder-secret",
+    TELEGRAM_MODERATION_CHAT_ID: resolveSecret({
+      plain: process.env.TELEGRAM_MODERATION_CHAT_ID,
+      b64: process.env.TELEGRAM_MODERATION_CHAT_ID_B64,
+      placeholder: "",
+    }),
     FACE_DETECT_MODEL: process.env.FACE_DETECT_MODEL ?? "gpt-4o-mini",
     FACE_DETECT_MIN_CONFIDENCE: process.env.FACE_DETECT_MIN_CONFIDENCE ?? "0.35",
     QA_BOTS_CONTROL_TOKEN:

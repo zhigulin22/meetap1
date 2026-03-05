@@ -42,12 +42,12 @@ export function normalizeTelegramContact(value: string) {
 }
 
 export async function sendEventSubmissionToTelegramModerationBot(input: SubmissionPreview) {
-  const chatId = process.env.TELEGRAM_MODERATION_CHAT_ID;
+  const env = getServerEnv();
+  const chatId = env.TELEGRAM_MODERATION_CHAT_ID;
   if (!chatId) {
     return { ok: false as const, reason: "TELEGRAM_MODERATION_CHAT_ID is missing" };
   }
 
-  const env = getServerEnv();
 
   const lines = [
     `🧭 <b>Новая заявка события (комьюнити)</b>`,
