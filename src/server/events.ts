@@ -58,7 +58,9 @@ function toText(value: unknown, fallback = "") {
 }
 
 export function normalizeEventRow(row: any): EventProjection {
-  const sourceKind = toText(row?.source_kind, "external") === "community" ? "community" : "external";
+  const sourceRaw = toText(row?.source_type, toText(row?.source_kind, "external"));
+  const sourceKind = sourceRaw === "community" ? "community" : "external";
+
   const startsAt =
     parseDate(row?.starts_at) ?? parseDate(row?.event_date) ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -66,25 +68,50 @@ export function normalizeEventRow(row: any): EventProjection {
     ? row.source_meta.gallery.filter((x: any) => typeof x === "string")
     : [];
 
+  const shortDescription =
+    toText(row?.short_description, "") ||
+    toText(row?.description_short, "") ||
+    toText(row?.description, "");
+
+  const fullDescription =
+    toText(row?.full_description, "") ||
+    toText(row?.description_full, "") ||
+    toText(row?.description, "");
+
+  const priceNote = toText(row?.price_note, "") || toText(row?.price_text, "") || null;
+  const price =
+    row?.price != null
+      ? toNum(row.price, 0)
+      : row?.price_min != null
+        ? toNum(row.price_min, 0)
+        : 0;
+
   return {
     id: String(row?.id ?? ""),
     source_kind: sourceKind,
-    category: toText(row?.category, sourceKind === "community" ? "Комьюнити" : "Афиша"),
+    category: toText(row?.category, sourceKind === "community" ? "community" : "other"),
     title: toText(row?.title, "Без названия"),
-    short_description: toText(row?.short_description, toText(row?.description, "")),
-    full_description: toText(row?.full_description, toText(row?.description, "")),
+    short_description: shortDescription,
+    full_description: fullDescription || shortDescription,
     city: toText(row?.city, ""),
     venue_name: toText(row?.venue_name, toText(row?.location, "")),
     venue_address: toText(row?.venue_address, ""),
     starts_at: startsAt,
     ends_at: parseDate(row?.ends_at),
-    cover_url: (typeof row?.cover_url === "string" && row.cover_url) || gallery[0] || null,
+    cover_url:
+      (typeof row?.cover_url === "string" && row.cover_url) ||
+      (typeof row?.image_url === "string" && row.image_url) ||
+      gallery[0] ||
+      null,
     gallery,
-    is_paid: typeof row?.is_paid === "boolean" ? row.is_paid : toNum(row?.price, 0) > 0,
-    price: toNum(row?.price, 0),
-    price_note: toText(row?.price_note, "") || null,
-    external_source: toText(row?.external_source, "") || null,
-    external_url: toText(row?.external_url, "") || null,
+    is_paid:
+      typeof row?.is_paid === "boolean"
+        ? row.is_paid
+        : toNum(row?.price_min, 0) > 0 || toNum(row?.price, 0) > 0,
+    price,
+    price_note: priceNote,
+    external_source: toText(row?.external_source, toText(row?.source_name, "")) || null,
+    external_url: toText(row?.external_url, toText(row?.source_url, "")) || null,
     organizer_telegram: toText(row?.organizer_telegram, "") || null,
     social_mode: toText(row?.social_mode, sourceKind === "community" ? "organize" : "discover"),
     participant_limit: row?.participant_limit == null ? null : toNum(row.participant_limit),

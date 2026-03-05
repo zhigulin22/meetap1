@@ -19,14 +19,15 @@ const querySchema = z.object({
   tab: z.enum(["all", "popular", "concerts", "sport", "quests", "community"]).default("all"),
   search: z.string().trim().max(120).default(""),
   city: z.string().trim().max(80).default(""),
-  limit: z.coerce.number().int().min(1).max(120).default(60),
+  category: z.string().trim().max(80).default(""),
+  limit: z.coerce.number().int().min(1).max(120).default(15),
 });
 
 const TAB_CATEGORY_MAP: Record<string, string[]> = {
   popular: [],
   concerts: ["concert", "концерт", "music", "музыка"],
-  sport: ["sport", "спорт", "match", "футбол", "баскетбол"],
-  quests: ["quest", "квест", "escape", "эскейп"],
+  sport: ["sport", "sports", "спорт", "match", "футбол", "баскетбол"],
+  quests: ["quest", "quests", "квест", "escape", "эскейп"],
   all: [],
   community: [],
 };
@@ -71,6 +72,7 @@ type EventsPayload = {
     feed: "all" | "external" | "community";
     tab: "all" | "popular" | "concerts" | "sport" | "quests" | "community";
     total: number;
+    category: string;
     has_companion: boolean;
     cache?: { mode: "hot" | "stale"; cached_at: string };
   };
@@ -79,8 +81,8 @@ type EventsPayload = {
 type CacheEntry = { payload: EventsPayload; cachedAt: number; expiresAt: number };
 const eventsCache = new Map<string, CacheEntry>();
 
-function cacheKey(input: { feed: string; tab: string; search: string; city: string; limit: number; userId: string | null }) {
-  return `${input.feed}:${input.tab}:${input.search.toLowerCase()}:${input.city.toLowerCase()}:${input.limit}:${input.userId ?? "anon"}`;
+function cacheKey(input: { feed: string; tab: string; search: string; city: string; category: string; limit: number; userId: string | null }) {
+  return `${input.feed}:${input.tab}:${input.search.toLowerCase()}:${input.city.toLowerCase()}:${input.category.toLowerCase()}:${input.limit}:${input.userId || "anon"}`;
 }
 
 function matchesCategoryByTab(category: string, tab: string) {
@@ -88,6 +90,13 @@ function matchesCategoryByTab(category: string, tab: string) {
   if (!rules.length) return true;
   const c = category.toLowerCase();
   return rules.some((x) => c.includes(x));
+}
+
+function matchesExplicitCategory(category: string, explicit: string) {
+  if (!explicit) return true;
+  const c = category.toLowerCase();
+  const e = explicit.toLowerCase();
+  return c.includes(e) || e.includes(c);
 }
 
 export async function GET(req: Request) {
@@ -99,12 +108,13 @@ export async function GET(req: Request) {
     tab: searchParams.get("tab") ?? "all",
     search: searchParams.get("search") ?? "",
     city: searchParams.get("city") ?? "",
-    limit: searchParams.get("limit") ?? 60,
+    category: searchParams.get("category") ?? "",
+    limit: searchParams.get("limit") ?? 15,
   });
 
   const filters = parsed.success
     ? parsed.data
-    : { feed: "all" as const, tab: "all" as const, search: "", city: "", limit: 60 };
+    : { feed: "all" as const, tab: "all" as const, search: "", city: "", category: "", limit: 15 };
 
   const key = cacheKey({ ...filters, userId });
   const now = Date.now();
@@ -151,20 +161,26 @@ export async function GET(req: Request) {
         "description",
         "short_description",
         "full_description",
+        "description_short",
+        "description_full",
         "cover_url",
+        "image_url",
         "event_date",
         "starts_at",
         "ends_at",
         "price",
         "price_note",
+        "price_text",
         "city",
         "location",
         "venue_name",
         "venue_address",
         "category",
         "source_kind",
+        "source_type",
         "external_source",
         "external_url",
+        "source_url",
         "organizer_telegram",
         "social_mode",
         "participant_limit",
@@ -181,12 +197,17 @@ export async function GET(req: Request) {
       if (eventsCols.has("status")) q = q.eq("status", "published");
       else if (eventsCols.has("moderation_status")) q = q.eq("moderation_status", "published");
 
-      if (filters.feed !== "all" && eventsCols.has("source_kind")) {
-        q = q.eq("source_kind", filters.feed);
+      if (filters.feed !== "all") {
+        if (eventsCols.has("source_type")) q = q.eq("source_type", filters.feed);
+        else if (eventsCols.has("source_kind")) q = q.eq("source_kind", filters.feed);
       }
 
       if (filters.city && eventsCols.has("city")) {
         q = q.ilike("city", `%${filters.city}%`);
+      }
+
+      if (filters.category && eventsCols.has("category")) {
+        q = q.ilike("category", `%${filters.category}%`);
       }
 
       if (eventsCols.has("starts_at")) q = q.order("starts_at", { ascending: true });
@@ -207,6 +228,7 @@ export async function GET(req: Request) {
           if (!text.includes(filters.search.toLowerCase())) return false;
         }
 
+        if (!matchesExplicitCategory(item.category, filters.category)) return false;
         if (!matchesCategoryByTab(item.category, filters.tab)) return false;
         return true;
       });
@@ -281,6 +303,7 @@ export async function GET(req: Request) {
           feed: filters.feed,
           tab: filters.tab,
           total: items.length,
+          category: filters.category,
           has_companion: hasCompanionTable,
         },
       } as EventsPayload;

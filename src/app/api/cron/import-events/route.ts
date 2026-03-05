@@ -35,7 +35,7 @@ async function handle(req: Request) {
       runEventsImport({
         actorUserId: null,
         daysAhead: 45,
-        sourceName: "yandex_tickets",
+        sourceName: "kudago_timepad",
       }),
     );
 

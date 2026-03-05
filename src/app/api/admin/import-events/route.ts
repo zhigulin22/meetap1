@@ -34,7 +34,7 @@ export async function POST(req: Request) {
           city: parsed.data.city,
           daysAhead: parsed.data.days_ahead,
           forceSeed: parsed.data.force_seed,
-          sourceName: "yandex_tickets",
+          sourceName: "kudago_timepad",
         });
       });
 

@@ -6,11 +6,13 @@ import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-i
 import { supabaseAdmin } from "@/supabase/admin";
 
 type ImportCategoryKey = "sports" | "concerts" | "arts" | "quests" | "standup" | "exhibitions";
+type ProviderName = "kudago" | "timepad" | "seed";
 
 type ImportCategory = {
   key: ImportCategoryKey;
   label: string;
-  yandexHint: string;
+  kudagoCategories: string[];
+  timepadQuery: string;
 };
 
 type ImportInput = {
@@ -25,7 +27,7 @@ type ImportInput = {
 type ImportSummary = {
   ok: boolean;
   job_id: string | null;
-  source: "yandex_tickets" | "seed" | "mixed";
+  source: "kudago" | "timepad" | "seed" | "mixed";
   imported_count: number;
   seeded_count: number;
   categories: Array<{ key: string; label: string; imported: number; seeded: number }>;
@@ -33,86 +35,165 @@ type ImportSummary = {
   errors: string[];
 };
 
-type YandexListItem = Record<string, unknown>;
+type ProviderEvent = {
+  sourceName: ProviderName;
+  sourceEventId: string;
+  sourceUrl: string | null;
+  sourceType: "external";
+  title: string;
+  category: string;
+  rawCategory: string;
+  city: string;
+  startsAt: string;
+  endsAt: string | null;
+  venueName: string | null;
+  venueAddress: string | null;
+  imageUrl: string | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  priceText: string | null;
+  ticketUrl: string | null;
+  descriptionShort: string | null;
+  descriptionFull: string | null;
+  sourceMeta: Record<string, unknown>;
+};
+
 type EventInsertCandidate = Record<string, unknown>;
 
-const DEFAULT_BASE_URL = "https://api.tickets.yandex.net";
 const TARGET_PER_CATEGORY = 15;
-const MAX_PER_CATEGORY_FETCH = 36;
-const DETAIL_CONCURRENCY = 4;
-const HTTP_TIMEOUT_MS = 5_500;
+const MAX_FETCH_PER_CATEGORY = 80;
+const MAX_PAGE_SIZE = 100;
+const FETCH_TIMEOUT_MS = 6_500;
+
+const KUDAGO_DEFAULT_BASE = "https://kudago.com/public-api/v1.4";
+const TIMEPAD_DEFAULT_BASE = "https://api.timepad.ru/v1";
 
 const CATEGORIES: ImportCategory[] = [
-  { key: "sports", label: "Спорт", yandexHint: "sports" },
-  { key: "concerts", label: "Концерты", yandexHint: "concerts" },
-  { key: "arts", label: "Искусство", yandexHint: "arts" },
-  { key: "quests", label: "Квесты", yandexHint: "quests" },
-  { key: "standup", label: "Стендап", yandexHint: "standup" },
-  { key: "exhibitions", label: "Выставки", yandexHint: "exhibitions" },
+  {
+    key: "sports",
+    label: "sports",
+    kudagoCategories: ["sport"],
+    timepadQuery: "спорт",
+  },
+  {
+    key: "concerts",
+    label: "concerts",
+    kudagoCategories: ["concert"],
+    timepadQuery: "концерт",
+  },
+  {
+    key: "arts",
+    label: "arts",
+    kudagoCategories: ["theater", "exhibition", "education", "festival", "lecture", "entertainment"],
+    timepadQuery: "искусство",
+  },
+  {
+    key: "quests",
+    label: "quests",
+    kudagoCategories: ["quest"],
+    timepadQuery: "квест",
+  },
+  {
+    key: "standup",
+    label: "standup",
+    kudagoCategories: ["stand-up", "comedy"],
+    timepadQuery: "стендап",
+  },
+  {
+    key: "exhibitions",
+    label: "exhibitions",
+    kudagoCategories: ["exhibition", "museum"],
+    timepadQuery: "выставка",
+  },
+];
+
+const CITY_ALIASES: Record<string, { slug: string; label: string }> = {
+  moscow: { slug: "msk", label: "Moscow" },
+  "москва": { slug: "msk", label: "Moscow" },
+  msk: { slug: "msk", label: "Moscow" },
+  spb: { slug: "spb", label: "Saint Petersburg" },
+  piter: { slug: "spb", label: "Saint Petersburg" },
+  "санкт-петербург": { slug: "spb", label: "Saint Petersburg" },
+  "питер": { slug: "spb", label: "Saint Petersburg" },
+  ekb: { slug: "ekb", label: "Ekaterinburg" },
+  "екатеринбург": { slug: "ekb", label: "Ekaterinburg" },
+  nsk: { slug: "nsk", label: "Novosibirsk" },
+  "новосибирск": { slug: "nsk", label: "Novosibirsk" },
+  kzn: { slug: "kzn", label: "Kazan" },
+  "казань": { slug: "kzn", label: "Kazan" },
+  nnv: { slug: "nnv", label: "Nizhny Novgorod" },
+  "нижний новгород": { slug: "nnv", label: "Nizhny Novgorod" },
+};
+
+const DEFAULT_CITY_POOL = [
+  { slug: "msk", label: "Moscow" },
+  { slug: "spb", label: "Saint Petersburg" },
+  { slug: "kzn", label: "Kazan" },
+  { slug: "ekb", label: "Ekaterinburg" },
+  { slug: "nsk", label: "Novosibirsk" },
 ];
 
 const SEED_TITLES: Record<ImportCategoryKey, string[]> = {
   sports: [
-    "Ночной футбольный квиз-матч",
-    "Street Workout Session",
-    "Смешанный волейбольный микс",
-    "Пробежка + нетворкинг",
-    "Баскет х 3x3",
+    "Night Sports Meetup",
+    "City Run + Networking",
+    "Streetball Open Court",
+    "Volleyball Mix Day",
+    "Fitness Outdoor Group",
   ],
   concerts: [
-    "Live Session: New Wave",
-    "Электро-джем в клубе",
-    "Камерный вечер инди",
-    "Acoustic Friday",
-    "Открытый микрофон + live band",
+    "Live Band Friday",
+    "Indie Night Session",
+    "Acoustic Meetup",
+    "Open Mic Stage",
+    "Electronic Weekend Set",
   ],
   arts: [
-    "Ночная галерея молодого искусства",
-    "Лекторий по визуальной культуре",
-    "Арт-брейншторм с кураторами",
-    "Кино-обсуждение авторского фильма",
-    "Иллюстрация и комьюнити",
+    "Modern Art Dialog",
+    "Creative Lecture Night",
+    "Cinema + Discussion",
+    "Illustration Club",
+    "Contemporary Culture Meet",
   ],
   quests: [
-    "Квест по городу: исторический маршрут",
-    "Escape Room: Black Box",
-    "Дворовый урбан-квест",
-    "Квест-охота за артефактами",
-    "Командный mystery-квест",
+    "City Quest Challenge",
+    "Escape Team Mission",
+    "Mystery Walk",
+    "Puzzle Group Game",
+    "Urban Story Quest",
   ],
   standup: [
-    "Открытый стендап вечер",
-    "Stand-up battle: new faces",
-    "Комедийный open mic",
-    "Late Night Standup",
-    "Импров и шутки про дейтинг",
+    "Standup Open Mic",
+    "Comedy Night Session",
+    "Late Night Humor",
+    "Rookie Standup Battle",
+    "Impro Jam Comedy",
   ],
   exhibitions: [
-    "Интерактивная медиа-выставка",
-    "Фото-проект молодых авторов",
-    "Иммерсивная выставка звука",
-    "Современный дизайн и люди",
-    "Тематическая pop-up экспозиция",
+    "Media Art Exhibition",
+    "Photo Gallery Meetup",
+    "Design Expo Session",
+    "Museum Evening Walk",
+    "Pop-up Art Space",
   ],
 };
-
-function pickCategoryList(raw?: string[]) {
-  if (!raw?.length) return CATEGORIES;
-  const keys = new Set(raw.map((x) => x.trim().toLowerCase()).filter(Boolean));
-  const filtered = CATEGORIES.filter((c) => keys.has(c.key) || keys.has(c.label.toLowerCase()));
-  return filtered.length ? filtered : CATEGORIES;
-}
-
-function parseDate(value: unknown) {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const d = new Date(value);
-  if (!Number.isFinite(d.getTime())) return null;
-  return d.toISOString();
-}
 
 function asString(value: unknown) {
   if (typeof value !== "string") return "";
   return value.trim();
+}
+
+function parseDate(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const ms = value > 10_000_000_000 ? value : value * 1000;
+    const d = new Date(ms);
+    if (Number.isFinite(d.getTime())) return d.toISOString();
+  }
+
+  if (typeof value !== "string" || !value.trim()) return null;
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d.toISOString();
 }
 
 function asNumber(value: unknown) {
@@ -120,58 +201,85 @@ function asNumber(value: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
-function readPath(obj: Record<string, unknown> | null | undefined, paths: string[]) {
-  for (const path of paths) {
-    const chunks = path.split(".");
-    let cur: unknown = obj;
-    let ok = true;
-    for (const chunk of chunks) {
-      if (!cur || typeof cur !== "object" || !(chunk in (cur as Record<string, unknown>))) {
-        ok = false;
-        break;
-      }
-      cur = (cur as Record<string, unknown>)[chunk];
-    }
-    if (ok && cur != null) return cur;
-  }
-  return null;
+function stripHtml(input: string) {
+  return input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function parseEventListPayload(payload: unknown): YandexListItem[] {
-  if (Array.isArray(payload)) return payload.filter((x): x is YandexListItem => Boolean(x && typeof x === "object"));
-  if (!payload || typeof payload !== "object") return [];
-  const obj = payload as Record<string, unknown>;
+function cutText(input: string, max = 260) {
+  const text = input.trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
 
+function parsePrice(text: string): { min: number | null; max: number | null; note: string | null } {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return { min: null, max: null, note: null };
+
+  const free = /бесплат|free/i.test(clean);
+  if (free) return { min: 0, max: 0, note: "Бесплатно" };
+
+  const nums = clean
+    .replace(/[,]/g, ".")
+    .match(/\d+(?:\.\d+)?/g)
+    ?.map((x) => Number(x))
+    .filter((x) => Number.isFinite(x));
+
+  if (!nums?.length) return { min: null, max: null, note: clean };
+  if (nums.length === 1) return { min: nums[0] ?? null, max: nums[0] ?? null, note: clean };
+
+  const sorted = nums.sort((a, b) => a - b);
+  return { min: sorted[0] ?? null, max: sorted[sorted.length - 1] ?? null, note: clean };
+}
+
+function parseArrayPayload(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) {
+    return payload.filter((x): x is Record<string, unknown> => Boolean(x && typeof x === "object"));
+  }
+
+  if (!payload || typeof payload !== "object") return [];
+
+  const obj = payload as Record<string, unknown>;
   const candidates = [
+    obj.results,
     obj.items,
     obj.events,
+    obj.values,
     obj.data,
-    readPath(obj, ["result.items", "result.events", "response.events", "response.items"]),
+    (obj.response as Record<string, unknown> | undefined)?.results,
+    (obj.response as Record<string, unknown> | undefined)?.events,
   ];
 
-  for (const c of candidates) {
-    if (Array.isArray(c)) {
-      return c.filter((x): x is YandexListItem => Boolean(x && typeof x === "object"));
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((x): x is Record<string, unknown> => Boolean(x && typeof x === "object"));
     }
   }
 
   return [];
 }
 
-function buildYandexEndpoints(baseUrl: string, method: "event.list" | "event.detail") {
-  const trimmed = baseUrl.replace(/\/+$/, "");
-  const methodPath = method.replace(".", "/");
-  return [
-    `${trimmed}/${method}`,
-    `${trimmed}/${methodPath}`,
-    `${trimmed}/v1/${method}`,
-    `${trimmed}/v1/${methodPath}`,
-    `${trimmed}/agent/${method}`,
-    `${trimmed}/agent/${methodPath}`,
-  ];
+function normalizeCityPool(rawCity?: string) {
+  const list: Array<{ slug: string; label: string }> = [];
+  const key = asString(rawCity).toLowerCase();
+  const matched = key ? CITY_ALIASES[key] : null;
+
+  if (matched) list.push(matched);
+
+  for (const item of DEFAULT_CITY_POOL) {
+    if (!list.find((x) => x.slug === item.slug)) list.push(item);
+  }
+
+  return list;
 }
 
-async function fetchJsonWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+function pickCategories(raw?: string[]) {
+  if (!raw?.length) return CATEGORIES;
+  const requested = new Set(raw.map((x) => x.trim().toLowerCase()).filter(Boolean));
+  const filtered = CATEGORIES.filter((c) => requested.has(c.key) || requested.has(c.label.toLowerCase()));
+  return filtered.length ? filtered : CATEGORIES;
+}
+
+async function fetchJson(url: string, init: RequestInit, timeoutMs: number) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -187,333 +295,470 @@ async function fetchJsonWithTimeout(url: string, init: RequestInit, timeoutMs: n
     }
     return { ok: res.ok, status: res.status, json };
   } catch (error) {
-    return { ok: false, status: 0, json: { error: error instanceof Error ? error.message : "network error" } };
+    return {
+      ok: false,
+      status: 0,
+      json: { error: error instanceof Error ? error.message : "network error" },
+    };
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function yandexMethodCall(
-  method: "event.list" | "event.detail",
-  payload: Record<string, unknown>,
-): Promise<{ ok: boolean; data: unknown; endpoint?: string; error?: string }> {
+async function fetchKudagoEvents(params: {
+  category: ImportCategory;
+  citySlug: string;
+  cityLabel: string;
+  daysAhead: number;
+  max: number;
+  timeoutMs: number;
+}): Promise<{ items: ProviderEvent[]; warnings: string[] }> {
   const env = getServerEnv();
-  const base = env.YANDEX_TICKETS_BASE_URL || DEFAULT_BASE_URL;
-  const endpoints = buildYandexEndpoints(base, method);
+  const base = (env.KUDAGO_BASE_URL || KUDAGO_DEFAULT_BASE).replace(/\/+$/, "");
+  const warnings: string[] = [];
+  const all: ProviderEvent[] = [];
+
+  const now = new Date();
+  const until = new Date(now.getTime() + Math.max(7, params.daysAhead) * 24 * 60 * 60 * 1000);
+
+  const actualSince = Math.floor(now.getTime() / 1000);
+  const actualUntil = Math.floor(until.getTime() / 1000);
+
+  for (let page = 1; page <= 3; page += 1) {
+    if (all.length >= params.max) break;
+
+    const q = new URLSearchParams();
+    q.set("lang", "ru");
+    q.set("location", params.citySlug);
+    q.set("actual_since", String(actualSince));
+    q.set("actual_until", String(actualUntil));
+    q.set("categories", params.category.kudagoCategories.join(","));
+    q.set("page_size", String(MAX_PAGE_SIZE));
+    q.set("page", String(page));
+    q.set(
+      "fields",
+      [
+        "id",
+        "title",
+        "short_title",
+        "description",
+        "body_text",
+        "site_url",
+        "dates",
+        "place",
+        "categories",
+        "images",
+        "price",
+        "is_free",
+      ].join(","),
+    );
+
+    const url = `${base}/events/?${q.toString()}`;
+    const res = await fetchJson(url, { method: "GET" }, params.timeoutMs);
+
+    if (!res.ok) {
+      warnings.push(`KudaGo request failed (${params.category.key}/${params.citySlug}/p${page}): ${res.status}`);
+      break;
+    }
+
+    const rows = parseArrayPayload(res.json);
+    if (!rows.length) break;
+
+    for (const row of rows) {
+      if (all.length >= params.max) break;
+
+      const idRaw = row.id ?? row.slug;
+      const sourceEventId = `${idRaw ?? randomUUID()}`;
+
+      const dates = Array.isArray(row.dates) ? row.dates : [];
+      const firstDate = (dates.find((d) => d && typeof d === "object") ?? {}) as Record<string, unknown>;
+
+      const startsAt =
+        parseDate(firstDate.start) ||
+        parseDate(firstDate.start_date) ||
+        parseDate(firstDate.start_time) ||
+        new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+      const endsAt = parseDate(firstDate.end) || parseDate(firstDate.end_date) || null;
+
+      const place = (row.place && typeof row.place === "object" ? row.place : {}) as Record<string, unknown>;
+
+      const image = Array.isArray(row.images)
+        ? row.images
+            .map((x) => {
+              if (typeof x === "string") return x;
+              if (x && typeof x === "object") return asString((x as Record<string, unknown>).image);
+              return "";
+            })
+            .find(Boolean)
+        : "";
+
+      const title = asString(row.title) || asString(row.short_title) || `${params.category.label} event`;
+      const shortDescription = cutText(stripHtml(asString(row.description) || asString(row.short_title) || title), 220);
+      const fullDescription = cutText(stripHtml(asString(row.body_text) || asString(row.description) || title), 2400);
+
+      const rawCategory = Array.isArray(row.categories)
+        ? row.categories.map((x) => `${x ?? ""}`).filter(Boolean).join(",")
+        : params.category.kudagoCategories.join(",");
+
+      const priceInfo = parsePrice(asString(row.price));
+      const isFree = row.is_free === true || priceInfo.min === 0;
+
+      all.push({
+        sourceName: "kudago",
+        sourceEventId,
+        sourceUrl: asString(row.site_url) || null,
+        sourceType: "external",
+        title,
+        category: params.category.key,
+        rawCategory,
+        city: params.cityLabel,
+        startsAt,
+        endsAt,
+        venueName: asString(place.title) || asString(place.name) || null,
+        venueAddress: asString(place.address) || null,
+        imageUrl: image || null,
+        priceMin: isFree ? 0 : priceInfo.min,
+        priceMax: isFree ? 0 : priceInfo.max,
+        priceText: isFree ? "Бесплатно" : priceInfo.note,
+        ticketUrl: asString(row.site_url) || null,
+        descriptionShort: shortDescription,
+        descriptionFull: fullDescription,
+        sourceMeta: {
+          provider: "kudago",
+          location: params.citySlug,
+          page,
+        },
+      });
+    }
+  }
+
+  return { items: all.slice(0, params.max), warnings };
+}
+
+async function fetchTimepadEvents(params: {
+  category: ImportCategory;
+  cityLabel: string;
+  daysAhead: number;
+  max: number;
+  timeoutMs: number;
+}): Promise<{ items: ProviderEvent[]; warnings: string[] }> {
+  const env = getServerEnv();
+  const warnings: string[] = [];
+
+  if (isPlaceholderEnvValue(env.TIMEPAD_TOKEN)) {
+    warnings.push("Timepad token отсутствует, пропускаем Timepad добор");
+    return { items: [], warnings };
+  }
+
+  const base = (env.TIMEPAD_BASE_URL || TIMEPAD_DEFAULT_BASE).replace(/\/+$/, "");
+  const endpoints = [`${base}/events`, `${base}/events.json`];
+
+  const now = new Date();
+  const until = new Date(now.getTime() + Math.max(7, params.daysAhead) * 24 * 60 * 60 * 1000);
+
+  const items: ProviderEvent[] = [];
 
   for (const endpoint of endpoints) {
-    const postAttempt = await fetchJsonWithTimeout(
-      endpoint,
+    if (items.length >= params.max) break;
+
+    const q = new URLSearchParams();
+    q.set("limit", "100");
+    q.set("skip", "0");
+    q.set("sort", "+starts_at");
+    q.set("starts_at_min", now.toISOString());
+    q.set("starts_at_max", until.toISOString());
+    q.set("q", params.category.timepadQuery);
+    q.set("city", params.cityLabel);
+
+    const res = await fetchJson(
+      `${endpoint}?${q.toString()}`,
       {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-      HTTP_TIMEOUT_MS,
-    );
-
-    if (postAttempt.ok) return { ok: true, data: postAttempt.json, endpoint };
-
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(payload)) {
-      if (v == null) continue;
-      if (Array.isArray(v)) {
-        params.set(k, v.join(","));
-      } else {
-        params.set(k, String(v));
-      }
-    }
-
-    const getAttempt = await fetchJsonWithTimeout(
-      `${endpoint}?${params.toString()}`,
-      { method: "GET" },
-      HTTP_TIMEOUT_MS,
-    );
-
-    if (getAttempt.ok) return { ok: true, data: getAttempt.json, endpoint };
-  }
-
-  return { ok: false, data: null, error: `Yandex ${method} request failed` };
-}
-
-async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T, index: number) => Promise<R>) {
-  const out = new Array<R>(items.length);
-  let cursor = 0;
-
-  async function worker() {
-    while (true) {
-      const idx = cursor;
-      cursor += 1;
-      if (idx >= items.length) return;
-      out[idx] = await fn(items[idx] as T, idx);
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, () => worker()));
-  return out;
-}
-
-function yandexEnabled(forceSeed: boolean) {
-  if (forceSeed) return false;
-  const env = getServerEnv();
-  return !isPlaceholderEnvValue(env.YANDEX_TICKETS_AUTH);
-}
-
-async function fetchYandexCategory(category: ImportCategory, city: string, daysAhead: number, forceSeed: boolean) {
-  if (!yandexEnabled(forceSeed)) {
-    return { items: [] as EventInsertCandidate[], warnings: ["Yandex auth не настроен, используем seed"] };
-  }
-
-  const env = getServerEnv();
-  const from = new Date();
-  const to = new Date(Date.now() + Math.max(7, daysAhead) * 24 * 60 * 60 * 1000);
-
-  const listPayload = {
-    auth: env.YANDEX_TICKETS_AUTH,
-    category: category.yandexHint,
-    city,
-    limit: MAX_PER_CATEGORY_FETCH,
-    from: from.toISOString(),
-    to: to.toISOString(),
-    locale: "ru_RU",
-  };
-
-  const listRes = await yandexMethodCall("event.list", listPayload);
-  if (!listRes.ok) {
-    return {
-      items: [] as EventInsertCandidate[],
-      warnings: [`Yandex list failed for ${category.key}`],
-      errors: [listRes.error ?? "event.list failed"],
-    };
-  }
-
-  const listItems = parseEventListPayload(listRes.data).slice(0, MAX_PER_CATEGORY_FETCH);
-  if (!listItems.length) {
-    return { items: [], warnings: [`Yandex returned no events for ${category.key}`] };
-  }
-
-  const details = await mapWithConcurrency(listItems, DETAIL_CONCURRENCY, async (item, index) => {
-    const externalId = asString(readPath(item, ["id", "event_id", "eventId", "uuid", "slug"])) || randomUUID();
-    const detailPayload = {
-      auth: env.YANDEX_TICKETS_AUTH,
-      event_id: externalId,
-      id: externalId,
-      city,
-      locale: "ru_RU",
-    };
-
-    const detailRes = await yandexMethodCall("event.detail", detailPayload);
-    const detailObj = detailRes.ok && detailRes.data && typeof detailRes.data === "object"
-      ? (readPath(detailRes.data as Record<string, unknown>, ["result", "event", "data", "response"]) as Record<string, unknown> | null) ??
-        (detailRes.data as Record<string, unknown>)
-      : null;
-
-    const source = detailObj && Object.keys(detailObj).length ? detailObj : item;
-
-    const startsAt =
-      parseDate(readPath(source, ["starts_at", "start_at", "startDate", "datetime", "date"])) ||
-      new Date(Date.now() + (index + 1) * 6 * 60 * 60 * 1000).toISOString();
-
-    const endsAt = parseDate(readPath(source, ["ends_at", "end_at", "endDate"]));
-
-    const title =
-      asString(readPath(source, ["title", "name", "event_name"])) ||
-      `${category.label}: событие ${index + 1}`;
-
-    const shortDescription =
-      asString(readPath(source, ["short_description", "summary", "subtitle", "description_short"])) ||
-      `Подборка ${category.label.toLowerCase()} в ${city}.`;
-
-    const fullDescription =
-      asString(readPath(source, ["full_description", "description", "body", "text"])) || shortDescription;
-
-    const venueName = asString(readPath(source, ["venue.name", "venue_title", "place.name", "location", "hall.name"]));
-    const venueAddress = asString(readPath(source, ["venue.address", "place.address", "address"]));
-    const eventCity = asString(readPath(source, ["city", "venue.city", "location_city"])) || city;
-
-    const cover =
-      asString(readPath(source, ["cover_url", "image", "poster", "images.0.url", "media.0.url"])) ||
-      `https://placehold.co/1280x720/f1f5ff/6574b8?text=${encodeURIComponent(title)}`;
-
-    const externalUrl = asString(readPath(source, ["url", "event_url", "source_url", "tickets_url"]));
-
-    const priceMin = asNumber(readPath(source, ["price_min", "price.min", "prices.min", "price"]));
-    const priceMax = asNumber(readPath(source, ["price_max", "price.max", "prices.max"]));
-
-    const price = priceMin ?? 0;
-    const isPaid = price > 0;
-    const priceNote = isPaid
-      ? priceMax && priceMax > price
-        ? `${price}–${priceMax} ₽`
-        : `${price} ₽`
-      : "Бесплатно";
-
-    return {
-      source_kind: "external",
-      source_name: "yandex_tickets",
-      external_event_id: externalId,
-      category: category.label,
-      title,
-      short_description: shortDescription,
-      full_description: fullDescription,
-      description: shortDescription,
-      city: eventCity,
-      location: venueName || venueAddress || eventCity,
-      venue_name: venueName || null,
-      venue_address: venueAddress || null,
-      starts_at: startsAt,
-      ends_at: endsAt,
-      event_date: startsAt,
-      cover_url: cover,
-      external_url: externalUrl || null,
-      external_source: "Yandex Tickets",
-      price,
-      is_paid: isPaid,
-      price_note: priceNote,
-      status: "published",
-      moderation_status: "published",
-      source_meta: {
-        provider: "yandex_tickets",
-        provider_category: category.yandexHint,
-        provider_payload_sample: {
-          has_detail: Boolean(detailObj),
-          endpoint: listRes.endpoint,
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${env.TIMEPAD_TOKEN}`,
+          Accept: "application/json",
         },
       },
-      is_demo: false,
-      demo_group: null,
-      updated_at: new Date().toISOString(),
-    } as EventInsertCandidate;
-  });
+      params.timeoutMs,
+    );
 
-  return { items: details };
+    if (!res.ok) {
+      warnings.push(`Timepad request failed (${params.category.key}/${params.cityLabel}): ${res.status}`);
+      continue;
+    }
+
+    const rows = parseArrayPayload(res.json);
+    if (!rows.length) continue;
+
+    for (const row of rows) {
+      if (items.length >= params.max) break;
+
+      const sourceEventId = `${row.id ?? row.slug ?? randomUUID()}`;
+      const startsAt = parseDate(row.starts_at) || parseDate(row.start_at) || parseDate(row.datetime);
+      if (!startsAt) continue;
+
+      const endsAt = parseDate(row.ends_at) || parseDate(row.end_at) || null;
+
+      const location =
+        row.location && typeof row.location === "object"
+          ? (row.location as Record<string, unknown>)
+          : ({} as Record<string, unknown>);
+      const organization =
+        row.organization && typeof row.organization === "object"
+          ? (row.organization as Record<string, unknown>)
+          : ({} as Record<string, unknown>);
+
+      const imageUrl =
+        asString((row.poster_image as Record<string, unknown> | undefined)?.default_url) ||
+        asString((row.logo_image as Record<string, unknown> | undefined)?.default_url) ||
+        asString(row.image) ||
+        null;
+
+      const title = asString(row.name) || asString(row.title) || `${params.category.label} event`;
+      const shortDescription = cutText(stripHtml(asString(row.description_short) || asString(row.description) || title), 220);
+      const fullDescription = cutText(stripHtml(asString(row.description) || asString(row.annotation) || title), 2400);
+
+      const priceMin = asNumber(row.min_price);
+      const priceMax = asNumber(row.max_price);
+      const priceText =
+        asString(row.price) ||
+        (priceMin != null
+          ? priceMax != null && priceMax > priceMin
+            ? `${priceMin}-${priceMax} ₽`
+            : `${priceMin} ₽`
+          : null);
+
+      items.push({
+        sourceName: "timepad",
+        sourceEventId,
+        sourceUrl: asString(row.url) || asString(row.registration_data && (row.registration_data as Record<string, unknown>).url) || null,
+        sourceType: "external",
+        title,
+        category: params.category.key,
+        rawCategory: asString(row.category) || params.category.timepadQuery,
+        city: asString(location.city) || params.cityLabel,
+        startsAt,
+        endsAt,
+        venueName: asString(location.title) || asString(organization.name) || null,
+        venueAddress: asString(location.address) || null,
+        imageUrl,
+        priceMin,
+        priceMax,
+        priceText,
+        ticketUrl: asString(row.url) || null,
+        descriptionShort: shortDescription,
+        descriptionFull: fullDescription,
+        sourceMeta: {
+          provider: "timepad",
+        },
+      });
+    }
+  }
+
+  return { items: items.slice(0, params.max), warnings };
 }
 
-function seedEventFor(category: ImportCategory, city: string, index: number): EventInsertCandidate {
+function makeSeedEvent(category: ImportCategory, city: string, index: number): ProviderEvent {
   const titleSet = SEED_TITLES[category.key];
   const title = `${titleSet[index % titleSet.length]} · #${index + 1}`;
-  const startsAt = new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000 + (index % 5) * 60 * 60 * 1000).toISOString();
-  const isPaid = index % 3 !== 0;
-  const price = isPaid ? 500 + (index % 8) * 250 : 0;
+  const startsAt = new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000 + (index % 4) * 3600 * 1000).toISOString();
+  const paid = index % 3 !== 0;
+  const price = paid ? 700 + (index % 6) * 250 : 0;
 
   return {
-    source_kind: "external",
-    source_name: "seed",
-    external_event_id: `seed-${category.key}-${index + 1}`,
-    category: category.label,
+    sourceName: "seed",
+    sourceEventId: `seed-${category.key}-${index + 1}`,
+    sourceUrl: null,
+    sourceType: "external",
     title,
-    short_description: `Тестовое ${category.label.toLowerCase()} событие для проверки карточек и фильтров.`,
-    full_description:
-      "Seed событие: используется как fallback, когда внешний импорт временно недоступен. Можно безопасно удалять и пересоздавать.",
-    description: `Seed event for ${category.key}`,
+    category: category.key,
+    rawCategory: category.key,
     city,
-    location: `${city}, test location #${index + 1}`,
-    venue_name: `Venue #${index + 1}`,
-    venue_address: `${city}, улица Тестовая ${10 + index}`,
-    starts_at: startsAt,
-    ends_at: null,
-    event_date: startsAt,
-    cover_url: `https://placehold.co/1280x720/f1f5ff/6a73b9?text=${encodeURIComponent(title)}`,
-    external_url: null,
-    external_source: "seed",
-    price,
-    is_paid: isPaid,
-    price_note: isPaid ? `${price} ₽` : "Бесплатно",
-    status: "published",
-    moderation_status: "published",
-    source_meta: {
+    startsAt,
+    endsAt: null,
+    venueName: `${city} spot #${index + 1}`,
+    venueAddress: `${city}, Test street ${10 + index}`,
+    imageUrl: `https://placehold.co/1280x720/0E2530/E7F6FF?text=${encodeURIComponent(title)}`,
+    priceMin: price,
+    priceMax: price,
+    priceText: paid ? `${price} ₽` : "Бесплатно",
+    ticketUrl: null,
+    descriptionShort: "Seed fallback событие для стабильного наполнения вкладок.",
+    descriptionFull: "Событие создано fallback-скриптом. Используется как страховка, если внешние источники временно недоступны.",
+    sourceMeta: {
       provider: "seed",
       generated_at: new Date().toISOString(),
       category: category.key,
     },
-    is_demo: true,
-    demo_group: "seed",
+  };
+}
+
+function dedupeEvents(rows: ProviderEvent[]) {
+  const map = new Map<string, ProviderEvent>();
+  for (const row of rows) {
+    const key = `${row.sourceName}:${row.sourceEventId}`;
+    if (!map.has(key)) map.set(key, row);
+  }
+  return [...map.values()];
+}
+
+function providerSummary(rows: ProviderEvent[]) {
+  let fromKudago = 0;
+  let fromTimepad = 0;
+  let fromSeed = 0;
+
+  for (const row of rows) {
+    if (row.sourceName === "kudago") fromKudago += 1;
+    else if (row.sourceName === "timepad") fromTimepad += 1;
+    else fromSeed += 1;
+  }
+
+  return { fromKudago, fromTimepad, fromSeed };
+}
+
+function mapToEventInsert(row: ProviderEvent, jobId: string | null): EventInsertCandidate {
+  const startsAt = row.startsAt;
+  const endsAt = row.endsAt;
+
+  return {
+    source_name: row.sourceName,
+    source_event_id: row.sourceEventId,
+    external_event_id: row.sourceEventId,
+    source_url: row.sourceUrl,
+    external_url: row.sourceUrl,
+    source_type: row.sourceType,
+    source_kind: row.sourceType,
+    title: row.title,
+    category: row.category,
+    raw_category: row.rawCategory,
+    city: row.city,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    event_date: startsAt,
+    venue_name: row.venueName,
+    venue_address: row.venueAddress,
+    location: row.venueName || row.venueAddress || row.city,
+    image_url: row.imageUrl,
+    cover_url: row.imageUrl,
+    price_min: row.priceMin,
+    price_max: row.priceMax,
+    price_text: row.priceText,
+    price_note: row.priceText,
+    price: row.priceMin ?? 0,
+    is_paid: (row.priceMin ?? 0) > 0,
+    ticket_url: row.ticketUrl,
+    external_source: row.sourceName,
+    description_short: row.descriptionShort,
+    description_full: row.descriptionFull,
+    short_description: row.descriptionShort,
+    full_description: row.descriptionFull,
+    description: row.descriptionShort,
+    source_meta: row.sourceMeta,
+    import_job_id: jobId,
+    status: "published",
+    moderation_status: "published",
+    is_demo: row.sourceName === "seed",
+    demo_group: row.sourceName === "seed" ? "seed" : null,
     updated_at: new Date().toISOString(),
   };
 }
 
-async function createImportJob(
+async function createJob(
+  table: "event_import_jobs" | "import_jobs" | null,
   cols: Set<string>,
   input: {
     actorUserId?: string | null;
     sourceName: string;
     categories: string[];
     city: string;
-    meta?: Record<string, unknown>;
+    stats?: Record<string, unknown>;
   },
-) {
-  if (!cols.size) return null;
+): Promise<string | null> {
+  if (!table || !cols.size) return null;
 
-  const row = pickExistingColumns(
+  const now = new Date().toISOString();
+  const id = randomUUID();
+
+  const payloadBase: Record<string, unknown> = {
+    id,
+    source_name: input.sourceName,
+    status: "running",
+    started_at: now,
+    created_by: input.actorUserId ?? null,
+    created_at: now,
+    updated_at: now,
+    city: input.city,
+    requested_categories: input.categories,
+    stats_json: input.stats ?? {},
+    meta: input.stats ?? {},
+  };
+
+  const payload = pickExistingColumns(payloadBase, cols);
+  const res = await supabaseAdmin.from(table).insert(payload).select("id").maybeSingle();
+  if (res.error) return null;
+  return String(res.data?.id ?? id);
+}
+
+async function updateJob(
+  table: "event_import_jobs" | "import_jobs" | null,
+  cols: Set<string>,
+  jobId: string | null,
+  patch: Record<string, unknown>,
+) {
+  if (!table || !jobId || !cols.size) return;
+
+  const payload = pickExistingColumns(
     {
-      id: randomUUID(),
-      source_name: input.sourceName,
-      status: "running",
-      requested_categories: input.categories,
-      city: input.city,
-      started_at: new Date().toISOString(),
-      created_by: input.actorUserId ?? null,
-      meta: input.meta ?? {},
-      created_at: new Date().toISOString(),
+      ...patch,
       updated_at: new Date().toISOString(),
     },
     cols,
   );
 
-  const ins = await supabaseAdmin.from("import_jobs").insert(row).select("id").maybeSingle();
-  if (ins.error) return null;
-  return String(ins.data?.id ?? "");
-}
-
-async function updateImportJob(cols: Set<string>, jobId: string | null, patch: Record<string, unknown>) {
-  if (!jobId || !cols.size) return;
-  const payload = pickExistingColumns({ ...patch, updated_at: new Date().toISOString() }, cols);
   if (!Object.keys(payload).length) return;
-  await supabaseAdmin.from("import_jobs").update(payload).eq("id", jobId);
+  await supabaseAdmin.from(table).update(payload).eq("id", jobId);
 }
 
-async function replaceImportedEvents(
-  eventCols: Set<string>,
+async function replaceEvents(
   rows: EventInsertCandidate[],
   categories: ImportCategory[],
-  jobId: string | null,
+  eventCols: Set<string>,
 ) {
   if (!rows.length) return;
 
-  const categoryLabels = categories.map((c) => c.label);
+  const categoryKeys = categories.map((c) => c.key);
 
-  if (eventCols.has("source_kind") && eventCols.has("category") && eventCols.has("source_name")) {
-    const cleanup = await supabaseAdmin
-      .from("events")
-      .delete()
-      .eq("source_kind", "external")
-      .in("category", categoryLabels)
-      .in("source_name", ["yandex_tickets", "seed"]);
+  if (eventCols.has("category") && (eventCols.has("source_type") || eventCols.has("source_kind"))) {
+    let cleanup = supabaseAdmin.from("events").delete().in("category", categoryKeys);
 
-    if (cleanup.error && !String(cleanup.error.message).toLowerCase().includes("source_name")) {
-      throw new Error(cleanup.error.message);
-    }
+    if (eventCols.has("source_type")) cleanup = cleanup.eq("source_type", "external");
+    else cleanup = cleanup.eq("source_kind", "external");
+
+    if (eventCols.has("source_name")) cleanup = cleanup.in("source_name", ["kudago", "timepad", "seed"]);
+
+    const res = await cleanup;
+    if (res.error) throw new Error(res.error.message);
   }
 
-  const prepared = rows.map((row) => {
-    const withJob = { ...row, import_job_id: jobId };
-    return pickExistingColumns(withJob, eventCols);
-  });
+  const prepared = rows.map((row) => pickExistingColumns(row, eventCols));
+  const chunks: Array<Record<string, unknown>[]> = [];
 
-  const chunks: Array<EventInsertCandidate[]> = [];
-  for (let i = 0; i < prepared.length; i += 250) chunks.push(prepared.slice(i, i + 250));
+  for (let i = 0; i < prepared.length; i += 250) {
+    chunks.push(prepared.slice(i, i + 250));
+  }
 
   for (const chunk of chunks) {
-    let res;
-    if (eventCols.has("source_name") && eventCols.has("external_event_id")) {
-      res = await supabaseAdmin
-        .from("events")
-        .upsert(chunk, { onConflict: "source_name,external_event_id" });
+    let result;
+    if (eventCols.has("source_name") && eventCols.has("source_event_id")) {
+      result = await supabaseAdmin.from("events").upsert(chunk, { onConflict: "source_name,source_event_id" });
+    } else if (eventCols.has("source_name") && eventCols.has("external_event_id")) {
+      result = await supabaseAdmin.from("events").upsert(chunk, { onConflict: "source_name,external_event_id" });
     } else {
-      res = await supabaseAdmin.from("events").insert(chunk);
+      result = await supabaseAdmin.from("events").insert(chunk);
     }
 
-    if (res.error) throw new Error(res.error.message);
+    if (result.error) throw new Error(result.error.message);
   }
 }
 
@@ -521,14 +766,24 @@ export async function runEventsImport(input: ImportInput = {}): Promise<ImportSu
   const warnings: string[] = [];
   const errors: string[] = [];
 
-  const categories = pickCategoryList(input.categories);
+  const env = getServerEnv();
+  const categories = pickCategories(input.categories);
   const city = asString(input.city) || "Moscow";
+  const forceSeed = Boolean(input.forceSeed);
   const daysAhead = Math.max(7, Math.min(90, Number(input.daysAhead ?? 30)));
-  const sourceName = asString(input.sourceName) || "yandex_tickets";
+  const timeoutMs = Math.max(1000, Math.min(20_000, Number(env.EXTERNAL_IMPORT_TIMEOUT_MS ?? FETCH_TIMEOUT_MS)));
 
-  const schema = await getSchemaSnapshot(["events", "import_jobs"]);
+  const schema = await getSchemaSnapshot(["events", "event_import_jobs", "import_jobs"]);
   const eventCols = asSet(schema, "events");
-  const importJobCols = asSet(schema, "import_jobs");
+  const eventImportJobCols = asSet(schema, "event_import_jobs");
+  const legacyImportJobCols = asSet(schema, "import_jobs");
+
+  const jobTable: "event_import_jobs" | "import_jobs" | null = eventImportJobCols.size
+    ? "event_import_jobs"
+    : legacyImportJobCols.size
+      ? "import_jobs"
+      : null;
+  const jobCols = jobTable === "event_import_jobs" ? eventImportJobCols : legacyImportJobCols;
 
   if (!eventCols.size) {
     return {
@@ -537,89 +792,168 @@ export async function runEventsImport(input: ImportInput = {}): Promise<ImportSu
       source: "seed",
       imported_count: 0,
       seeded_count: 0,
-      categories: categories.map((c) => ({ key: c.key, label: c.label, imported: 0, seeded: 0 })),
+      categories: categories.map((c) => ({ key: c.key, label: c.label, imported: 0, seeded: TARGET_PER_CATEGORY })),
       warnings,
       errors: ["events table missing"],
     };
   }
 
-  const jobId = await createImportJob(importJobCols, {
+  const jobId = await createJob(jobTable, jobCols, {
     actorUserId: input.actorUserId,
-    sourceName,
+    sourceName: asString(input.sourceName) || "kudago_timepad",
     categories: categories.map((c) => c.key),
     city,
-    meta: { force_seed: Boolean(input.forceSeed), days_ahead: daysAhead, app_env: getServerEnv().APP_ENV },
+    stats: {
+      requested_days: daysAhead,
+      force_seed: forceSeed,
+      app_env: env.APP_ENV,
+    },
   });
 
-  const finalRows: EventInsertCandidate[] = [];
+  const finalRows: ProviderEvent[] = [];
   const categorySummary: Array<{ key: string; label: string; imported: number; seeded: number }> = [];
-  let importedCount = 0;
-  let seededCount = 0;
 
   for (const category of categories) {
-    const imported = await fetchYandexCategory(category, city, daysAhead, Boolean(input.forceSeed));
-    if (imported.warnings?.length) warnings.push(...imported.warnings);
-    if ((imported as any).errors?.length) errors.push(...((imported as any).errors as string[]));
+    const cityPool = normalizeCityPool(city);
+    const categoryImported: ProviderEvent[] = [];
 
-    const dedupe = new Map<string, EventInsertCandidate>();
-    for (const row of imported.items ?? []) {
-      const key = `${asString(row.external_event_id) || asString(row.title)}|${asString(row.starts_at)}`;
-      if (!dedupe.has(key)) dedupe.set(key, row);
+    if (!forceSeed) {
+      const dayWindows = Array.from(new Set([Math.min(daysAhead, 30), 60, 90].filter((x) => x > 0)));
+
+      for (const windowDays of dayWindows) {
+        for (const cityInfo of cityPool) {
+          if (categoryImported.length >= MAX_FETCH_PER_CATEGORY) break;
+
+          const k = await fetchKudagoEvents({
+            category,
+            citySlug: cityInfo.slug,
+            cityLabel: cityInfo.label,
+            daysAhead: windowDays,
+            max: MAX_FETCH_PER_CATEGORY - categoryImported.length,
+            timeoutMs,
+          });
+
+          if (k.warnings.length) warnings.push(...k.warnings);
+          categoryImported.push(...k.items);
+
+          if (categoryImported.length >= TARGET_PER_CATEGORY) break;
+        }
+
+        if (categoryImported.length >= TARGET_PER_CATEGORY) break;
+      }
+
+      const dedupAfterKudago = dedupeEvents(categoryImported);
+
+      if (dedupAfterKudago.length < TARGET_PER_CATEGORY) {
+        const remaining = TARGET_PER_CATEGORY - dedupAfterKudago.length;
+
+        for (const cityInfo of cityPool) {
+          const t = await fetchTimepadEvents({
+            category,
+            cityLabel: cityInfo.label,
+            daysAhead: 90,
+            max: Math.max(remaining, 12),
+            timeoutMs,
+          });
+
+          if (t.warnings.length) warnings.push(...t.warnings);
+          dedupAfterKudago.push(...t.items);
+
+          if (dedupAfterKudago.length >= TARGET_PER_CATEGORY) break;
+        }
+      }
+
+      categoryImported.splice(0, categoryImported.length, ...dedupeEvents(dedupAfterKudago));
     }
 
-    const importedRows = [...dedupe.values()].slice(0, TARGET_PER_CATEGORY);
+    const importedRows = categoryImported.slice(0, TARGET_PER_CATEGORY);
     const missing = Math.max(0, TARGET_PER_CATEGORY - importedRows.length);
-    const seededRows = Array.from({ length: missing }, (_, idx) => seedEventFor(category, city, idx));
+    const seeds = Array.from({ length: missing }, (_, i) => makeSeedEvent(category, city, i));
 
-    importedCount += importedRows.length;
-    seededCount += seededRows.length;
-
-    finalRows.push(...importedRows, ...seededRows);
+    finalRows.push(...importedRows, ...seeds);
     categorySummary.push({
       key: category.key,
       label: category.label,
       imported: importedRows.length,
-      seeded: seededRows.length,
+      seeded: seeds.length,
     });
   }
 
+  const mappedRows = finalRows.map((row) => mapToEventInsert(row, jobId));
+
   try {
-    await replaceImportedEvents(eventCols, finalRows, categories, jobId);
+    await replaceEvents(mappedRows, categories, eventCols);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "failed to write events";
+    const message = error instanceof Error ? error.message : "failed to write imported events";
     errors.push(message);
-    await updateImportJob(importJobCols, jobId, {
-      status: "failed",
+
+    await updateJob(jobTable, jobCols, jobId, {
+      status: "error",
       finished_at: new Date().toISOString(),
-      imported_count: importedCount,
-      seeded_count: seededCount,
-      errors: errors,
+      imported_count: finalRows.filter((x) => x.sourceName !== "seed").length,
+      seeded_count: finalRows.filter((x) => x.sourceName === "seed").length,
+      error_text: errors.join(" | "),
+      errors,
+      stats_json: {
+        categories: categorySummary,
+        warnings,
+      },
+      meta: {
+        categories: categorySummary,
+        warnings,
+      },
     });
 
     return {
       ok: false,
       job_id: jobId,
-      source: importedCount > 0 && seededCount > 0 ? "mixed" : importedCount > 0 ? "yandex_tickets" : "seed",
-      imported_count: importedCount,
-      seeded_count: seededCount,
+      source: "seed",
+      imported_count: finalRows.filter((x) => x.sourceName !== "seed").length,
+      seeded_count: finalRows.filter((x) => x.sourceName === "seed").length,
       categories: categorySummary,
       warnings,
       errors,
     };
   }
 
-  await updateImportJob(importJobCols, jobId, {
-    status: "finished",
+  const provider = providerSummary(finalRows);
+  const importedCount = provider.fromKudago + provider.fromTimepad;
+  const seededCount = provider.fromSeed;
+
+  const source: ImportSummary["source"] =
+    importedCount > 0 && seededCount > 0
+      ? "mixed"
+      : provider.fromKudago > 0 && provider.fromTimepad === 0
+        ? "kudago"
+        : provider.fromTimepad > 0 && provider.fromKudago === 0
+          ? "timepad"
+          : importedCount > 0
+            ? "mixed"
+            : "seed";
+
+  await updateJob(jobTable, jobCols, jobId, {
+    status: "ok",
     finished_at: new Date().toISOString(),
     imported_count: importedCount,
     seeded_count: seededCount,
+    error_text: errors.join(" | "),
     errors,
+    stats_json: {
+      categories: categorySummary,
+      providers: provider,
+      warnings,
+    },
+    meta: {
+      categories: categorySummary,
+      providers: provider,
+      warnings,
+    },
   });
 
   return {
     ok: true,
     job_id: jobId,
-    source: importedCount > 0 && seededCount > 0 ? "mixed" : importedCount > 0 ? "yandex_tickets" : "seed",
+    source,
     imported_count: importedCount,
     seeded_count: seededCount,
     categories: categorySummary,

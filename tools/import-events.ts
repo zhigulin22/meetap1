@@ -30,7 +30,7 @@ async function main() {
     categories,
     forceSeed,
     actorUserId: null,
-    sourceName: "yandex_tickets",
+    sourceName: "kudago_timepad",
   });
 
   // eslint-disable-next-line no-console

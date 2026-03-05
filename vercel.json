@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/import-events",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 */6 * * *"
     }
   ]
 }

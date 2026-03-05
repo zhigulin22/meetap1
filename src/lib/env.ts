@@ -19,9 +19,10 @@ const serverSchema = z.object({
   QA_BOTS_CONTROL_TOKEN: z.string().min(1).default("qa-bots-control-disabled"),
   QA_BOTS_PASSWORD: z.string().min(8).default("QaBots!2026"),
   DEMO_AUTH_ENABLED: z.coerce.boolean().default(false),
-  YANDEX_TICKETS_AUTH: z.string().default(""),
-  YANDEX_TICKETS_BASE_URL: z.string().url().default("https://api.tickets.yandex.net"),
-  YANDEX_TICKETS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(20000).default(5500),
+  KUDAGO_BASE_URL: z.string().url().default("https://kudago.com/public-api/v1.4"),
+  TIMEPAD_BASE_URL: z.string().url().default("https://api.timepad.ru/v1"),
+  TIMEPAD_TOKEN: z.string().default(""),
+  EXTERNAL_IMPORT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(20000).default(6500),
   CRON_SECRET: z.string().default(""),
 });
 
@@ -104,9 +105,10 @@ export function getServerEnv() {
       process.env.QA_BOTS_CONTROL_TOKEN ?? "qa-bots-control-disabled",
     QA_BOTS_PASSWORD: process.env.QA_BOTS_PASSWORD ?? "QaBots!2026",
     DEMO_AUTH_ENABLED: process.env.DEMO_AUTH_ENABLED ?? "false",
-    YANDEX_TICKETS_AUTH: process.env.YANDEX_TICKETS_AUTH ?? "",
-    YANDEX_TICKETS_BASE_URL: process.env.YANDEX_TICKETS_BASE_URL ?? "https://api.tickets.yandex.net",
-    YANDEX_TICKETS_TIMEOUT_MS: process.env.YANDEX_TICKETS_TIMEOUT_MS ?? "5500",
+    KUDAGO_BASE_URL: process.env.KUDAGO_BASE_URL ?? "https://kudago.com/public-api/v1.4",
+    TIMEPAD_BASE_URL: process.env.TIMEPAD_BASE_URL ?? "https://api.timepad.ru/v1",
+    TIMEPAD_TOKEN: process.env.TIMEPAD_TOKEN ?? "",
+    EXTERNAL_IMPORT_TIMEOUT_MS: process.env.EXTERNAL_IMPORT_TIMEOUT_MS ?? "6500",
     CRON_SECRET: process.env.CRON_SECRET ?? "",
   };
 
@@ -131,7 +133,8 @@ export function getEnvReadiness() {
       telegramToken: !isPlaceholderEnvValue(sec.TELEGRAM_BOT_TOKEN),
       telegramWebhookSecret: !isPlaceholderEnvValue(sec.TELEGRAM_WEBHOOK_SECRET),
       telegramModerationChatId: !isPlaceholderEnvValue(sec.TELEGRAM_MODERATION_CHAT_ID),
-      yandexTicketsAuth: !isPlaceholderEnvValue(sec.YANDEX_TICKETS_AUTH),
+      kudagoBaseUrl: !isPlaceholderEnvValue(sec.KUDAGO_BASE_URL),
+      timepadToken: !isPlaceholderEnvValue(sec.TIMEPAD_TOKEN),
     },
   };
 }
