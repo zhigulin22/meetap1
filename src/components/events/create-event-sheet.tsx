@@ -139,7 +139,7 @@ export function CreateEventSheet({ open, onOpenChange, onCreated }: CreateEventS
       };
 
       const res = await api<{ submission_id: string; moderation_status: string; bot: { ok: boolean; reason?: string } }>(
-        "/api/events/submissions",
+        "/api/event-submissions",
         {
           method: "POST",
           body: JSON.stringify(payload),

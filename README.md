@@ -1,102 +1,93 @@
-# Meetap MVP (Next.js 14 + Supabase + OpenAI)
+# Meetap MVP (Next.js 14 + Supabase)
 
-MVP соцсети для офлайн-знакомств.
+Социальное приложение с лентой, событиями и админкой.
 
 ## Stack
-
-- Next.js 14 (App Router) + TypeScript + TailwindCSS
-- shadcn-style UI components
-- Next.js API Routes
-- Supabase (Postgres + Storage + Auth)
-- OpenAI (AI moderation + recommendations)
-- framer-motion
+- Next.js 14 (App Router) + TypeScript + Tailwind
+- Supabase (Postgres/Auth/Storage)
+- TanStack Query
 - Deploy: Vercel
 
-## Routes
+## Key routes
+- `/feed`
+- `/events`
+- `/events/[id]`
+- `/profile/me`
+- `/admin`
 
-- `/` — landing
-- `/register` — Telegram phone verification + name
-- `/login` — вход по номеру и паролю
-- `/feed` — контент (Daily Duo + gate)
-- `/events` — мероприятия
-- `/events/[id]` — детальная страница мероприятия
-- `/contacts` — поиск людей/групп
-- `/profile/[id]` — профиль пользователя
-- `/profile/me` — мой профиль и настройки
-- `/profile/psych-test` — отдельная страница психологического теста
+## Environment
+Создай `.env.local` по примеру `.env.example`.
 
-Protected routing реализован в `middleware.ts`.
+Критично для событий:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `YANDEX_TICKETS_AUTH` (если есть партнерский доступ)
+- `YANDEX_TICKETS_BASE_URL` (default `https://api.tickets.yandex.net`)
+- `APP_ENV=local|vercel`
 
-## Environment variables
+## Migrations
+Выполни все миграции из `supabase/migrations` по порядку, включая:
+- `021_events_experience_revamp.sql`
+- `022_events_import_jobs_and_hardening.sql`
 
-Create `.env.local`:
+## Local mode (без задержек)
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=
+### Вариант A: Supabase CLI
+1. `supabase start`
+2. `supabase db reset` (или `supabase migration up`)
+3. `npm install`
+4. `npm run dev`
 
-SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_WEBHOOK_SECRET=
+### Импорт событий локально
+- Основной запуск: `npm run import-events`
+- Принудительно seed: `npm run import-events -- --force-seed=true`
+- С выбором города: `npm run import-events -- --city=Moscow --days=45`
+- С категориями: `npm run import-events -- --categories=sports,concerts,arts`
 
-# Face detector tuning
-FACE_DETECT_MODEL=gpt-4o-mini
-FACE_DETECT_MIN_CONFIDENCE=0.35
-```
+### Telegram в local
+- `TELEGRAM_MODERATION_MOCK=true` (отключает реальную отправку в бота)
+- Для реального webhook локально используй ngrok/cloudflared.
 
-## Supabase setup
+## Events import architecture
+- Источник: Yandex Tickets API (`event.list` + `event.detail`) server-side.
+- Fallback: seed-события (по 15 на категорию), если API недоступен или `YANDEX_TICKETS_AUTH` не задан.
+- Все данные сохраняются в `public.events`; клиент читает только из Supabase через `/api/events`.
+- Логи импорта: `public.import_jobs`.
 
-1. Create a Supabase project.
-2. Run SQL from:
-- `supabase/migrations/001_init.sql`
-- `supabase/migrations/002_comments.sql`
-- `supabase/migrations/003_personality_profile.sql`
-- `supabase/migrations/004_password_auth.sql`
-- `supabase/seed.sql`
-3. Create Telegram bot via BotFather and set username/token.
-4. Configure Telegram webhook:
-
-```bash
-curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-  -d "url=https://<your-domain>/api/telegram/webhook" \
-  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
-```
-
-## Local run
-
-```bash
-npm install
-npm run dev
-```
-
-## Core API
-
-- `POST /api/auth/start-verification`
-- `GET /api/auth/check-verification?token=...`
-- `POST /api/auth/complete-registration`
-- `POST /api/auth/login-password`
-- `POST /api/auth/set-password`
-- `POST /api/telegram/webhook`
-- `GET /api/feed/posts`
-- `POST /api/feed/posts/create-daily-duo`
-- `POST /api/feed/posts/:id/react`
+## API
 - `GET /api/events`
-- `GET /api/events/:id`
-- `POST /api/events/:id/join`
-- `POST /api/events/:id/find-3`
-- `GET /api/contacts`
-- `GET/PATCH /api/profile/me`
-- `POST /api/profile/avatar`
-- `POST /api/profile/psych-test`
-- `GET /api/profile/:id`
-- `POST /api/ai/face-validate`
-- `POST /api/ai/icebreaker`
+- `POST /api/event-submissions` (alias на `POST /api/events/submissions`)
+- `POST /api/admin/import-events` (manual run, admin)
+- `GET/POST /api/cron/import-events` (Vercel cron / CRON_SECRET)
 
-## Notes
+## Vercel cron
+Используй cron на `/api/cron/import-events` (например каждые 30 минут):
+- если Vercel cron header есть — endpoint примет запрос;
+- иначе можно защитить Bearer-токеном через `CRON_SECRET`.
 
-- Daily Duo has mobile camera flow: front shot -> back shot -> editor -> publish.
-- Feed lock is active if `users.last_post_at` older than 7 days.
-- Comments persist in DB and open as chat-style modal.
-- Face validation uses multi-pass consensus with model fallback and adjustable confidence threshold.
+Пример `vercel.json`:
+```json
+{
+  "crons": [
+    { "path": "/api/cron/import-events", "schedule": "*/30 * * * *" }
+  ]
+}
+```
+
+## Stability
+- `/api/events` использует hot/stale cache + rate limit + concurrency guard.
+- При перегрузе отдаётся stale payload или предсказуемая 429/503 ошибка (без сырых stack traces).
+- `POST /api/events/submissions` защищён rate limit + concurrency guard.
+
+## Checklist after deploy
+1. `POST /api/admin/import-events` вернул `ok=true`.
+2. В `import_jobs` есть `status=finished`.
+3. В `events` не менее 15 событий на каждую категорию:
+   - Спорт
+   - Концерты
+   - Искусство
+   - Квесты
+   - Стендап
+   - Выставки
+4. `/events` показывает карточки, не `0`.
+5. Кнопка «Добавить событие» открывает форму с первого клика.
+6. Submission уходит в `event_submissions` со статусом `pending`.

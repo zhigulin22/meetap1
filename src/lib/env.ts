@@ -7,16 +7,22 @@ const publicSchema = z.object({
 });
 
 const serverSchema = z.object({
+  APP_ENV: z.enum(["local", "vercel"]).default("vercel"),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
   TELEGRAM_MODERATION_CHAT_ID: z.string().default(""),
+  TELEGRAM_MODERATION_MOCK: z.coerce.boolean().default(false),
   FACE_DETECT_MODEL: z.string().min(1).default("gpt-4o-mini"),
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
   QA_BOTS_CONTROL_TOKEN: z.string().min(1).default("qa-bots-control-disabled"),
   QA_BOTS_PASSWORD: z.string().min(8).default("QaBots!2026"),
   DEMO_AUTH_ENABLED: z.coerce.boolean().default(false),
+  YANDEX_TICKETS_AUTH: z.string().default(""),
+  YANDEX_TICKETS_BASE_URL: z.string().url().default("https://api.tickets.yandex.net"),
+  YANDEX_TICKETS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(20000).default(5500),
+  CRON_SECRET: z.string().default(""),
 });
 
 let publicCache: z.infer<typeof publicSchema> | null = null;
@@ -75,6 +81,7 @@ export function getServerEnv() {
   if (serverCache) return serverCache;
 
   const source = {
+    APP_ENV: process.env.APP_ENV ?? "vercel",
     SUPABASE_SERVICE_ROLE_KEY:
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-service-role",
     OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-openai",
@@ -90,12 +97,17 @@ export function getServerEnv() {
       b64: process.env.TELEGRAM_MODERATION_CHAT_ID_B64,
       placeholder: "",
     }),
+    TELEGRAM_MODERATION_MOCK: process.env.TELEGRAM_MODERATION_MOCK ?? "false",
     FACE_DETECT_MODEL: process.env.FACE_DETECT_MODEL ?? "gpt-4o-mini",
     FACE_DETECT_MIN_CONFIDENCE: process.env.FACE_DETECT_MIN_CONFIDENCE ?? "0.35",
     QA_BOTS_CONTROL_TOKEN:
       process.env.QA_BOTS_CONTROL_TOKEN ?? "qa-bots-control-disabled",
     QA_BOTS_PASSWORD: process.env.QA_BOTS_PASSWORD ?? "QaBots!2026",
     DEMO_AUTH_ENABLED: process.env.DEMO_AUTH_ENABLED ?? "false",
+    YANDEX_TICKETS_AUTH: process.env.YANDEX_TICKETS_AUTH ?? "",
+    YANDEX_TICKETS_BASE_URL: process.env.YANDEX_TICKETS_BASE_URL ?? "https://api.tickets.yandex.net",
+    YANDEX_TICKETS_TIMEOUT_MS: process.env.YANDEX_TICKETS_TIMEOUT_MS ?? "5500",
+    CRON_SECRET: process.env.CRON_SECRET ?? "",
   };
 
   const parsed = serverSchema.parse(source);
@@ -119,6 +131,7 @@ export function getEnvReadiness() {
       telegramToken: !isPlaceholderEnvValue(sec.TELEGRAM_BOT_TOKEN),
       telegramWebhookSecret: !isPlaceholderEnvValue(sec.TELEGRAM_WEBHOOK_SECRET),
       telegramModerationChatId: !isPlaceholderEnvValue(sec.TELEGRAM_MODERATION_CHAT_ID),
+      yandexTicketsAuth: !isPlaceholderEnvValue(sec.YANDEX_TICKETS_AUTH),
     },
   };
 }

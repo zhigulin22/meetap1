@@ -10,6 +10,7 @@ export type ProbeTable = {
 export const DIAGNOSTICS_TABLES: ProbeTable[] = [
   { name: "users", probeColumn: "id", dateColumn: "created_at" },
   { name: "events", probeColumn: "id", dateColumn: "created_at" },
+  { name: "import_jobs", probeColumn: "id", dateColumn: "started_at" },
   { name: "posts", probeColumn: "id", dateColumn: "created_at" },
   { name: "connections", probeColumn: "id", dateColumn: "created_at" },
   { name: "messages", probeColumn: "id", dateColumn: "created_at" },

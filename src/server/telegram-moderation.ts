@@ -1,4 +1,4 @@
-import { getServerEnv, isPlaceholderEnvValue } from "@/lib/env";
+import { getServerEnv } from "@/lib/env";
 
 type SubmissionPreview = {
   id: string;
@@ -43,11 +43,19 @@ export function normalizeTelegramContact(value: string) {
 
 export async function sendEventSubmissionToTelegramModerationBot(input: SubmissionPreview) {
   const env = getServerEnv();
+
+  if (env.APP_ENV === "local" && env.TELEGRAM_MODERATION_MOCK) {
+    return {
+      ok: true as const,
+      reason: "mocked in local mode",
+      mock: true,
+    };
+  }
+
   const chatId = env.TELEGRAM_MODERATION_CHAT_ID;
   if (!chatId) {
     return { ok: false as const, reason: "TELEGRAM_MODERATION_CHAT_ID is missing" };
   }
-
 
   const lines = [
     `🧭 <b>Новая заявка события (комьюнити)</b>`,
