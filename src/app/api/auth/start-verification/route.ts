@@ -4,7 +4,7 @@ import { startVerificationSchema } from "@/lib/schemas";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
-import { getPublicEnv, getServerEnv } from "@/lib/env";
+import { getPublicEnv, getServerEnv, isPlaceholderEnvValue } from "@/lib/env";
 import { buildTelegramCode } from "@/lib/telegram-code";
 import { trackEvent } from "@/server/analytics";
 
@@ -26,6 +26,21 @@ export async function POST(req: NextRequest) {
   const rate = checkRateLimit(`start-verification:${ip}`, 5, 10 * 60 * 1000);
   if (!rate.ok) {
     return fail("Слишком много попыток. Попробуй позже", 429);
+  }
+
+  const env = getPublicEnv();
+  const serverEnv = getServerEnv();
+
+  if (
+    isPlaceholderEnvValue(env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME) ||
+    isPlaceholderEnvValue(serverEnv.SUPABASE_SERVICE_ROLE_KEY) ||
+    isPlaceholderEnvValue(serverEnv.TELEGRAM_BOT_TOKEN)
+  ) {
+    return fail("Сервис верификации временно не настроен", 500, {
+      code: "MISSING_ENV",
+      hint: "Проверь Vercel env: NEXT_PUBLIC_TELEGRAM_BOT_USERNAME, SUPABASE_SERVICE_ROLE_KEY, TELEGRAM_BOT_TOKEN и перезапусти деплой",
+      endpoint: "/api/auth/start-verification",
+    });
   }
 
   const body = await req.json().catch(() => null);
@@ -88,8 +103,6 @@ export async function POST(req: NextRequest) {
       properties: { immediate: true, actor_key: actorKey },
     });
   }
-
-  const env = getPublicEnv();
 
   return ok({
     token,

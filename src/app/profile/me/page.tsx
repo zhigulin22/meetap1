@@ -129,23 +129,25 @@ export default function MyProfileHubPage() {
       <TopBar title="Мой профиль" subtitle="Управление аккаунтом и настройками" right={<Pill>telegram-style</Pill>} />
 
       <Card className="mb-3 overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.98)]">
-        <div className="relative h-[21rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[#F5FFFB]">
-          <div className="pointer-events-none absolute -left-20 top-[48%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(255_240_235/0.6),transparent_64%)] blur-3xl" />
-          <div className="pointer-events-none absolute -right-24 top-[42%] h-96 w-96 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(231_255_247/0.55),transparent_66%)] blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(255_255_255/0.56),transparent_58%)]" />
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.018] mix-blend-multiply"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgb(18 32 28 / 0.55) 1px, transparent 0)",
-              backgroundSize: "3px 3px",
-            }}
-          />
+        <div className="relative h-[21rem] overflow-hidden border-b border-[color:var(--border-soft)] bg-[linear-gradient(145deg,rgba(10,16,38,0.98),rgba(18,12,44,0.98))]">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -left-24 top-[46%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.28),transparent_64%)] blur-3xl" />
+            <div className="absolute -right-24 top-[38%] h-96 w-96 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.24),transparent_66%)] blur-3xl" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,24,0.12),rgba(8,11,24,0.64))]" />
+            <div
+              className="absolute inset-0 opacity-[0.018]"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 1px 1px, rgb(246 248 255 / 0.55) 1px, transparent 0)",
+                backgroundSize: "3px 3px",
+              }}
+            />
+          </div>
 
           <div className="absolute inset-x-0 bottom-5 z-10 px-4">
             <div className="mx-auto flex max-w-md flex-col items-center text-center">
-              <div className="rounded-full bg-[image:var(--grad-primary)] p-[3px] shadow-[0_14px_34px_rgba(18,32,28,0.18)]">
-                <div className="rounded-full bg-white p-[2px]">
+              <div className="rounded-full bg-[image:var(--grad-primary)] p-[3px] shadow-[0_14px_34px_rgba(16,23,46,0.45)]">
+                <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
                   <Image
                     src={profile?.avatar_url || "https://placehold.co/560x560"}
                     alt="avatar"
@@ -162,7 +164,7 @@ export default function MyProfileHubPage() {
                 <ProfileEmojiBadge value={profile?.preferences?.profileEmoji} />
                 {profile?.telegram_verified ? (
                   <span title="Телефон подтвержден">
-                    <CheckCircle2 className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
+                    <CheckCircle2 className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
                   </span>
                 ) : null}
               </div>
@@ -174,11 +176,11 @@ export default function MyProfileHubPage() {
 
         <CardContent className="space-y-3 p-4">
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-[rgb(var(--peach-rgb)/0.24)] bg-[rgb(255_240_235/0.88)] px-3 py-2">
+            <div className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.28)] bg-[rgb(var(--surface-2-rgb)/0.88)] px-3 py-2">
               <p className="text-[11px] text-[rgb(var(--text-2-rgb))]">Публикации</p>
               <p className="text-[20px] font-semibold leading-none text-[rgb(var(--text-rgb))]">{activity?.posts ?? 0}</p>
             </div>
-            <div className="rounded-2xl border border-[rgb(var(--peach-rgb)/0.24)] bg-[rgb(255_240_235/0.88)] px-3 py-2">
+            <div className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.28)] bg-[rgb(var(--surface-2-rgb)/0.88)] px-3 py-2">
               <p className="text-[11px] text-[rgb(var(--text-2-rgb))]">Посещено ивентов</p>
               <p className="text-[20px] font-semibold leading-none text-[rgb(var(--text-rgb))]">{activity?.eventJoins ?? 0}</p>
             </div>
@@ -192,7 +194,7 @@ export default function MyProfileHubPage() {
 
           <div className="grid grid-cols-2 gap-2">
             <Link href={`/profile/${profile?.id ?? "me"}`} className="block">
-              <Button variant="secondary" className="h-11 w-full border-[rgb(var(--teal-rgb)/0.35)] bg-white text-[rgb(var(--text-rgb))] hover:bg-[rgb(var(--mint-rgb)/0.22)]">Как видят другие</Button>
+              <Button variant="secondary" className="h-11 w-full border-[rgb(var(--sky-rgb)/0.34)] bg-[rgb(var(--surface-2-rgb))] text-[rgb(var(--text-rgb))] hover:bg-[rgb(var(--surface-3-rgb)/0.95)]">Как видят другие</Button>
             </Link>
             <Link href="/profile/me/edit" className="block">
               <Button className="h-11 w-full text-base font-semibold">Редактировать</Button>

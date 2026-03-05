@@ -1,7 +1,7 @@
 import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { buildTelegramCode } from "@/lib/telegram-code";
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv, isPlaceholderEnvValue } from "@/lib/env";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 
 type ModerationAction = "approve" | "reject" | "need_info";
@@ -289,6 +289,14 @@ async function handleVerificationMessage(payload: any) {
 
 export async function POST(req: Request) {
   try {
+    const env = getServerEnv();
+    if (isPlaceholderEnvValue(env.TELEGRAM_BOT_TOKEN)) {
+      return fail("Telegram webhook is not configured", 500, {
+        code: "MISSING_ENV",
+        hint: "Проверь TELEGRAM_BOT_TOKEN в Vercel",
+        endpoint: "/api/telegram/webhook",
+      });
+    }
     const payload = await req.json().catch(() => null);
 
     const handledModeration = await handleModerationCallback(payload);

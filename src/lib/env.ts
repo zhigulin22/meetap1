@@ -22,6 +22,15 @@ const serverSchema = z.object({
 let publicCache: z.infer<typeof publicSchema> | null = null;
 let serverCache: z.infer<typeof serverSchema> | null = null;
 
+const PLACEHOLDER_RE = /(placeholder|your_|change_me|dummy|example|test[_-]?key|not-set)/i;
+
+export function isPlaceholderEnvValue(value: string | null | undefined) {
+  if (!value) return true;
+  const v = String(value).trim();
+  if (!v) return true;
+  return PLACEHOLDER_RE.test(v);
+}
+
 function decodeBase64(value: string | undefined | null) {
   if (!value) return null;
   try {
@@ -92,4 +101,24 @@ export function getServerEnv() {
   const parsed = serverSchema.parse(source);
   serverCache = parsed;
   return serverCache;
+}
+
+export function getEnvReadiness() {
+  const pub = getPublicEnv();
+  const sec = getServerEnv();
+
+  return {
+    public: {
+      supabaseUrl: !isPlaceholderEnvValue(pub.NEXT_PUBLIC_SUPABASE_URL),
+      anonKey: !isPlaceholderEnvValue(pub.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      telegramUsername: !isPlaceholderEnvValue(pub.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
+    },
+    server: {
+      serviceRole: !isPlaceholderEnvValue(sec.SUPABASE_SERVICE_ROLE_KEY),
+      openai: !isPlaceholderEnvValue(sec.OPENAI_API_KEY),
+      telegramToken: !isPlaceholderEnvValue(sec.TELEGRAM_BOT_TOKEN),
+      telegramWebhookSecret: !isPlaceholderEnvValue(sec.TELEGRAM_WEBHOOK_SECRET),
+      telegramModerationChatId: !isPlaceholderEnvValue(sec.TELEGRAM_MODERATION_CHAT_ID),
+    },
+  };
 }

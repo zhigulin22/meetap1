@@ -136,24 +136,24 @@ export default function ProfilePage() {
     <PageShell>
       <TopBar title="Профиль" subtitle="Визитка пользователя" />
 
-      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[#F5FFFB] p-5 shadow-soft">
+      <section className="relative mb-3 overflow-hidden rounded-[28px] border border-[color:var(--border-soft)] bg-[linear-gradient(145deg,rgba(10,16,38,0.98),rgba(18,12,44,0.98))] p-5 shadow-soft">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-16 top-[45%] h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(255_240_235/0.55),transparent_65%)] blur-2xl" />
-          <div className="absolute -right-20 top-[38%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(231_255_247/0.5),transparent_66%)] blur-2xl" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgb(255_255_255/0.52),transparent_60%)]" />
+          <div className="absolute -left-16 top-[45%] h-72 w-72 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.26),transparent_65%)] blur-2xl" />
+          <div className="absolute -right-20 top-[38%] h-80 w-80 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.24),transparent_66%)] blur-2xl" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,11,24,0.12),rgba(8,11,24,0.58))]" />
           <div
-            className="absolute inset-0 opacity-[0.018] mix-blend-multiply"
+            className="absolute inset-0 opacity-[0.018]"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgb(18 32 28 / 0.55) 1px, transparent 0)",
+                "radial-gradient(circle at 1px 1px, rgb(246 248 255 / 0.55) 1px, transparent 0)",
               backgroundSize: "3px 3px",
             }}
           />
         </div>
 
         <div className="relative flex flex-col items-center text-center">
-          <div className="rounded-full bg-[image:var(--grad-primary)] p-[2.5px] shadow-[0_10px_26px_rgba(18,32,28,0.14)]">
-            <div className="rounded-full bg-white p-[2px]">
+          <div className="rounded-full bg-[image:var(--grad-primary)] p-[2.5px] shadow-[0_10px_26px_rgba(14,20,44,0.45)]">
+            <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
               <Image
                 src={p.avatar_url || "https://placehold.co/560x560"}
                 alt={p.name}
@@ -234,10 +234,10 @@ export default function ProfilePage() {
       ) : null}
 
       {pinned.length ? (
-        <Card className="mb-3 border-[rgb(var(--peach-rgb)/0.24)] bg-[rgb(255_240_235/0.72)]">
+        <Card className="mb-3 border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--surface-2-rgb)/0.82)]">
           <CardContent className="p-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--peach-pressed-rgb))]">Pinned</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--sky-rgb))]">Pinned</p>
               <Pill>top</Pill>
             </div>
             <div className="grid grid-cols-3 gap-2">
