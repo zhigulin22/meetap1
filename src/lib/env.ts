@@ -12,6 +12,8 @@ const serverSchema = z.object({
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
   AI_SERVICE_URL: z.string().url().default("http://127.0.0.1:8000"),
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
+  DAILY_DUO_GROUP_BONUS_XP: z.coerce.number().int().min(0).default(100),
+  COMPATIBILITY_SEED_COUNT: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 let publicCache: z.infer<typeof publicSchema> | null = null;
@@ -45,6 +47,8 @@ export function getServerEnv() {
       process.env.TELEGRAM_WEBHOOK_SECRET ?? "placeholder-secret",
     AI_SERVICE_URL: process.env.AI_SERVICE_URL ?? "http://127.0.0.1:8000",
     FACE_DETECT_MIN_CONFIDENCE: process.env.FACE_DETECT_MIN_CONFIDENCE ?? "0.35",
+    DAILY_DUO_GROUP_BONUS_XP: process.env.DAILY_DUO_GROUP_BONUS_XP ?? "100",
+    COMPATIBILITY_SEED_COUNT: process.env.COMPATIBILITY_SEED_COUNT ?? "10",
   };
 
   const parsed = serverSchema.parse(source);

@@ -43,6 +43,12 @@ AI_SERVICE_URL=http://127.0.0.1:8000
 
 # Face detector tuning
 FACE_DETECT_MIN_CONFIDENCE=0.35
+
+# Bonus XP for group photo in Daily Duo (2+ faces on one photo)
+DAILY_DUO_GROUP_BONUS_XP=100
+
+# How many random users to seed for compatibility scoring per user
+COMPATIBILITY_SEED_COUNT=10
 ```
 
 AI service env (`ai_service/.env`):
@@ -62,6 +68,9 @@ FACE_DETECT_MIN_CONFIDENCE=0.35
 - `supabase/migrations/002_comments.sql`
 - `supabase/migrations/003_personality_profile.sql`
 - `supabase/migrations/004_password_auth.sql`
+- `supabase/migrations/005_user_sessions.sql`
+- `supabase/migrations/006_admin_analytics.sql`
+- `supabase/migrations/007_user_compatibility.sql`
 - `supabase/seed.sql`
 3. Create Telegram bot via BotFather and set username/token.
 4. Configure Telegram webhook:
@@ -77,6 +86,13 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
 ```bash
 npm install
 npm run dev
+```
+
+Backfill compatibility for all users (10 random targets per user by default):
+
+```bash
+set -a && source .env.local && set +a
+npm run backfill:compatibility
 ```
 
 Run Python AI service (separate terminal):
@@ -115,7 +131,10 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 ## Notes
 
-- Daily Duo has mobile camera flow: front shot -> back shot -> editor -> publish.
+- Daily Duo uses one photo capture/upload flow.
+- If face validation detects 2+ people on Daily Duo photo, bonus XP is added via `DAILY_DUO_GROUP_BONUS_XP`.
+- Contacts page uses AI compatibility score from `user_compatibility`; if table is unavailable in PostgREST schema cache, it falls back to `users.personality_profile.compatibility_cache_v1`.
+- The "Хочу познакомиться" button in contacts opens direct chat; first-message suggestions are precomputed and cached in the compatibility payload.
 - Feed lock is active if `users.last_post_at` older than 7 days.
 - Comments persist in DB and open as chat-style modal.
 - Face validation is handled by a separate Python AI service; Next.js accesses it via `AI_SERVICE_URL`.

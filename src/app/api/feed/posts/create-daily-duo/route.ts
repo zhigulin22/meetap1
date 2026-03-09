@@ -1,13 +1,19 @@
 import { fail, ok } from "@/lib/http";
 import { createDailyDuoSchema } from "@/lib/schemas";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getServerEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { validateFaces } from "@/server/ai";
 import { trackEvent } from "@/server/analytics";
 
+function levelFromXp(xp: number) {
+  return Math.max(1, Math.floor(xp / 100) + 1);
+}
+
 export async function POST(req: Request) {
   try {
+    const env = getServerEnv();
     const userId = requireUserId();
     const rate = checkRateLimit(`duo:${userId}`, 10, 24 * 60 * 60 * 1000);
     if (!rate.ok) {
@@ -15,12 +21,11 @@ export async function POST(req: Request) {
     }
 
     const formData = await req.formData();
-    const front = formData.get("front") as File | null;
-    const back = formData.get("back") as File | null;
+    const photo = (formData.get("photo") as File | null) ?? (formData.get("front") as File | null);
     const captionRaw = (formData.get("caption") as string | null) ?? undefined;
 
-    if (!front || !back) {
-      return fail("front and back images are required", 422);
+    if (!photo) {
+      return fail("photo is required", 422);
     }
 
     const captionCheck = createDailyDuoSchema.safeParse({ caption: captionRaw });
@@ -28,47 +33,27 @@ export async function POST(req: Request) {
       return fail(captionCheck.error.message, 422);
     }
 
-    const frontPath = `${userId}/${crypto.randomUUID()}-front.jpg`;
-    const backPath = `${userId}/${crypto.randomUUID()}-back.jpg`;
+    const photoPath = `${userId}/${crypto.randomUUID()}-photo.jpg`;
+    const photoBuffer = Buffer.from(await photo.arrayBuffer());
+    const photoUpload = await supabaseAdmin.storage.from("daily-duo").upload(photoPath, photoBuffer, {
+      contentType: photo.type || "image/jpeg",
+    });
 
-    const frontBuffer = Buffer.from(await front.arrayBuffer());
-    const backBuffer = Buffer.from(await back.arrayBuffer());
-
-    const [frontUpload, backUpload] = await Promise.all([
-      supabaseAdmin.storage.from("daily-duo").upload(frontPath, frontBuffer, {
-        contentType: front.type || "image/jpeg",
-      }),
-      supabaseAdmin.storage.from("daily-duo").upload(backPath, backBuffer, {
-        contentType: back.type || "image/jpeg",
-      }),
-    ]);
-
-    if (frontUpload.error || backUpload.error) {
-      return fail(frontUpload.error?.message || backUpload.error?.message || "Upload failed", 500);
+    if (photoUpload.error) {
+      return fail(photoUpload.error.message || "Upload failed", 500);
     }
 
-    const frontUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(frontPath).data.publicUrl;
-    const backUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(backPath).data.publicUrl;
+    const photoUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(photoPath).data.publicUrl;
 
-    let checkFront = await validateFaces({ imageUrl: frontUrl });
-    let checkBack = await validateFaces({ imageUrl: backUrl });
+    let checkPhoto = await validateFaces({ imageUrl: photoUrl });
 
     // Fallback to base64 if URL-based inspection is uncertain.
-    if (!checkFront.ok || checkFront.faces_count < 1) {
-      checkFront = await validateFaces({ base64: frontBuffer.toString("base64") });
-    }
-    if (!checkBack.ok || checkBack.faces_count < 1) {
-      checkBack = await validateFaces({ base64: backBuffer.toString("base64") });
+    if (!checkPhoto.ok || checkPhoto.faces_count < 1) {
+      checkPhoto = await validateFaces({ base64: photoBuffer.toString("base64") });
     }
 
-    const totalFaces = (checkFront.faces_count ?? 0) + (checkBack.faces_count ?? 0);
-
-    if (totalFaces < 2) {
-      return fail(
-        `Нужно минимум 2 человека на Daily Duo. front=${checkFront.faces_count}, back=${checkBack.faces_count}`,
-        422,
-      );
-    }
+    const facesCount = checkPhoto.faces_count ?? 0;
+    const bonusXp = facesCount >= 2 ? env.DAILY_DUO_GROUP_BONUS_XP : 0;
 
     const { data: post, error: postErr } = await supabaseAdmin
       .from("posts")
@@ -81,22 +66,42 @@ export async function POST(req: Request) {
     }
 
     const { error: photoErr } = await supabaseAdmin.from("photos").insert([
-      { post_id: post.id, user_id: userId, kind: "front", url: frontUrl },
-      { post_id: post.id, user_id: userId, kind: "back", url: backUrl },
+      { post_id: post.id, user_id: userId, kind: "front", url: photoUrl },
     ]);
 
     if (photoErr) {
       return fail(photoErr.message, 500);
     }
 
-    await supabaseAdmin
-      .from("users")
-      .update({ last_post_at: new Date().toISOString(), xp: 10 })
-      .eq("id", userId);
+    const { data: me, error: meErr } = await supabaseAdmin.from("users").select("xp,level").eq("id", userId).single();
+    if (meErr || !me) {
+      return fail(meErr?.message || "User not found", 404);
+    }
 
-    await trackEvent({ eventName: "daily_duo_published", userId, path: "/feed", properties: { postId: post.id } });
+    const currentXp = Number(me.xp ?? 0);
+    const nextXp = currentXp + bonusXp;
+    const updatePayload: Record<string, string | number> = {
+      last_post_at: new Date().toISOString(),
+    };
+    if (bonusXp > 0) {
+      updatePayload.xp = nextXp;
+      updatePayload.level = levelFromXp(nextXp);
+    }
 
-    return ok({ success: true, postId: post.id });
+    await supabaseAdmin.from("users").update(updatePayload).eq("id", userId);
+
+    await trackEvent({
+      eventName: "daily_duo_published",
+      userId,
+      path: "/feed",
+      properties: {
+        postId: post.id,
+        facesCount,
+        bonusXp,
+      },
+    });
+
+    return ok({ success: true, postId: post.id, facesCount, bonusXp });
   } catch {
     return fail("Unauthorized", 401);
   }

@@ -42,6 +42,7 @@ export default function ChatThreadPage() {
   const params = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
+  const [regenerateLoading, setRegenerateLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -52,13 +53,31 @@ export default function ChatThreadPage() {
   });
   const isEmptyThread = !isLoading && (data?.items?.length ?? 0) === 0;
 
-  const { data: firstMessages, isFetching: firstMessagesLoading, refetch: regenerateFirstMessages } = useQuery({
+  async function fetchFirstMessages(forceRefresh = false) {
+    const qs = forceRefresh ? "?refresh=1" : "";
+    return api<FirstMessageResponse>(`/api/messages/${params.id}/first-message-suggestions${qs}`);
+  }
+
+  const { data: firstMessages, isFetching: firstMessagesLoading } = useQuery({
     queryKey: ["chat-first-messages", params.id],
-    queryFn: () => api<FirstMessageResponse>(`/api/messages/${params.id}/first-message-suggestions`),
+    queryFn: () => fetchFirstMessages(false),
     enabled: Boolean(params.id) && isEmptyThread,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+
+  async function regenerateSuggestions() {
+    if (!params.id) return;
+    setRegenerateLoading(true);
+    try {
+      const fresh = await fetchFirstMessages(true);
+      queryClient.setQueryData(["chat-first-messages", params.id], fresh);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось обновить варианты");
+    } finally {
+      setRegenerateLoading(false);
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -143,9 +162,9 @@ export default function ChatThreadPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    void regenerateFirstMessages();
+                    void regenerateSuggestions();
                   }}
-                  disabled={firstMessagesLoading}
+                  disabled={firstMessagesLoading || regenerateLoading}
                   className="h-7 px-2 text-[11px] text-[#c7d8ff] hover:text-white"
                 >
                   Обновить

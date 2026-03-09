@@ -19,11 +19,19 @@ type IcebreakerResponse = {
 
 type FirstMessageSuggestionsResponse = {
   messages: string[];
+  source: "ai" | "fallback";
+};
+
+type CompatibilityScoreResponse = {
+  score: number;
+  reason: string;
+  source: "ai" | "fallback";
 };
 
 const FACE_TIMEOUT_MS = 12_000;
 const ICEBREAKER_TIMEOUT_MS = 15_000;
 const FIRST_MESSAGE_TIMEOUT_MS = 12_000;
+const COMPATIBILITY_TIMEOUT_MS = 9_000;
 
 function normalizeFaceResult(value: unknown, minConfidence: number): FaceValidation {
   if (!value || typeof value !== "object") {
@@ -171,6 +179,7 @@ export async function buildFirstMessageSuggestions(input: {
       `Привет! Мне близка тема ${myTopic}, поэтому решил написать. Если комфортно, давай познакомимся.`,
       `Привет! Вижу, тебе близка тема ${baseTopic}. Что тебе в ней сейчас больше всего нравится?`,
     ],
+    source: "fallback",
   };
 
   try {
@@ -189,7 +198,83 @@ export async function buildFirstMessageSuggestions(input: {
     }
 
     // Возвращаем ровно то, что вернул AI service (без дополнительной нормализации на стороне Next.js).
-    return { messages: ai.messages };
+    return { messages: ai.messages, source: "ai" };
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeWordList(items: string[] | undefined | null) {
+  return (items ?? []).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
+}
+
+export async function buildCompatibilityScore(input: {
+  user1: {
+    id?: string;
+    name: string;
+    interests?: string[];
+    hobbies?: string[];
+    facts?: string[];
+    university?: string | null;
+    work?: string | null;
+    level?: number | null;
+    personality_profile?: Record<string, unknown> | null;
+  };
+  user2: {
+    id?: string;
+    name: string;
+    interests?: string[];
+    hobbies?: string[];
+    facts?: string[];
+    university?: string | null;
+    work?: string | null;
+    level?: number | null;
+    personality_profile?: Record<string, unknown> | null;
+  };
+  context?: string;
+}) {
+  const interest1 = new Set(normalizeWordList(input.user1.interests));
+  const interest2 = new Set(normalizeWordList(input.user2.interests));
+  const hobby1 = new Set(normalizeWordList(input.user1.hobbies));
+  const hobby2 = new Set(normalizeWordList(input.user2.hobbies));
+  const sharedInterests = [...interest1].filter((x) => interest2.has(x));
+  const sharedHobbies = [...hobby1].filter((x) => hobby2.has(x));
+
+  const fallbackScore = Math.max(
+    0,
+    Math.min(100, 22 + sharedInterests.slice(0, 4).length * 14 + sharedHobbies.slice(0, 3).length * 9),
+  );
+  const fallback: CompatibilityScoreResponse = {
+    score: fallbackScore,
+    reason:
+      sharedInterests.length > 0
+        ? `Сильное совпадение по интересам: ${sharedInterests.slice(0, 3).join(", ")}`
+        : sharedHobbies.length > 0
+          ? `Близкие хобби: ${sharedHobbies.slice(0, 2).join(", ")}`
+          : "Потенциально комфортный диалог при мягком старте",
+    source: "fallback",
+  };
+
+  try {
+    const ai = await callAiService<Partial<CompatibilityScoreResponse>>(
+      "/v1/compatibility-score",
+      {
+        user1: input.user1,
+        user2: input.user2,
+        context: input.context,
+      },
+      COMPATIBILITY_TIMEOUT_MS,
+    );
+
+    const rawScore = Number(ai.score);
+    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : fallback.score;
+    const reason = String(ai.reason ?? fallback.reason).trim().slice(0, 160) || fallback.reason;
+
+    return {
+      score,
+      reason,
+      source: "ai",
+    };
   } catch {
     return fallback;
   }

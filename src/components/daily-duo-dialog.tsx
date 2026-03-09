@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api-client";
 
-type CaptureStep = "front" | "back";
-type Phase = "capture_front" | "capture_back" | "edit";
+type Phase = "capture" | "edit";
 
 type FilterPreset = {
   id: string;
@@ -76,26 +75,22 @@ export function DailyDuoDialog({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [captureStep, setCaptureStep] = useState<CaptureStep>("front");
-  const [phase, setPhase] = useState<Phase>("capture_front");
-  const [facing, setFacing] = useState<"user" | "environment">("user");
 
-  const [front, setFront] = useState<File | null>(null);
-  const [back, setBack] = useState<File | null>(null);
+  const [phase, setPhase] = useState<Phase>("capture");
+  const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("none");
   const [loading, setLoading] = useState(false);
 
-  const frontPreview = useMemo(() => (front ? URL.createObjectURL(front) : null), [front]);
-  const backPreview = useMemo(() => (back ? URL.createObjectURL(back) : null), [back]);
+  const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
   const activeFilter = FILTERS.find((f) => f.id === selectedFilter) ?? FILTERS[0];
 
   useEffect(() => {
     return () => {
-      if (frontPreview) URL.revokeObjectURL(frontPreview);
-      if (backPreview) URL.revokeObjectURL(backPreview);
+      if (preview) URL.revokeObjectURL(preview);
     };
-  }, [frontPreview, backPreview]);
+  }, [preview]);
 
   useEffect(() => {
     if (!open) {
@@ -104,11 +99,9 @@ export function DailyDuoDialog({
       return;
     }
 
-    setPhase("capture_front");
-    setCaptureStep("front");
+    setPhase("capture");
     setFacing("user");
-    setFront(null);
-    setBack(null);
+    setPhoto(null);
     setCaption("");
     setSelectedFilter("none");
   }, [open]);
@@ -181,62 +174,33 @@ export function DailyDuoDialog({
 
     if (!blob) return;
 
-    if (captureStep === "front") {
-      setFront(fileFromBlob(blob, `front-${Date.now()}.jpg`));
-      setCaptureStep("back");
-      setPhase("capture_back");
-      setFacing("environment");
-      return;
-    }
-
-    setBack(fileFromBlob(blob, `back-${Date.now()}.jpg`));
+    setPhoto(fileFromBlob(blob, `photo-${Date.now()}.jpg`));
     setPhase("edit");
   }
 
   function onGalleryPick(file?: File) {
     if (!file) return;
-    if (captureStep === "front") {
-      setFront(file);
-      setCaptureStep("back");
-      setPhase("capture_back");
-      setFacing("environment");
-      return;
-    }
-
-    setBack(file);
+    setPhoto(file);
     setPhase("edit");
   }
 
-  function resetTo(step: CaptureStep) {
-    if (step === "front") {
-      setFront(null);
-      setBack(null);
-      setCaptureStep("front");
-      setPhase("capture_front");
-      setFacing("user");
-      return;
-    }
-
-    setBack(null);
-    setCaptureStep("back");
-    setPhase("capture_back");
-    setFacing("environment");
+  function resetToCapture() {
+    setPhoto(null);
+    setPhase("capture");
   }
 
   async function publish() {
-    if (!front || !back) {
-      toast.error("Нужны 2 фото");
+    if (!photo) {
+      toast.error("Нужно 1 фото");
       return;
     }
 
     setLoading(true);
     try {
-      const frontOut = await applyFilterToFile(front, activeFilter.css, "front");
-      const backOut = await applyFilterToFile(back, activeFilter.css, "back");
+      const photoOut = await applyFilterToFile(photo, activeFilter.css, "photo");
 
       const fd = new FormData();
-      fd.append("front", frontOut);
-      fd.append("back", backOut);
+      fd.append("photo", photoOut);
       fd.append("caption", caption);
 
       await api<{ success: boolean }>("/api/feed/posts/create-daily-duo", {
@@ -257,16 +221,14 @@ export function DailyDuoDialog({
 
   return (
     <div className="fixed inset-0 z-[60] bg-[#03070f] text-white">
-      {phase !== "edit" ? (
+      {phase === "capture" ? (
         <>
           <div className="relative h-full w-full overflow-hidden">
             <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
             <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
               <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">Закрыть</button>
-              <div className="rounded-full bg-black/45 px-3 py-1 text-xs">
-                {phase === "capture_front" ? "Сделай первый кадр" : "Сделай второй кадр"}
-              </div>
+              <div className="rounded-full bg-black/45 px-3 py-1 text-xs">Сделай кадр</div>
               <button
                 onClick={() => setFacing((x) => (x === "user" ? "environment" : "user"))}
                 className="grid h-10 w-10 place-items-center rounded-full bg-black/45"
@@ -293,7 +255,7 @@ export function DailyDuoDialog({
                 </button>
 
                 <button
-                  onClick={() => resetTo("front")}
+                  onClick={resetToCapture}
                   className="grid h-12 w-12 place-items-center rounded-full border border-white/35 bg-white/10"
                 >
                   <RefreshCw className="h-5 w-5" />
@@ -313,27 +275,28 @@ export function DailyDuoDialog({
       ) : (
         <div className="mx-auto h-full w-full max-w-md overflow-y-auto px-4 pb-28 pt-6">
           <div className="mb-3 flex items-center justify-between">
-            <button onClick={() => resetTo("front")} className="rounded-full border border-white/20 px-3 py-1 text-sm">
+            <button onClick={resetToCapture} className="rounded-full border border-white/20 px-3 py-1 text-sm">
               Переснять
             </button>
-            <p className="text-sm text-white/90">DUO Editor</p>
+            <p className="text-sm text-white/90">Photo Editor</p>
             <button onClick={() => onOpenChange(false)} className="rounded-full border border-white/20 px-3 py-1 text-sm">
               Закрыть
             </button>
           </div>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
-                {frontPreview ? (
-                  <Image src={frontPreview} alt="front" width={600} height={900} className="h-60 w-full object-cover" style={{ filter: activeFilter.css }} unoptimized />
-                ) : null}
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
-                {backPreview ? (
-                  <Image src={backPreview} alt="back" width={600} height={900} className="h-60 w-full object-cover" style={{ filter: activeFilter.css }} unoptimized />
-                ) : null}
-              </div>
+            <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
+              {preview ? (
+                <Image
+                  src={preview}
+                  alt="photo"
+                  width={900}
+                  height={1400}
+                  className="h-[56vh] w-full object-cover"
+                  style={{ filter: activeFilter.css }}
+                  unoptimized
+                />
+              ) : null}
             </div>
 
             <div className="rounded-2xl border border-white/15 bg-white/5 p-3">
@@ -367,10 +330,10 @@ export function DailyDuoDialog({
 
           <div className="fixed inset-x-0 bottom-0 z-[65] mx-auto w-full max-w-md border-t border-white/15 bg-[#040812]/95 p-3 backdrop-blur-xl">
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => resetTo("back")} className="border-white/25 bg-white/10 text-white">
-                Переснять 2-й кадр
+              <Button variant="secondary" onClick={resetToCapture} className="border-white/25 bg-white/10 text-white">
+                Переснять фото
               </Button>
-              <Button onClick={publish} disabled={loading || !front || !back}>
+              <Button onClick={publish} disabled={loading || !photo}>
                 {loading ? "Публикуем..." : "Опубликовать"}
                 {!loading ? <Check className="ml-1 h-4 w-4" /> : null}
               </Button>

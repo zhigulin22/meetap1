@@ -10,6 +10,7 @@ from typing import Any
 import cv2
 import httpx
 import numpy as np
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
@@ -17,6 +18,8 @@ from deepseek_client import DeepSeekClient
 from prompts import (
     ADMIN_ASSISTANT_SYSTEM_PROMPT,
     ADMIN_ASSISTANT_USER_TEMPLATE,
+    COMPATIBILITY_SCORE_SYSTEM_PROMPT,
+    COMPATIBILITY_SCORE_USER_TEMPLATE,
     FACE_VALIDATE_SYSTEM_PROMPT,
     FACE_VALIDATE_USER_TEMPLATE,
     FIRST_MESSAGE_SYSTEM_PROMPT,
@@ -30,6 +33,10 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("ai_service")
+
+# Подхватываем ai_service/.env при обычном запуске `uvicorn main:app ...`
+BASE_DIR = os.path.dirname(__file__)
+load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"), override=False)
 
 
 class FaceValidateInput(BaseModel):
@@ -80,6 +87,17 @@ class FirstMessageSuggestionsInput(BaseModel):
 
 class FirstMessageSuggestionsOutput(BaseModel):
     messages: list[str]
+
+
+class CompatibilityScoreInput(BaseModel):
+    user1: dict[str, Any]
+    user2: dict[str, Any]
+    context: str | None = None
+
+
+class CompatibilityScoreOutput(BaseModel):
+    score: int
+    reason: str
 
 
 def _env_float(name: str, default: float) -> float:
@@ -263,8 +281,9 @@ def first_message_suggestions(payload: FirstMessageSuggestionsInput) -> FirstMes
 
     if not DEEPSEEK_CLIENT:
         logger.warning(
-            "[%s] Генерация первого сообщения: source=fallback, reason=deepseek_not_configured",
+            "[%s] Генерация первого сообщения: source=fallback, reason=deepseek_not_configured, messages=%s",
             request_id,
+            fallback["messages"],
         )
         return FirstMessageSuggestionsOutput(**fallback)
 
@@ -284,6 +303,20 @@ def first_message_suggestions(payload: FirstMessageSuggestionsInput) -> FirstMes
             user2_profile=str(user2.get("profileSummary") or "без дополнительных данных")[:700],
         )
 
+        logger.info(
+            "[%s] DeepSeek request payload: %s",
+            request_id,
+            json.dumps(
+                {
+                    "system_prompt": FIRST_MESSAGE_SYSTEM_PROMPT,
+                    "user_prompt": prompt,
+                    "temperature": 0.5,
+                    "max_tokens": 360,
+                },
+                ensure_ascii=False,
+            ),
+        )
+
         raw = DEEPSEEK_CLIENT.chat_json(
             system_prompt=FIRST_MESSAGE_SYSTEM_PROMPT,
             user_prompt=prompt,
@@ -294,26 +327,88 @@ def first_message_suggestions(payload: FirstMessageSuggestionsInput) -> FirstMes
         messages = raw.get("messages")
         if not isinstance(messages, list):
             logger.warning(
-                "[%s] Генерация первого сообщения: source=fallback, reason=invalid_deepseek_payload, keys=%s",
+                "[%s] Генерация первого сообщения: source=fallback, reason=invalid_deepseek_payload, keys=%s, messages=%s",
                 request_id,
                 list(raw.keys())[:10],
+                fallback["messages"],
             )
             return FirstMessageSuggestionsOutput(**fallback)
 
         logger.info(
-            "[%s] Генерация первого сообщения: source=deepseek, messages=%d",
+            "[%s] Генерация первого сообщения: source=deepseek, messages=%s",
             request_id,
-            len(messages),
+            messages,
         )
 
         # Возвращаем пользователю ровно тот список сообщений, который прислал DeepSeek.
         return FirstMessageSuggestionsOutput(messages=messages)
     except Exception:
         logger.exception(
-            "[%s] Генерация первого сообщения: source=fallback, reason=deepseek_error",
+            "[%s] Генерация первого сообщения: source=fallback, reason=deepseek_error, messages=%s",
             request_id,
+            fallback["messages"],
         )
         return FirstMessageSuggestionsOutput(**fallback)
+
+
+@app.post("/v1/compatibility-score", response_model=CompatibilityScoreOutput)
+def compatibility_score(payload: CompatibilityScoreInput) -> CompatibilityScoreOutput:
+    request_id = uuid.uuid4().hex[:8]
+    fallback = _fallback_compatibility_score(payload.user1 or {}, payload.user2 or {})
+
+    if not DEEPSEEK_CLIENT:
+        logger.warning(
+            "[%s] Совместимость: source=fallback, reason=deepseek_not_configured, score=%d, summary=%s",
+            request_id,
+            fallback["score"],
+            fallback["reason"],
+        )
+        return CompatibilityScoreOutput(**fallback)
+
+    try:
+        prompt = COMPATIBILITY_SCORE_USER_TEMPLATE.format(
+            user1_json=json.dumps(_compact_user_profile(payload.user1 or {}), ensure_ascii=False),
+            user2_json=json.dumps(_compact_user_profile(payload.user2 or {}), ensure_ascii=False),
+            context=(payload.context or "подбор людей для знакомства")[:500],
+        )
+
+        logger.info(
+            "[%s] DeepSeek request payload (compatibility): %s",
+            request_id,
+            json.dumps(
+                {
+                    "system_prompt": COMPATIBILITY_SCORE_SYSTEM_PROMPT,
+                    "user_prompt": prompt,
+                    "temperature": 0.15,
+                    "max_tokens": 300,
+                },
+                ensure_ascii=False,
+            ),
+        )
+
+        raw = DEEPSEEK_CLIENT.chat_json(
+            system_prompt=COMPATIBILITY_SCORE_SYSTEM_PROMPT,
+            user_prompt=prompt,
+            temperature=0.15,
+            max_tokens=300,
+        )
+        normalized = _normalize_compatibility_score(raw, fallback)
+
+        logger.info(
+            "[%s] Совместимость: source=deepseek, score=%d, summary=%s",
+            request_id,
+            normalized["score"],
+            normalized["reason"],
+        )
+        return CompatibilityScoreOutput(**normalized)
+    except Exception:
+        logger.exception(
+            "[%s] Совместимость: source=fallback, reason=deepseek_error, score=%d, summary=%s",
+            request_id,
+            fallback["score"],
+            fallback["reason"],
+        )
+        return CompatibilityScoreOutput(**fallback)
 
 
 async def _resolve_image_bytes(payload: FaceValidateInput) -> bytes:
@@ -489,4 +584,95 @@ def _fallback_first_message_suggestions(payload: FirstMessageSuggestionsInput) -
             ),
             f"Привет, {target_name}! Вижу, тебе интересна тема «{focus}». Что в ней тебя больше всего вдохновляет?",
         ]
+    }
+
+
+def _normalize_text_list(value: Any, limit: int = 10, max_len: int = 80) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        text = " ".join(str(item).split())
+        if text:
+            result.append(text[:max_len])
+    # Preserve order, drop duplicates.
+    return list(dict.fromkeys(result))[:limit]
+
+
+def _compact_user_profile(user: dict[str, Any]) -> dict[str, Any]:
+    try:
+        level = int(user.get("level") or 1)
+    except Exception:
+        level = 1
+
+    profile = {
+        "id": str(user.get("id") or "")[:64] or None,
+        "name": str(user.get("name") or "")[:80] or None,
+        "interests": _normalize_text_list(user.get("interests"), limit=12),
+        "hobbies": _normalize_text_list(user.get("hobbies"), limit=12),
+        "facts": _normalize_text_list(user.get("facts"), limit=8, max_len=140),
+        "university": str(user.get("university") or "")[:120] or None,
+        "work": str(user.get("work") or "")[:120] or None,
+        "level": level,
+    }
+
+    personality = user.get("personality_profile")
+    if isinstance(personality, dict):
+        personality = dict(personality)
+        personality.pop("compatibility_cache_v1", None)
+        if personality:
+            profile["personality_profile"] = personality
+
+    return profile
+
+
+def _fallback_compatibility_score(user1: dict[str, Any], user2: dict[str, Any]) -> dict[str, Any]:
+    interests1 = set(_normalize_text_list(user1.get("interests"), limit=12))
+    interests2 = set(_normalize_text_list(user2.get("interests"), limit=12))
+    hobbies1 = set(_normalize_text_list(user1.get("hobbies"), limit=12))
+    hobbies2 = set(_normalize_text_list(user2.get("hobbies"), limit=12))
+
+    shared_interests = sorted(interests1.intersection(interests2))
+    shared_hobbies = sorted(hobbies1.intersection(hobbies2))
+    same_university = bool(user1.get("university")) and user1.get("university") == user2.get("university")
+
+    score = 22
+    score += min(4, len(shared_interests)) * 14
+    score += min(3, len(shared_hobbies)) * 9
+    if same_university:
+        score += 9
+
+    score = max(0, min(100, score))
+    if shared_interests:
+        reason = f"Сильное совпадение по интересам: {', '.join(shared_interests[:3])}"
+    elif shared_hobbies:
+        reason = f"Близкие хобби: {', '.join(shared_hobbies[:2])}"
+    elif same_university:
+        reason = "Есть общий контекст: один университет"
+    else:
+        reason = "Потенциально комфортный диалог при мягком старте"
+
+    return {
+        "score": int(score),
+        "reason": reason[:160],
+    }
+
+
+def _normalize_compatibility_score(raw: dict[str, Any], fallback: dict[str, Any]) -> dict[str, Any]:
+    score_raw = raw.get("score", fallback["score"])
+    reason_raw = raw.get("reason", fallback["reason"])
+
+    try:
+        score = int(score_raw)
+    except Exception:
+        score = int(fallback["score"])
+
+    score = max(0, min(100, score))
+    reason = " ".join(str(reason_raw).split())[:160]
+    if not reason:
+        reason = fallback["reason"]
+
+    return {
+        "score": score,
+        "reason": reason,
     }
