@@ -118,7 +118,7 @@ export async function GET(req: Request) {
     }
 
     const payload = {
-      items: (events ?? []).map((e) => ({
+      items: (events ?? []).map((e: { id: string }) => ({
         ...e,
         participants: (grouped.get(e.id) ?? []).slice(0, 5),
         joined: joinedSet.has(e.id),
