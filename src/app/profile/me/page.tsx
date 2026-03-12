@@ -98,7 +98,7 @@ export default function MyProfilePage() {
 
   const { data, refetch } = useQuery({
     queryKey: ["me"],
-    queryFn: () => api<{ profile: any }>("/api/profile/me"),
+    queryFn: () => api<{ profile: any; stats: { posts: number; events: number; connects: number } }>("/api/profile/me"),
   });
 
   const sessionsQuery = useQuery({
@@ -244,6 +244,8 @@ export default function MyProfilePage() {
   }
 
   const profile = data?.profile;
+  const stats = data?.stats;
+  const occupation = [profile?.work, profile?.university].filter(Boolean).join(" · ");
 
   return (
     <PageShell>
@@ -254,19 +256,24 @@ export default function MyProfilePage() {
         </Button>
       </div>
 
-      <Card className="mb-3 overflow-hidden border-white/15">
-        <div className="h-24 bg-[linear-gradient(120deg,rgba(4,12,38,0.95),rgba(82,204,131,0.33),rgba(58,104,255,0.48))]" />
-        <CardContent className="-mt-10 p-4">
-          <div className="flex items-end gap-3">
+      <Card className="mb-3 overflow-hidden border-white/15 bg-surface/90">
+        <CardContent className="relative space-y-4 p-4">
+          <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-gradient-to-br from-[#4c8dff]/35 via-transparent to-[#8a4dff]/35 blur-3xl" />
+
+          <div className="flex flex-col items-center gap-3 text-center">
             <button onClick={() => fileRef.current?.click()} className="relative" aria-label="Загрузить фото профиля">
-              <Image
-                src={form.avatar_url || "https://placehold.co/120"}
-                alt={profile?.name ?? "avatar"}
-                width={120}
-                height={120}
-                className="h-20 w-20 rounded-3xl border-2 border-white/70 object-cover shadow-xl"
-                unoptimized
-              />
+              <div className="relative h-36 w-36 rounded-full bg-gradient-to-br from-[#4c8dff] to-[#8a4dff] p-[3px] shadow-[0_12px_40px_rgba(76,141,255,0.25)]">
+                <div className="rounded-full bg-white/80 p-[2px]">
+                  <Image
+                    src={form.avatar_url || "https://placehold.co/240"}
+                    alt={profile?.name ?? "avatar"}
+                    width={144}
+                    height={144}
+                    className="h-32 w-32 rounded-full object-cover"
+                    unoptimized
+                  />
+                </div>
+              </div>
               <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-black/60 p-1.5">
                 <Camera className="h-3.5 w-3.5" />
               </span>
@@ -283,9 +290,9 @@ export default function MyProfilePage() {
               }}
             />
 
-            <div className="pb-1">
-              <p className="text-lg font-semibold">{profile?.name ?? "Пользователь"}</p>
-              <p className="text-xs text-muted">{profile?.phone ?? "Номер не указан"}</p>
+            <div>
+              <p className="text-2xl font-semibold">{profile?.name ?? "Пользователь"}</p>
+              {occupation ? <p className="text-sm text-muted">{occupation}</p> : null}
               <p className="text-xs text-muted">Level {profile?.level ?? 1} · XP {profile?.xp ?? 0}</p>
               <p className="mt-1 text-xs text-action">
                 {uploadingAvatar ? "Загружаем фото..." : "Нажми на фото, чтобы выбрать из галереи"}
@@ -293,7 +300,22 @@ export default function MyProfilePage() {
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-2xl border border-border bg-black/10 p-2 text-center">
+              <p className="text-sm font-semibold">{stats?.posts ?? 0}</p>
+              <p className="text-[11px] text-muted">публикаций</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-black/10 p-2 text-center">
+              <p className="text-sm font-semibold">{stats?.events ?? 0}</p>
+              <p className="text-[11px] text-muted">ивентов</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-black/10 p-2 text-center">
+              <p className="text-sm font-semibold">{stats?.connects ?? 0}</p>
+              <p className="text-[11px] text-muted">коннектов</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <Link href="/profile/psych-test" className="block">
               <Button variant="secondary" className="w-full">
                 <Brain className="mr-1 h-4 w-4" />
@@ -304,7 +326,7 @@ export default function MyProfilePage() {
           </div>
 
           {profile?.role === "admin" ? (
-            <div className="mt-2">
+            <div>
               <Link href="/admin" className="block">
                 <Button className="w-full">Открыть Admin Panel</Button>
               </Link>

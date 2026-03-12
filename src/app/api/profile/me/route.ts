@@ -24,8 +24,21 @@ function mapProfile(data: any) {
 export async function GET() {
   try {
     const userId = requireUserId();
-    const { data } = await supabaseAdmin.from("users").select(PROFILE_FIELDS).eq("id", userId).single();
-    return ok({ profile: mapProfile(data) });
+    const [{ data }, postsCount, eventsCount, connectsCount] = await Promise.all([
+      supabaseAdmin.from("users").select(PROFILE_FIELDS).eq("id", userId).single(),
+      supabaseAdmin.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      supabaseAdmin.from("event_members").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      supabaseAdmin.from("connections").select("id", { count: "exact", head: true }).eq("from_user_id", userId),
+    ]);
+
+    return ok({
+      profile: mapProfile(data),
+      stats: {
+        posts: postsCount.count ?? 0,
+        events: eventsCount.count ?? 0,
+        connects: connectsCount.count ?? 0,
+      },
+    });
   } catch {
     return fail("Unauthorized", 401);
   }

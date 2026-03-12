@@ -4,9 +4,11 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { Sparkles } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
 
 type PostItem = {
@@ -63,20 +65,27 @@ export default function ProfilePage() {
   return (
     <PageShell>
       <Card className="mb-3 overflow-hidden border-white/15 bg-surface/90 backdrop-blur-xl">
-        <div className="h-24 bg-[linear-gradient(120deg,rgba(10,18,60,0.95),rgba(82,204,131,0.3),rgba(90,125,255,0.45))]" />
-        <CardContent className="space-y-4 p-4">
-          <div className="-mt-10 flex items-end gap-3">
-            <Image
-              src={p.avatar_url || "https://placehold.co/120"}
-              alt={p.name}
-              width={120}
-              height={120}
-              className="h-20 w-20 rounded-3xl border-2 border-white/70 object-cover"
-              unoptimized
-            />
-            <div className="pb-1">
-              <h1 className="text-xl font-semibold">{p.name}</h1>
-              <p className="text-xs text-muted">Level {p.level} · XP {p.xp}</p>
+        <CardContent className="relative space-y-4 p-4">
+          <div className="pointer-events-none absolute -top-20 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-gradient-to-br from-[#4c8dff]/35 via-transparent to-[#8a4dff]/35 blur-3xl" />
+
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="relative h-36 w-36 rounded-full bg-gradient-to-br from-[#4c8dff] to-[#8a4dff] p-[3px] shadow-[0_12px_40px_rgba(76,141,255,0.25)]">
+              <div className="rounded-full bg-white/80 p-[2px]">
+                <Image
+                  src={p.avatar_url || "https://placehold.co/240"}
+                  alt={p.name}
+                  width={144}
+                  height={144}
+                  className="h-32 w-32 rounded-full object-cover"
+                  unoptimized
+                />
+              </div>
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-semibold">{p.name}</h1>
+              {p.work ? <p className="text-sm text-muted">{p.work}</p> : null}
+              {p.university ? <p className="text-xs text-muted">{p.university}</p> : null}
             </div>
           </div>
 
@@ -104,13 +113,12 @@ export default function ProfilePage() {
           </div>
 
           <p className="text-sm text-muted">
-            {p.university || "ВУЗ не указан"} · {p.work || "Работа не указана"}
+            Интересы: {(p.interests || []).join(", ") || "Не заполнено"}
           </p>
-          <p className="text-sm text-muted">Интересы: {(p.interests || []).join(", ") || "Не заполнено"}</p>
         </CardContent>
       </Card>
 
-      <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+      <div className="mb-2 grid grid-cols-3 gap-2">
         {[
           { id: "all", label: "Всё" },
           { id: "videos", label: "Видео" },
@@ -119,7 +127,7 @@ export default function ProfilePage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id as typeof tab)}
-            className={`rounded-full border px-3 py-1.5 text-xs ${
+            className={`w-full rounded-full border px-3 py-1.5 text-xs ${
               tab === t.id ? "border-action bg-action/20 text-action" : "border-border bg-white/5 text-muted"
             }`}
           >
@@ -157,7 +165,16 @@ export default function ProfilePage() {
             </Card>
           );
         })}
-        {!list.length ? <p className="text-sm text-muted">Публикаций пока нет</p> : null}
+        {!list.length ? (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-2 p-6 text-center">
+              <Sparkles className="h-6 w-6 text-action" />
+              <p className="text-sm font-semibold">Постов пока нет</p>
+              <p className="text-xs text-muted">Новые публикации появятся здесь, как только пользователь начнёт делиться контентом.</p>
+              <Button variant="secondary">Создать пост</Button>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </PageShell>
   );
