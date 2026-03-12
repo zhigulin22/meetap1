@@ -5,7 +5,7 @@ import { getServerEnv, isPlaceholderEnvValue } from "@/lib/env";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 import { supabaseAdmin } from "@/supabase/admin";
 
-type ImportCategoryKey = "sports" | "concerts" | "arts" | "quests" | "standup" | "exhibitions";
+type ImportCategoryKey = "sports" | "concerts" | "arts" | "quests" | "other";
 type ProviderName = "kudago" | "timepad" | "seed";
 
 type ImportCategory = {
@@ -84,7 +84,7 @@ const CATEGORIES: ImportCategory[] = [
   {
     key: "arts",
     label: "arts",
-    kudagoCategories: ["theater", "exhibition", "education", "festival", "lecture", "entertainment"],
+    kudagoCategories: ["theater", "exhibition", "education", "festival", "lecture", "art", "culture"],
     timepadQuery: "искусство",
   },
   {
@@ -94,16 +94,10 @@ const CATEGORIES: ImportCategory[] = [
     timepadQuery: "квест",
   },
   {
-    key: "standup",
-    label: "standup",
-    kudagoCategories: ["stand-up", "comedy"],
-    timepadQuery: "стендап",
-  },
-  {
-    key: "exhibitions",
-    label: "exhibitions",
-    kudagoCategories: ["exhibition", "museum"],
-    timepadQuery: "выставка",
+    key: "other",
+    label: "other",
+    kudagoCategories: ["party", "games", "cinema", "photo", "market", "open-air", "business-events"],
+    timepadQuery: "встреча",
   },
 ];
 
@@ -162,19 +156,12 @@ const SEED_TITLES: Record<ImportCategoryKey, string[]> = {
     "Puzzle Group Game",
     "Urban Story Quest",
   ],
-  standup: [
-    "Standup Open Mic",
-    "Comedy Night Session",
-    "Late Night Humor",
-    "Rookie Standup Battle",
-    "Impro Jam Comedy",
-  ],
-  exhibitions: [
-    "Media Art Exhibition",
-    "Photo Gallery Meetup",
-    "Design Expo Session",
-    "Museum Evening Walk",
-    "Pop-up Art Space",
+  other: [
+    "City Meetup Night",
+    "Community Networking",
+    "Weekend Hangout",
+    "Open City Walk",
+    "New Connections Session",
   ],
 };
 

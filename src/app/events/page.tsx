@@ -2,51 +2,103 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { InfiniteData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, MapPin, RefreshCcw, Search, SlidersHorizontal, Users2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
-import { EventCard } from "@/components/event-card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { EventPosterCard } from "@/components/events/event-poster-card";
+import { EventSocialCard } from "@/components/events/event-social-card";
+import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
+import type { EventListItem } from "@/components/events/types";
+import { CreateEventSheet } from "@/components/events/create-event-sheet";
 import { Button } from "@/components/ui/button";
-import { CreateEventDialog } from "@/components/create-event-dialog";
-import { api } from "@/lib/api-client";
+import { Input } from "@/components/ui/input";
+import { ApiClientError, api } from "@/lib/api-client";
+
+const SNAPSHOT_KEY = "events_snapshot_v2";
 
 type EventsResponse = {
-  items: Array<{
-    id: string;
-    title: string;
-    description: string;
-    outcomes: string[];
-    cover_url: string | null;
-    event_date: string;
-    price: number;
-    participants: Array<{ id: string; avatar_url: string | null }>;
-    joined?: boolean;
-  }>;
-  next_offset?: number | null;
+  items: EventListItem[];
+  next_offset: number | null;
   cache?: { mode: "fresh" | "stale"; at: string };
 };
 
-const SNAPSHOT_KEY = "events_snapshot_v1";
+type FeedTab = "all" | "external" | "community";
+
+type CategoryTab = "popular" | "concerts" | "sports" | "arts" | "quests" | "other" | "community";
+
+type DateFilter = "all" | "today" | "weekend";
+
+const feedTabs: Array<{ key: FeedTab; label: string }> = [
+  { key: "all", label: "Все" },
+  { key: "external", label: "Афиши" },
+  { key: "community", label: "Идём вместе" },
+];
+
+const categoryTabs: Array<{ key: CategoryTab; label: string }> = [
+  { key: "popular", label: "Популярное" },
+  { key: "concerts", label: "Концерты" },
+  { key: "sports", label: "Спорт" },
+  { key: "arts", label: "Искусство" },
+  { key: "quests", label: "Квесты" },
+  { key: "other", label: "Другое" },
+];
+
+const dateTabs: Array<{ key: DateFilter; label: string }> = [
+  { key: "all", label: "Любая дата" },
+  { key: "today", label: "Сегодня" },
+  { key: "weekend", label: "Выходные" },
+];
 
 export default function EventsPage() {
   const queryClient = useQueryClient();
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [companionId, setCompanionId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [snapshot, setSnapshot] = useState<{ items: EventsResponse["items"]; ts: number } | null>(null);
+  const [snapshot, setSnapshot] = useState<{ items: EventListItem[]; ts: number } | null>(null);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+
+  const [feed, setFeed] = useState<FeedTab>("all");
+  const [category, setCategory] = useState<CategoryTab>("popular");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [city, setCity] = useState("");
+  const [search, setSearch] = useState("");
+  const [freeOnly, setFreeOnly] = useState(false);
+  const [lookingOnly, setLookingOnly] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem(SNAPSHOT_KEY);
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw) as { items: EventsResponse["items"]; ts: number };
+      const parsed = JSON.parse(raw) as { items: EventListItem[]; ts: number };
       setSnapshot(parsed);
     } catch {
       setSnapshot(null);
     }
   }, []);
 
+  const queryKey = useMemo(
+    () => ["events-v3", feed, category, dateFilter, city, search, freeOnly, lookingOnly],
+    [feed, category, dateFilter, city, search, freeOnly, lookingOnly],
+  );
+
   const eventsQuery = useInfiniteQuery<EventsResponse>({
-    queryKey: ["events"],
-    queryFn: ({ pageParam = 0 }) => api<EventsResponse>(`/api/events?limit=20&offset=${pageParam}`),
+    queryKey,
+    queryFn: ({ pageParam = 0 }) => {
+      const params = new URLSearchParams();
+      params.set("limit", "20");
+      params.set("offset", String(pageParam));
+      params.set("feed", feed);
+      params.set("date", dateFilter);
+      if (search.trim()) params.set("q", search.trim());
+      if (city.trim()) params.set("city", city.trim());
+      if (freeOnly) params.set("freeOnly", "true");
+      if (lookingOnly) params.set("lookingOnly", "true");
+      if (category === "popular") {
+        params.set("sort", "popular");
+      } else if (category !== "all") {
+        params.set("category", category);
+      }
+      return api<EventsResponse>(`/api/events?${params.toString()}`);
+    },
     getNextPageParam: (lastPage) => (lastPage.next_offset ?? undefined),
     staleTime: 20_000,
     initialPageParam: 0,
@@ -69,24 +121,78 @@ export default function EventsPage() {
     setSnapshot(payload);
   }, [eventsQuery.data]);
 
-  async function join(id: string) {
-    setJoiningId(id);
+  async function join(eventId: string) {
+    setJoiningId(eventId);
+    setErrorBanner(null);
     try {
-      await api(`/api/events/${id}/join`, { method: "POST" });
-      queryClient.setQueryData<InfiniteData<EventsResponse> | undefined>(["events"], (prev) => {
+      await api(`/api/events/${eventId}/join`, { method: "POST" });
+      queryClient.setQueryData<InfiniteData<EventsResponse> | undefined>(queryKey, (prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           pages: prev.pages.map((page) => ({
             ...page,
-            items: page.items.map((item) => (item.id === id ? { ...item, joined: true } : item)),
+            items: page.items.map((item) =>
+              item.id === eventId
+                ? { ...item, joined: true, going_count: item.joined ? item.going_count : item.going_count + 1 }
+                : item,
+            ),
           })),
         };
       });
-      queryClient.invalidateQueries({ queryKey: ["events"] });
+    } catch (error) {
+      setErrorBanner(error instanceof ApiClientError ? error.message : "Не удалось зарегистрироваться");
     } finally {
       setJoiningId(null);
     }
+  }
+
+  async function toggleCompanion(eventId: string) {
+    const target = items.find((item) => item.id === eventId);
+    if (!target) return;
+
+    setCompanionId(eventId);
+    setErrorBanner(null);
+
+    try {
+      const res = await api<{ ok: boolean; active: boolean }>(`/api/events/${eventId}/companion`, {
+        method: "POST",
+        body: JSON.stringify({ active: !target.looking_company }),
+      });
+
+      queryClient.setQueryData<InfiniteData<EventsResponse> | undefined>(queryKey, (prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          pages: prev.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) => {
+              if (item.id !== eventId) return item;
+              const delta = item.looking_company === res.active ? 0 : res.active ? 1 : -1;
+              return {
+                ...item,
+                looking_company: res.active,
+                companion_count: Math.max(0, item.companion_count + delta),
+              };
+            }),
+          })),
+        };
+      });
+    } catch (error) {
+      setErrorBanner(error instanceof ApiClientError ? error.message : "Не удалось обновить поиск компании");
+    } finally {
+      setCompanionId(null);
+    }
+  }
+
+  function resetFilters() {
+    setFeed("all");
+    setCategory("popular");
+    setDateFilter("all");
+    setCity("");
+    setSearch("");
+    setFreeOnly(false);
+    setLookingOnly(false);
   }
 
   const cacheInfo = eventsQuery.data?.pages?.[0]?.cache;
@@ -95,17 +201,139 @@ export default function EventsPage() {
 
   return (
     <PageShell>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Мероприятия</h1>
-          <p className="text-xs text-muted">Живые встречи с понятным профитом и подбором людей рядом</p>
+          <h1 className="text-2xl font-semibold">Events hub</h1>
+          <p className="text-xs text-muted">Найди событие и компанию в одном экране</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>Добавить событие</Button>
+        <Button onClick={() => setCreateOpen(true)}>+ Добавить</Button>
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-2">
+        {feedTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setFeed(tab.key)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+              feed === tab.key
+                ? "bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] text-white shadow-[0_10px_24px_rgb(var(--violet-rgb)/0.2)]"
+                : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {categoryTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setCategory(tab.key)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+              category === tab.key
+                ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.18)]"
+                : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] text-text2"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+        <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-3 py-2 text-sm text-text2">
+          <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="название, место..."
+            className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-3 py-2 text-sm text-text2">
+          <MapPin className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
+          <Input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Город"
+            className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+          />
+        </label>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {dateTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setDateFilter(tab.key)}
+              className={`rounded-full px-3 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+                dateFilter === tab.key
+                  ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
+                  : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
+              }`}
+            >
+              <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => setFreeOnly((prev) => !prev)}
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
+            freeOnly
+              ? "border-[rgb(var(--teal-rgb)/0.5)] bg-[rgb(var(--teal-rgb)/0.18)] text-text"
+              : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
+          }`}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Бесплатно
+        </button>
+        <button
+          type="button"
+          onClick={() => setLookingOnly((prev) => !prev)}
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
+            lookingOnly
+              ? "border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.18)] text-text"
+              : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
+          }`}
+        >
+          <Users2 className="h-3.5 w-3.5" />
+          Ищу компанию
+        </button>
+        <button
+          type="button"
+          onClick={() => eventsQuery.refetch()}
+          className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-3 py-2 font-semibold text-text2 transition active:scale-[0.98]"
+        >
+          <RefreshCcw className="h-3.5 w-3.5" />
+          Обновить
+        </button>
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-transparent px-3 py-2 font-semibold text-text3 transition hover:text-text"
+        >
+          Сбросить фильтры
+        </button>
       </div>
 
       {staleInfo ? (
         <div className="mb-3 rounded-2xl border border-border bg-white/5 px-3 py-2 text-xs text-muted">
           Показаны последние доступные данные. Обновлено {new Date(staleInfo.at).toLocaleString("ru-RU")}.
+        </div>
+      ) : null}
+
+      {errorBanner ? (
+        <div className="mb-3 rounded-2xl border border-[rgb(var(--danger-rgb)/0.24)] bg-[rgb(var(--danger-rgb)/0.08)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
+          {errorBanner}
         </div>
       ) : null}
 
@@ -121,41 +349,62 @@ export default function EventsPage() {
 
       {eventsQuery.isLoading && !items.length ? (
         <div className="space-y-3">
-          <Skeleton className="h-56 w-full rounded-3xl" />
-          <Skeleton className="h-56 w-full rounded-3xl" />
+          <EventCardSkeleton />
+          <EventCardSkeleton />
+          <EventCardSkeleton />
+        </div>
+      ) : items.length ? (
+        <div className="space-y-4">
+          {items.map((event) =>
+            event.source_kind === "community" ? (
+              <EventSocialCard
+                key={event.id}
+                event={event}
+                joining={joiningId === event.id}
+                companionLoading={companionId === event.id}
+                onJoin={join}
+                onToggleCompanion={toggleCompanion}
+              />
+            ) : (
+              <EventPosterCard key={event.id} event={event} joining={joiningId === event.id} onJoin={join} />
+            ),
+          )}
         </div>
       ) : (
-        <>
-          {snapshot && eventsQuery.isError ? (
-            <div className="mb-3 rounded-2xl border border-border bg-white/5 px-3 py-2 text-xs text-muted">
-              Показан офлайн-снимок. Обновлено {snapshotAgeMin} мин назад.
-            </div>
-          ) : null}
-          <div className="space-y-3">
-            {items.map((event) => (
-              <EventCard key={event.id} event={event} onJoin={join} joining={joiningId === event.id} />
-            ))}
-          </div>
-          {eventsQuery.hasNextPage ? (
-            <Button
-              variant="secondary"
-              className="mt-4 w-full"
-              onClick={() => eventsQuery.fetchNextPage()}
-              disabled={eventsQuery.isFetchingNextPage}
-            >
-              {eventsQuery.isFetchingNextPage ? "Загружаем..." : "Показать ещё"}
+        <div className="rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-6 text-center">
+          <p className="text-lg font-semibold text-text">Событий нет по фильтрам</p>
+          <p className="mt-1 text-sm text-text2">Попробуй изменить фильтры или обновить список.</p>
+          <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
+            <Button onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button variant="secondary" onClick={() => eventsQuery.refetch()}>
+              Обновить
             </Button>
+          </div>
+          {snapshot && eventsQuery.isError ? (
+            <p className="mt-2 text-xs text-text3">Показан офлайн-снимок ({snapshotAgeMin} мин назад).</p>
           ) : null}
-        </>
+        </div>
       )}
 
-      <CreateEventDialog
+      {eventsQuery.hasNextPage ? (
+        <Button
+          variant="secondary"
+          className="mt-4 w-full"
+          onClick={() => eventsQuery.fetchNextPage()}
+          disabled={eventsQuery.isFetchingNextPage}
+        >
+          {eventsQuery.isFetchingNextPage ? "Загружаем..." : "Показать ещё"}
+        </Button>
+      ) : null}
+
+      <CreateEventSheet
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={() => {
-          queryClient.invalidateQueries({ queryKey: ["events"] });
+          queryClient.invalidateQueries({ queryKey: ["events-v3"] });
         }}
       />
     </PageShell>
   );
 }
+

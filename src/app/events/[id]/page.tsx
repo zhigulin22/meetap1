@@ -92,7 +92,7 @@ export default function EventDetailPage() {
             }
           : prev,
       );
-      queryClient.invalidateQueries({ queryKey: ["events-v2"] });
+      queryClient.invalidateQueries({ queryKey: ["events-v3"] });
     } catch (e) {
       setErrorBanner(e instanceof ApiClientError ? e.message : "Не удалось зарегистрироваться");
     } finally {
@@ -120,7 +120,7 @@ export default function EventDetailPage() {
           companion_count: Math.max(0, prev.companion_count + delta),
         };
       });
-      queryClient.invalidateQueries({ queryKey: ["events-v2"] });
+      queryClient.invalidateQueries({ queryKey: ["events-v3"] });
     } catch (e) {
       setErrorBanner(e instanceof ApiClientError ? e.message : "Не удалось обновить поиск компании");
     } finally {
