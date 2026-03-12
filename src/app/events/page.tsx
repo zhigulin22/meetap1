@@ -23,7 +23,7 @@ type EventsResponse = {
 
 type FeedTab = "all" | "external" | "community";
 
-type CategoryTab = "popular" | "concerts" | "sports" | "arts" | "quests" | "other" | "community";
+type CategoryTab = "popular" | "concerts" | "sports" | "arts" | "quests" | "other" | "community" | "all";
 
 type DateFilter = "all" | "today" | "weekend";
 
