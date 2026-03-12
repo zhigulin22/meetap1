@@ -8,7 +8,7 @@ import { EventPosterCard } from "@/components/events/event-poster-card";
 import { EventSocialCard } from "@/components/events/event-social-card";
 import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
 import type { EventListItem } from "@/components/events/types";
-import { CreateEventSheet } from "@/components/events/create-event-sheet";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiClientError, api } from "@/lib/api-client";
@@ -51,9 +51,7 @@ const dateTabs: Array<{ key: DateFilter; label: string }> = [
 export default function EventsPage() {
   const queryClient = useQueryClient();
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [companionId, setCompanionId] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [snapshot, setSnapshot] = useState<{ items: EventListItem[]; ts: number } | null>(null);
+  const [companionId, setCompanionId] = useState<string | null>(null);  const [snapshot, setSnapshot] = useState<{ items: EventListItem[]; ts: number } | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   const [feed, setFeed] = useState<FeedTab>("all");
@@ -206,7 +204,7 @@ export default function EventsPage() {
           <h1 className="text-2xl font-semibold">Events hub</h1>
           <p className="text-xs text-muted">Найди событие и компанию в одном экране</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>+ Добавить</Button>
+        <Link href="/events/new" className="inline-flex"><Button>+ Добавить</Button></Link>
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2">
@@ -395,16 +393,7 @@ export default function EventsPage() {
         >
           {eventsQuery.isFetchingNextPage ? "Загружаем..." : "Показать ещё"}
         </Button>
-      ) : null}
-
-      <CreateEventSheet
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={() => {
-          queryClient.invalidateQueries({ queryKey: ["events-v3"] });
-        }}
-      />
-    </PageShell>
+      ) : null}    </PageShell>
   );
 }
 

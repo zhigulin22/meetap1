@@ -11,13 +11,13 @@ const schema = z
   .object({
     title: z.string().trim().min(3).max(120),
     category: z.string().trim().min(2).max(80),
-    short_description: z.string().trim().min(12).max(320),
-    full_description: z.string().trim().min(40).max(4000),
+    short_description: z.string().trim().min(10).max(320),
+    full_description: z.string().trim().min(20).max(4000),
     city: z.string().trim().min(2).max(80),
     address: z.string().trim().min(3).max(220),
     starts_at: z.string().datetime(),
     ends_at: z.string().datetime().nullable().optional(),
-    cover_urls: z.array(z.string().url()).min(1).max(8),
+    cover_urls: z.array(z.string().url()).min(0).max(8).optional().default([]),
     mode: z.enum(["organize", "looking_company", "collect_group"]),
     is_paid: z.boolean(),
     price: z.number().min(0).nullable().optional(),
@@ -28,6 +28,7 @@ const schema = z
     looking_for_count: z.number().int().min(1).max(5000).nullable().optional(),
     moderator_comment: z.string().trim().max(600).nullable().optional(),
     trust_confirmed: z.boolean(),
+    organizer_name: z.string().trim().min(2).max(120).optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.trust_confirmed) {
@@ -35,8 +36,8 @@ const schema = z
     }
 
     if (data.is_paid) {
-      const hasPrice = Number(data.price ?? 0) > 0;
-      const hasPayment = Boolean(data.payment_url || data.payment_note);
+      const hasPrice = Number(data.price ?? 0) > 0 || Boolean(data.payment_note?.trim());
+      const hasPayment = Boolean(data.payment_url);
       if (!hasPrice && !hasPayment) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -78,33 +79,43 @@ export async function POST(req: Request) {
       if (!submissionCols.size) {
         return fail("Таблица заявок событий не найдена", 500, {
           code: "DB",
-          hint: "Примени миграцию 021_events_experience_revamp.sql и 022_events_import_jobs_and_hardening.sql",
+          hint: "Примени миграцию 024_event_submissions_hotfix.sql",
         });
       }
 
       const insertCandidate = {
         creator_user_id: userId,
+        user_id: userId,
         title: parsed.data.title,
         category: parsed.data.category,
+        format: parsed.data.mode,
         short_description: parsed.data.short_description,
         full_description: parsed.data.full_description,
         city: parsed.data.city,
         address: parsed.data.address,
+        venue: parsed.data.address,
         starts_at: parsed.data.starts_at,
         ends_at: parsed.data.ends_at ?? null,
-        cover_urls: parsed.data.cover_urls,
+        cover_urls: parsed.data.cover_urls ?? [],
+        cover_image_url: parsed.data.cover_urls?.[0] ?? null,
         mode: parsed.data.mode,
         is_paid: parsed.data.is_paid,
         price: parsed.data.price ?? null,
+        price_text: parsed.data.payment_note ?? null,
         payment_url: parsed.data.payment_url ?? null,
         payment_note: parsed.data.payment_note ?? null,
         telegram_contact: tg,
+        organizer_telegram: tg,
+        organizer_name: parsed.data.organizer_name ?? null,
         participant_limit: parsed.data.participant_limit ?? null,
         looking_for_count: parsed.data.looking_for_count ?? null,
         moderator_comment: parsed.data.moderator_comment ?? null,
         trust_confirmed: parsed.data.trust_confirmed,
         moderation_status: "pending",
-        metadata: { source: "app", version: "events-v2" },
+        status: "pending",
+        metadata: { source: "app", version: "events-v3" },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       const insertPayload = pickExistingColumns(insertCandidate, submissionCols);
@@ -132,7 +143,7 @@ export async function POST(req: Request) {
         telegramContact: tg,
         shortDescription: parsed.data.short_description,
         fullDescription: parsed.data.full_description,
-        coverUrls: parsed.data.cover_urls,
+        coverUrls: parsed.data.cover_urls ?? [],
         userId,
         userName: user?.name ?? null,
       });
@@ -140,7 +151,7 @@ export async function POST(req: Request) {
       await trackEvent({
         eventName: "events.submission_created",
         userId,
-        path: "/events",
+        path: "/events/new",
         properties: {
           submissionId: ins.data.id,
           mode: parsed.data.mode,
@@ -165,3 +176,4 @@ export async function POST(req: Request) {
     });
   }
 }
+

@@ -16,6 +16,7 @@ const DEFAULT_SEED_CITY = "Москва";
 const SEED_CATEGORIES = ["sports", "concerts", "arts", "quests", "other"] as const;
 
 type EventsResponse = {
+  meta?: Record<string, unknown>;
   items: EventListItem[];
   next_offset: number | null;
   cache?: { mode: "fresh" | "stale"; at: string };
@@ -370,6 +371,16 @@ export async function GET(req: Request) {
     const payload: EventsResponse = {
       items,
       next_offset: eventRows.length === limit ? offset + limit : null,
+      meta: {
+        limit,
+        offset,
+        feed,
+        category,
+        city,
+        date: url.searchParams.get("date") || "all",
+        freeOnly,
+        lookingOnly,
+      },
     };
 
     cache.set(key, { data: payload, ts: Date.now() });
