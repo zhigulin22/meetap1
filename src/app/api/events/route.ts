@@ -3,6 +3,24 @@ import { ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
 import { getCurrentUserId } from "@/server/auth";
 
+type EventRow = {
+  id: string;
+  title: string;
+  description: string;
+  outcomes: string[];
+  cover_url: string | null;
+  event_date: string;
+  price: number;
+  city: string;
+};
+
+type MemberRow = {
+  event_id: string;
+  users: { id: string; name: string; avatar_url: string | null } | Array<{ id: string; name: string; avatar_url: string | null }> | null;
+};
+
+type MembershipRow = { event_id: string };
+
 type CacheEntry = { data: any; ts: number };
 const cache = new Map<string, CacheEntry>();
 const staleCache = new Map<string, CacheEntry>();
@@ -23,20 +41,13 @@ function clampLimit(raw: number) {
   return Math.min(raw, 30);
 }
 
-function seedEvents(baseDate: Date, count: number) {
-  const items = [] as Array<{
-    title: string;
-    description: string;
-    outcomes: string[];
-    cover_url: string;
-    event_date: string;
-    price: number;
-    city: string;
-  }>;
+function seedEvents(baseDate: Date, count: number): EventRow[] {
+  const items: EventRow[] = [];
   for (let i = 0; i < count; i += 1) {
     const date = new Date(baseDate);
     date.setDate(date.getDate() + i + 1);
     items.push({
+      id: "",
       title: `Городское событие #${i + 1}`,
       description: "Офлайн встреча с обсуждением, живыми людьми и понятной пользой.",
       outcomes: ["нетворкинг", "оффлайн"],
@@ -81,16 +92,18 @@ export async function GET(req: Request) {
       throw error;
     }
 
-    if ((!events || events.length === 0) && offset === 0) {
-      const seedRows = seedEvents(new Date(), 15);
+    let eventRows = (events ?? []) as EventRow[];
+
+    if (eventRows.length === 0 && offset === 0) {
+      const seedRows = seedEvents(new Date(), 15).map(({ id, ...rest }) => rest);
       const seeded = await supabaseAdmin
         .from("events")
         .insert(seedRows)
         .select("id,title,description,outcomes,cover_url,event_date,price,city");
-      events = seeded.data ?? [];
+      eventRows = (seeded.data ?? []) as EventRow[];
     }
 
-    const eventIds = (events ?? []).map((e: { id: string }) => e.id);
+    const eventIds = eventRows.map((row) => row.id);
 
     const [{ data: members }, { data: myMemberships }] = await Promise.all([
       eventIds.length
@@ -99,31 +112,31 @@ export async function GET(req: Request) {
             .select("event_id,users(id,name,avatar_url)")
             .in("event_id", eventIds)
             .limit(200)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [] as MemberRow[] }),
       userId && eventIds.length
         ? supabaseAdmin.from("event_members").select("event_id").eq("user_id", userId).in("event_id", eventIds)
-        : Promise.resolve({ data: [] as Array<{ event_id: string }> }),
+        : Promise.resolve({ data: [] as MembershipRow[] }),
     ]);
 
-    const joinedSet = new Set((myMemberships ?? []).map((x: { event_id: string }) => x.event_id));
+    const joinedSet = new Set((myMemberships ?? []).map((x) => x.event_id));
     const grouped = new Map<string, Array<{ id: string; name: string; avatar_url: string | null }>>();
 
-    for (const m of members ?? []) {
+    for (const m of (members ?? []) as MemberRow[]) {
       const existing = grouped.get(m.event_id) ?? [];
       const user = Array.isArray(m.users) ? m.users[0] : m.users;
       if (user) {
-        existing.push(user as { id: string; name: string; avatar_url: string | null });
+        existing.push(user);
         grouped.set(m.event_id, existing.slice(0, 5));
       }
     }
 
     const payload = {
-      items: (events ?? []).map((e: { id: string }) => ({
+      items: eventRows.map((e) => ({
         ...e,
         participants: (grouped.get(e.id) ?? []).slice(0, 5),
         joined: joinedSet.has(e.id),
       })),
-      next_offset: events && events.length === limit ? offset + limit : null,
+      next_offset: eventRows.length === limit ? offset + limit : null,
     };
 
     cache.set(key, { data: payload, ts: Date.now() });
