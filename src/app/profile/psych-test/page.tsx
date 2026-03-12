@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -48,6 +49,14 @@ const OPTIONS = [
 
 export default function PsychTestPage() {
   const router = useRouter();
+  const [agreed, setAgreed] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setAgreed(params.get("agree") === "1");
+  }, []);
+
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [openAnswers, setOpenAnswers] = useState({
     social_goal: "",
@@ -79,6 +88,8 @@ export default function PsychTestPage() {
           openAnswers,
         }),
       });
+
+      localStorage.removeItem("meetap_psych_reminder_until");
       router.push("/profile/me");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка сохранения теста");
@@ -87,25 +98,39 @@ export default function PsychTestPage() {
     }
   }
 
+  if (!agreed) {
+    return (
+      <PageShell>
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <h1 className="font-display text-lg font-semibold text-text">Перед тестом нужно пройти интро</h1>
+            <p className="text-sm text-muted">Открой страницу психотеста из настроек профиля, прочитай зачем он нужен и подтверди согласие.</p>
+            <Link href="/profile/me/psych-test" className="block">
+              <Button className="w-full">Перейти к интро</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-        <Card className="overflow-hidden border-white/20">
-          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(82,204,131,0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(93,121,235,0.5),transparent_45%),linear-gradient(130deg,#0a1238,#0a1b43)]" />
+        <Card className="overflow-hidden border-borderStrong">
+          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--mint-rgb) / 0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--blue-rgb) / 0.5),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
           <CardContent className="-mt-8 space-y-2 p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-white/25 bg-black/20 p-2"><Brain className="h-5 w-5" /></div>
+              <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] p-2"><Brain className="h-5 w-5" /></div>
               <h1 className="text-xl font-semibold">Психологический профиль знакомства</h1>
             </div>
-            <p className="text-sm text-muted">
-              Основа: валидированные черты Big Five (адаптированная короткая форма для соцсценариев).
-            </p>
+            <p className="text-sm text-muted">Основа: валидированные черты Big Five (адаптированная короткая форма для соцсценариев).</p>
             <p className="text-xs text-muted">Заполнено: {answeredCount}/{QUESTIONS.length}</p>
           </CardContent>
         </Card>
 
         {QUESTIONS.map((q, idx) => (
-          <Card key={q.id} className="border-white/10">
+          <Card key={q.id} className="border-border">
             <CardContent className="space-y-3 p-4">
               <p className="text-sm font-medium">{idx + 1}. {q.text}</p>
               <div className="grid grid-cols-1 gap-2">
@@ -116,9 +141,7 @@ export default function PsychTestPage() {
                       key={`${q.id}-${option.value}`}
                       onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
                       className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                        active
-                          ? "border-[#52CC83]/70 bg-[#52CC83]/18 text-[#dfffea]"
-                          : "border-border bg-black/10 text-muted hover:bg-white/5"
+                        active ? "border-mint/70 bg-mint/18 text-mint/90" : "border-border bg-[rgb(var(--surface-1-rgb)/0.6)] text-muted hover:bg-surface2/56"
                       }`}
                     >
                       {option.label}
@@ -130,7 +153,7 @@ export default function PsychTestPage() {
           </Card>
         ))}
 
-        <Card className="border-white/10">
+        <Card className="border-border">
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-action" />
@@ -155,7 +178,7 @@ export default function PsychTestPage() {
         </Card>
 
         <div className="grid grid-cols-2 gap-2 pb-2">
-          <Button variant="secondary" onClick={() => router.push("/profile/me")}>Назад</Button>
+          <Link href="/profile/me/psych-test" className="block"><Button variant="secondary" className="w-full">Назад</Button></Link>
           <Button onClick={submit} disabled={loading || !ready}>{loading ? "Сохраняем..." : "Сохранить тест"}</Button>
         </div>
       </motion.div>

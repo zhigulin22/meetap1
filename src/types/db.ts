@@ -19,14 +19,40 @@ export type Database = {
           interests: string[] | null;
           facts: string[] | null;
           avatar_url: string | null;
-          password_hash: string | null;
-          personality_profile: Json | null;
-          personality_updated_at: string | null;
+          bio: string | null;
+          city: string | null;
+          country: string | null;
+          is_demo: boolean;
+          preferences: Json;
+          privacy_settings: Json;
+          notification_settings: Json;
+          profile_completed: boolean;
           role: string;
           is_blocked: boolean;
           blocked_reason: string | null;
           blocked_until: string | null;
+          shadow_banned: boolean;
+          message_limited: boolean;
+          deleted_at: string | null;
+          password_hash: string | null;
+          personality_profile: Json | null;
+          personality_updated_at: string | null;
           created_at: string;
+        };
+      };
+      user_privacy_settings: {
+        Row: {
+          user_id: string;
+          show_phone: boolean;
+          show_facts: boolean;
+          show_badges: boolean;
+          show_last_active: boolean;
+          show_event_history: boolean;
+          show_city: boolean;
+          show_work: boolean;
+          show_university: boolean;
+          who_can_message: string;
+          updated_at: string;
         };
       };
       posts: {
@@ -35,6 +61,10 @@ export type Database = {
           user_id: string;
           type: "daily_duo" | "reel";
           caption: string | null;
+          risk_score: number;
+          moderation_status: string;
+          removed_at: string | null;
+          removed_reason: string | null;
           created_at: string;
         };
       };
@@ -63,6 +93,9 @@ export type Database = {
           post_id: string;
           user_id: string;
           content: string;
+          risk_score: number;
+          moderation_status: string;
+          removed_at: string | null;
           created_at: string;
         };
       };
@@ -76,6 +109,9 @@ export type Database = {
           event_date: string;
           price: number;
           city: string;
+          risk_score: number;
+          moderation_status: string;
+          removed_at: string | null;
           created_at: string;
         };
       };
@@ -84,6 +120,15 @@ export type Database = {
           id: string;
           event_id: string;
           user_id: string;
+          created_at: string;
+        };
+      };
+      event_endorsements: {
+        Row: {
+          id: string;
+          event_id: string;
+          from_user_id: string;
+          to_user_id: string;
           created_at: string;
         };
       };
@@ -103,6 +148,18 @@ export type Database = {
           from_user_id: string;
           to_user_id: string | null;
           content: string;
+          created_at: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string;
+          payload: Json;
+          read_at: string | null;
           created_at: string;
         };
       };
@@ -153,6 +210,21 @@ export type Database = {
           resolved_at: string | null;
         };
       };
+      reports: {
+        Row: {
+          id: string;
+          reporter_user_id: string | null;
+          target_user_id: string | null;
+          content_type: string;
+          content_id: string | null;
+          reason: string;
+          details: string | null;
+          status: string;
+          ai_summary: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
       moderation_actions: {
         Row: {
           id: string;
@@ -161,6 +233,153 @@ export type Database = {
           action: string;
           reason: string | null;
           metadata: Json;
+          created_at: string;
+        };
+      };
+      content_flags: {
+        Row: {
+          id: string;
+          content_type: string;
+          content_id: string;
+          user_id: string | null;
+          source: string;
+          reason: string;
+          risk_score: number;
+          status: string;
+          ai_explanation: string | null;
+          metadata: Json;
+          created_at: string;
+          resolved_at: string | null;
+        };
+      };
+      feature_flags: {
+        Row: {
+          id: string;
+          key: string;
+          description: string | null;
+          enabled: boolean;
+          rollout: number;
+          scope: string;
+          payload: Json;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      remote_configs: {
+        Row: {
+          id: string;
+          key: string;
+          value: Json;
+          description: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      experiments: {
+        Row: {
+          id: string;
+          key: string;
+          variants: Json;
+          rollout_percent: number;
+          start_at: string | null;
+          end_at: string | null;
+          primary_metric: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      alerts: {
+        Row: {
+          id: string;
+          type: string;
+          metric: string;
+          threshold: number;
+          alert_window: string;
+          status: string;
+          last_triggered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      badges: {
+        Row: {
+          id: string;
+          key: string;
+          title: string;
+          description: string;
+          category: string;
+          is_seasonal: boolean;
+          season_key: string | null;
+          icon: string | null;
+          rules: Json;
+          is_active: boolean;
+          created_at: string;
+        };
+      };
+      alert_triggers: {
+        Row: {
+          id: string;
+          alert_id: string | null;
+          metric: string;
+          value: number;
+          threshold: number;
+          triggered_at: string;
+          details: Json;
+        };
+      };
+      system_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_by: string | null;
+          updated_at: string;
+        };
+      };
+      user_badges: {
+        Row: {
+          id: string;
+          user_id: string;
+          badge_id: string;
+          earned_at: string;
+          is_featured: boolean;
+        };
+      };
+      admin_audit_log: {
+        Row: {
+          id: string;
+          admin_id: string | null;
+          action: string;
+          target_type: string;
+          target_id: string | null;
+          meta: Json;
+          created_at: string;
+        };
+      };
+      demo_seed_runs: {
+        Row: {
+          id: string;
+          run_by: string | null;
+          config: Json;
+          created_at: string;
+        };
+      };
+      user_stats_daily: {
+        Row: {
+          id: string;
+          user_id: string;
+          day: string;
+          dau: boolean;
+          posts: number;
+          event_views: number;
+          event_joins: number;
+          connects_sent: number;
+          connects_replied: number;
+          msgs_sent: number;
+          endorsements_received: number;
+          reports_received: number;
           created_at: string;
         };
       };

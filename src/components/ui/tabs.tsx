@@ -10,7 +10,17 @@ type TabsContextType = {
 
 const TabsContext = React.createContext<TabsContextType | null>(null);
 
-export function Tabs({ value, onValueChange, className, children }: { value: string; onValueChange: (v: string) => void; className?: string; children: React.ReactNode; }) {
+export function Tabs({
+  value,
+  onValueChange,
+  className,
+  children,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
     <TabsContext.Provider value={{ value, setValue: onValueChange }}>
       <div className={className}>{children}</div>
@@ -19,16 +29,30 @@ export function Tabs({ value, onValueChange, className, children }: { value: str
 }
 
 export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("inline-flex rounded-xl border border-border p-1", className)} {...props} />;
+  return <div className={cn("inline-flex rounded-[var(--radius-md)] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.86)] p-1", className)} {...props} />;
 }
 
-export function TabsTrigger({ value, className, children }: { value: string; className?: string; children: React.ReactNode; }) {
+export function TabsTrigger({
+  value,
+  className,
+  children,
+}: {
+  value: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   const ctx = React.useContext(TabsContext);
   if (!ctx) return null;
   const active = ctx.value === value;
   return (
     <button
-      className={cn("rounded-lg px-3 py-1.5 text-sm", active ? "bg-action text-black" : "text-muted", className)}
+      className={cn(
+        "rounded-[10px] px-3 py-1.5 text-sm transition-all duration-150 active:scale-[0.98]",
+        active
+          ? "border border-[rgb(var(--teal-rgb)/0.28)] bg-[image:var(--grad-primary)] text-white shadow-[0_0_16px_rgb(var(--teal-rgb)/0.25)]"
+          : "text-text2 hover:text-text",
+        className,
+      )}
       onClick={() => ctx.setValue(value)}
       type="button"
     >
