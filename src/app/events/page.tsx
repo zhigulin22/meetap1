@@ -44,11 +44,12 @@ export default function EventsPage() {
     }
   }, []);
 
-  const eventsQuery = useInfiniteQuery({
+  const eventsQuery = useInfiniteQuery<EventsResponse>({
     queryKey: ["events"],
     queryFn: ({ pageParam = 0 }) => api<EventsResponse>(`/api/events?limit=20&offset=${pageParam}`),
     getNextPageParam: (lastPage) => (lastPage.next_offset ?? undefined),
     staleTime: 20_000,
+    initialPageParam: 0,
   });
 
   const items = useMemo(() => {
