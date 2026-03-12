@@ -118,7 +118,8 @@ export async function GET(req: Request) {
         : Promise.resolve({ data: [] as MembershipRow[] }),
     ]);
 
-    const joinedSet = new Set((myMemberships ?? []).map((x) => x.event_id));
+    const membershipRows = (myMemberships ?? []) as MembershipRow[];
+    const joinedSet = new Set(membershipRows.map((x) => x.event_id));
     const grouped = new Map<string, Array<{ id: string; name: string; avatar_url: string | null }>>();
 
     for (const m of (members ?? []) as MemberRow[]) {
