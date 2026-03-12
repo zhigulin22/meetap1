@@ -238,7 +238,6 @@ function parseError(error: unknown) {
 
 function isTrafficStatusSoftError(error: unknown) {
   if (!(error instanceof ApiClientError)) return false;
-  if (!error.endpoint.includes("/api/admin/traffic/status")) return false;
   if (error.code === "TIMEOUT") return true;
   const m = error.message.toLowerCase();
   return m.includes("сервер занят") || m.includes("server busy") || m.includes("timeout");
