@@ -1,4 +1,4 @@
-class ApiError extends Error {
+export class ApiClientError extends Error {
   status?: number;
   code?: string;
   hint?: string;
@@ -31,7 +31,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    const err = new ApiError("Нет соединения. Проверьте сеть.");
+    const err = new ApiClientError("Нет соединения. Проверьте сеть.");
     err.code = "NETWORK";
     throw err;
   }
@@ -39,7 +39,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const contentType = res.headers.get("content-type") ?? "";
     const payload = contentType.includes("application/json") ? await res.json().catch(() => ({})) : {};
-    const err = new ApiError(mapStatusToMessage(res.status, payload?.error || payload?.message));
+    const err = new ApiClientError(mapStatusToMessage(res.status, payload?.error || payload?.message));
     err.status = res.status;
     err.code = payload?.code ?? payload?.error_code;
     err.hint = payload?.hint;
