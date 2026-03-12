@@ -90,7 +90,7 @@ export async function GET(req: Request) {
       events = seeded.data ?? [];
     }
 
-    const eventIds = (events ?? []).map((e) => e.id);
+    const eventIds = (events ?? []).map((e: { id: string }) => e.id);
 
     const [{ data: members }, { data: myMemberships }] = await Promise.all([
       eventIds.length
