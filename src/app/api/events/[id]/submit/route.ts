@@ -79,7 +79,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
     if (existing.data?.id) {
       await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
-      await sendEventSubmissionToTelegramModerationBot({
+      const sendRes = await sendEventSubmissionToTelegramModerationBot({
         id: existing.data.id,
         title: (event as any).title,
         category: (event as any).category,
@@ -98,6 +98,11 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
         userId,
       });
+
+      if (!sendRes.ok) {
+        return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "UNKNOWN", hint: sendRes.reason ?? "unknown" });
+      }
+
       return ok({ ok: true, submission_id: existing.data.id, already_exists: true });
     }
 
@@ -138,7 +143,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
     await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
 
-    await sendEventSubmissionToTelegramModerationBot({
+    const sendRes = await sendEventSubmissionToTelegramModerationBot({
       id: ins.data.id,
       title: (event as any).title,
       category: (event as any).category,
@@ -157,6 +162,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
       userId,
     });
+
+    if (!sendRes.ok) {
+      return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "UNKNOWN", hint: sendRes.reason ?? "unknown" });
+    }
 
     return ok({ ok: true, submission_id: ins.data.id });
   } catch (error) {

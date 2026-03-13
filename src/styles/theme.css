@@ -5,26 +5,26 @@
   --surface-2: #f2f5ff;
   --surface-3: #e9eeff;
 
-  --divider: rgba(126, 108, 208, 0.18);
-  --border-soft: rgba(126, 108, 208, 0.16);
-  --border: rgba(108, 133, 230, 0.22);
-  --border-strong: rgba(108, 133, 230, 0.3);
+  --divider: rgba(109, 92, 255, 0.18);
+  --border-soft: rgba(109, 92, 255, 0.16);
+  --border: rgba(90, 108, 255, 0.28);
+  --border-strong: rgba(90, 108, 255, 0.36);
 
   /* Always neutral text (no blue/violet body text) */
-  --text: #111827;
-  --text-2: #344256;
-  --text-3: #66748d;
+  --text: #0f172a;
+  --text-2: #293548;
+  --text-3: #5a6a85;
   --disabled: #9aa6ba;
 
-  --primary-blue: #3f7cff;
-  --primary-blue-pressed: #2f66e8;
-  --primary-soft: rgba(63, 124, 255, 0.14);
+  --primary-blue: #3a6cff;
+  --primary-blue-pressed: #2e5be5;
+  --primary-soft: rgba(58, 108, 255, 0.14);
 
-  --accent-violet: #6f55f8;
-  --accent-violet-pressed: #5c44dc;
-  --violet-soft: rgba(111, 85, 248, 0.14);
+  --accent-violet: #5b3bff;
+  --accent-violet-pressed: #4e2fe6;
+  --violet-soft: rgba(91, 59, 255, 0.16);
 
-  --link-sky: #3187ff;
+  --link-sky: #2f7bff;
   --success-mint: #2dbf8a;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -38,8 +38,8 @@
   --badge-citrus: #ffd43b;
   --badge-aqua: #30cba0;
 
-  --grad-primary: linear-gradient(135deg, #3f7cff 0%, #6f55f8 100%);
-  --grad-hero-1: linear-gradient(135deg, rgba(63, 124, 255, 0.2) 0%, rgba(111, 85, 248, 0.18) 100%);
+  --grad-primary: linear-gradient(135deg, #3a6cff 0%, #5b3bff 100%);
+  --grad-hero-1: linear-gradient(135deg, rgba(58, 108, 255, 0.2) 0%, rgba(91, 59, 255, 0.18) 100%);
   --grad-hero-2: linear-gradient(135deg, rgba(62, 150, 255, 0.16) 0%, rgba(120, 98, 255, 0.16) 100%);
   --grad-event: linear-gradient(135deg, #f0bf63 0%, #ffe0a6 100%);
   --grad-badge: linear-gradient(135deg, #7c5cff 0%, #ffd43b 100%);
@@ -55,20 +55,20 @@
   --surface-1-rgb: 255 255 255;
   --surface-2-rgb: 242 245 255;
   --surface-3-rgb: 233 238 255;
-  --border-rgb: 108 133 230;
-  --border-strong-rgb: 89 112 207;
+  --border-rgb: 90 108 255;
+  --border-strong-rgb: 80 96 210;
 
-  --text-rgb: 17 24 39;
-  --text-2-rgb: 52 66 86;
-  --text-3-rgb: 102 116 141;
+  --text-rgb: 15 23 42;
+  --text-2-rgb: 41 53 72;
+  --text-3-rgb: 90 106 133;
   --disabled-rgb: 154 166 186;
 
   /* compatibility aliases for existing code */
-  --peach-rgb: 63 124 255;
-  --peach-pressed-rgb: 47 102 232;
-  --teal-rgb: 111 85 248;
-  --teal-hover-rgb: 92 68 220;
-  --sky-rgb: 49 135 255;
+  --peach-rgb: 58 108 255;
+  --peach-pressed-rgb: 46 91 229;
+  --teal-rgb: 91 59 255;
+  --teal-hover-rgb: 78 47 230;
+  --sky-rgb: 47 123 255;
   --success-rgb: 45 191 138;
   --amber-rgb: 245 158 11;
   --danger-rgb: 239 68 68;
@@ -78,7 +78,7 @@
   --event-night-rgb: 255 248 236;
   --event-surface-rgb: 255 245 228;
 
-  --violet-rgb: 111 85 248;
+  --violet-rgb: 91 59 255;
   --citrus-rgb: 255 212 59;
   --badge-aqua-rgb: 48 203 160;
 

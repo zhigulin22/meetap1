@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, ChevronRight, HeartHandshake, HelpCircle, Shield, Smartphone, Sparkles, Trophy, UserCircle } from "lucide-react";
+import { Bell, ChevronRight, Globe, HeartHandshake, HelpCircle, Palette, Shield, Smartphone, Sparkles, Trophy, UserCircle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 
 const items = [
@@ -60,6 +60,20 @@ const items = [
     color: "rgb(var(--gold-rgb))",
   },
   {
+    href: "/settings/appearance",
+    label: "Оформление",
+    hint: "Светлая/тёмная тема",
+    icon: Palette,
+    color: "rgb(var(--violet-rgb))",
+  },
+  {
+    href: "/settings/language",
+    label: "Язык",
+    hint: "Язык интерфейса",
+    icon: Globe,
+    color: "rgb(var(--sky-rgb))",
+  },
+  {
     href: "/settings/help",
     label: "Помощь",
     hint: "Инструкции и поддержка",
@@ -88,7 +102,7 @@ export default function SettingsPage() {
                 className="flex h-11 w-11 items-center justify-center rounded-2xl"
                 style={{
                   background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.18)"),
-                  border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.35)" )}`,
+                  border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.35)")}`,
                 }}
               >
                 <item.icon className="h-5 w-5" style={{ color: item.color }} />
