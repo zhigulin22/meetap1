@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, ChevronLeft, ChevronRight, ImagePlus } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
@@ -61,7 +61,7 @@ function parseError(error: unknown) {
   return "Не удалось отправить заявку";
 }
 
-export default function CreateEventPage() {
+function CreateEventPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
@@ -411,5 +411,27 @@ export default function CreateEventPage() {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+export default function CreateEventPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageShell>
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="mb-4">
+              <h1 className="text-2xl font-semibold">Добавить событие</h1>
+              <p className="text-xs text-muted">Загружаем форму...</p>
+            </div>
+            <div className="rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-5">
+              <div className="h-40 animate-pulse rounded-2xl bg-[rgb(var(--surface-3-rgb)/0.5)]" />
+            </div>
+          </div>
+        </PageShell>
+      }
+    >
+      <CreateEventPageInner />
+    </Suspense>
   );
 }
