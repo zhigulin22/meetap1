@@ -218,6 +218,7 @@ export default function EventsPage() {
     }
   }
 
+  
   function resetFilters() {
     setFeed("all");
     setCategory("popular");
@@ -227,6 +228,19 @@ export default function EventsPage() {
     setFreeOnly(false);
     setLookingOnly(false);
   }
+
+  const activeFilters = useMemo(() => {
+    const chips: Array<{ label: string; onRemove: () => void }> = [];
+    if (feed !== "all") chips.push({ label: "Источник: " + (feed === "external" ? "Афиши" : "Идём вместе"), onRemove: () => setFeed("all") });
+    if (category !== "popular") chips.push({ label: "Категория: " + category, onRemove: () => setCategory("popular") });
+    if (dateFilter !== "all") chips.push({ label: "Дата: " + (dateFilter === "today" ? "Сегодня" : "Выходные"), onRemove: () => setDateFilter("all") });
+    if (city.trim()) chips.push({ label: "Город: " + city.trim(), onRemove: () => setCity("") });
+    if (search.trim()) chips.push({ label: "Поиск: " + search.trim(), onRemove: () => setSearch("") });
+    if (freeOnly) chips.push({ label: "Бесплатно", onRemove: () => setFreeOnly(false) });
+    if (lookingOnly) chips.push({ label: "Ищу компанию", onRemove: () => setLookingOnly(false) });
+    return chips;
+  }, [feed, category, dateFilter, city, search, freeOnly, lookingOnly]);
+
 
   const cacheInfo = eventsQuery.data?.pages?.[0]?.cache;
   const staleInfo = cacheInfo?.mode === "stale" ? cacheInfo : null;
@@ -357,6 +371,23 @@ export default function EventsPage() {
           Сбросить фильтры
         </button>
       </div>
+
+      {activeFilters.length ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-text3">Активные фильтры:</span>
+          {activeFilters.map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              onClick={chip.onRemove}
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] px-3 py-1.5 text-text2 transition hover:text-text"
+            >
+              {chip.label}
+              <span className="text-text3">×</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {staleInfo ? (
         <div className="mb-3 rounded-2xl border border-border bg-white/5 px-3 py-2 text-xs text-muted">
