@@ -24,6 +24,12 @@ export default function ProfilePsychIntroPage() {
     return `Пройден · обновлен ${date}`;
   }, [psychQuery.data, psychQuery.isLoading]);
 
+  const needsRefresh = useMemo(() => {
+    if (!psychQuery.data?.updated_at) return true;
+    const updatedAt = new Date(psychQuery.data.updated_at).getTime();
+    return Date.now() - updatedAt > 1000 * 60 * 60 * 24 * 30 * 6;
+  }, [psychQuery.data?.updated_at]);
+
   return (
     <ProfileSettingsLayout title="Психотест" subtitle="Нужен для более точных рекомендаций и подсказок знакомства">
       <Card className="mb-3 overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
@@ -33,6 +39,9 @@ export default function ProfilePsychIntroPage() {
             <Brain className="h-4 w-4 text-action" />
             {statusText}
           </div>
+          {needsRefresh && psychQuery.data?.completed ? (
+            <p className="mb-2 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест — это улучшит рекомендации.</p>
+          ) : null}
           <p className="text-sm text-text2">
             Мы используем результаты теста только для внутренних алгоритмов: рекомендации людей, точки пересечения интересов и
             подсказки первого шага в знакомстве.
@@ -65,7 +74,7 @@ export default function ProfilePsychIntroPage() {
       <div className="grid grid-cols-2 gap-2">
         <Link href="/profile/me" className="block"><Button variant="secondary" className="w-full">Позже</Button></Link>
         <Link href={agreed ? "/profile/psych-test?agree=1" : "#"} className="block">
-          <Button className="w-full" disabled={!agreed}>Начать тест</Button>
+          <Button className="w-full" disabled={!agreed}>{needsRefresh ? "Обновить тест" : "Начать тест"}</Button>
         </Link>
       </div>
     </ProfileSettingsLayout>

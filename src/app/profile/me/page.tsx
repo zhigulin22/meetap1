@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Bell, HeartHandshake, Settings, Shield, Smartphone, Sparkles, Trophy, UserCircle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,24 @@ type PsychProfile = {
 const tabs = ["Посты", "Репосты", "DUO"] as const;
 
 type TabKey = (typeof tabs)[number];
+
+type QuickSetting = {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+};
+
+const quickSettings: QuickSetting[] = [
+  { label: "Аккаунт", href: "/settings/account", icon: UserCircle, color: "rgb(var(--sky-rgb))" },
+  { label: "Профиль", href: "/settings/profile", icon: Sparkles, color: "rgb(var(--violet-rgb))" },
+  { label: "Приватность", href: "/settings/privacy", icon: Shield, color: "rgb(var(--teal-rgb))" },
+  { label: "Сессии", href: "/settings/devices", icon: Smartphone, color: "rgb(var(--sky-rgb))" },
+  { label: "Уведомления", href: "/settings/notifications", icon: Bell, color: "rgb(var(--gold-rgb))" },
+  { label: "Знакомства", href: "/settings/dating", icon: HeartHandshake, color: "rgb(var(--teal-rgb))" },
+  { label: "Психотест", href: "/settings/psychotest", icon: Sparkles, color: "rgb(var(--violet-rgb))" },
+  { label: "Достижения", href: "/settings/achievements", icon: Trophy, color: "rgb(var(--gold-rgb))" },
+];
 
 export default function MyProfilePage() {
   const router = useRouter();
@@ -38,6 +56,8 @@ export default function MyProfilePage() {
   const profile = data?.profile;
   const stats = data?.stats ?? { posts: 0, events: 0, connects: 0 };
   const psychProfile = useMemo(() => (profile?.personality_profile ?? null) as PsychProfile | null, [profile]);
+  const lastPsychAt = profile?.personality_updated_at ? new Date(profile.personality_updated_at) : null;
+  const needsPsychRefresh = !lastPsychAt || Date.now() - lastPsychAt.getTime() > 1000 * 60 * 60 * 24 * 30 * 6;
 
   return (
     <PageShell>
@@ -52,8 +72,8 @@ export default function MyProfilePage() {
                     <Image
                       src={profile?.avatar_url || "https://placehold.co/320x320"}
                       alt={profile?.name || "avatar"}
-                      width={220}
-                      height={220}
+                      width={240}
+                      height={240}
                       className="h-36 w-36 rounded-full object-cover"
                       unoptimized
                     />
@@ -82,7 +102,7 @@ export default function MyProfilePage() {
 
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Link href="/settings/profile" className="inline-flex"><Button variant="secondary">Редактировать профиль</Button></Link>
-                <Link href="/settings" className="inline-flex"><Button>Настройки</Button></Link>
+                <Link href="/settings" className="inline-flex"><Button><Settings className="mr-2 h-4 w-4" />Настройки</Button></Link>
               </div>
             </div>
           </CardContent>
@@ -97,10 +117,45 @@ export default function MyProfilePage() {
               <div className="flex-1">
                 <p className="text-sm font-semibold text-text">Психопрофиль</p>
                 <p className="text-xs text-text2">{psychProfile?.style || "Не пройден"}</p>
+                {needsPsychRefresh ? (
+                  <p className="mt-1 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест для более точных рекомендаций.</p>
+                ) : null}
                 <Link href="/settings/psychotest" className="mt-2 inline-flex">
-                  <Button variant="secondary" size="sm">Пройти психотест</Button>
+                  <Button variant="secondary" size="sm">{needsPsychRefresh ? "Обновить психотест" : "Открыть психотест"}</Button>
                 </Link>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+          <CardContent className="p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-text">Быстрые настройки</p>
+                <p className="text-xs text-text2">Как в Telegram: каждый раздел — отдельная страница</p>
+              </div>
+              <Link href="/settings" className="text-xs text-[rgb(var(--sky-rgb))]">Все настройки</Link>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {quickSettings.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-3 py-2 text-sm text-text transition hover:bg-[rgb(var(--surface-2-rgb))]"
+                >
+                  <span
+                    className="flex h-10 w-10 items-center justify-center rounded-2xl"
+                    style={{
+                      background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.18)"),
+                      border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.35)")}`,
+                    }}
+                  >
+                    <item.icon className="h-5 w-5" style={{ color: item.color }} />
+                  </span>
+                  <span className="text-sm font-medium text-text">{item.label}</span>
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>

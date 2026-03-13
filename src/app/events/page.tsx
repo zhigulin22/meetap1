@@ -51,7 +51,8 @@ const dateTabs: Array<{ key: DateFilter; label: string }> = [
 export default function EventsPage() {
   const queryClient = useQueryClient();
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [companionId, setCompanionId] = useState<string | null>(null);  const [snapshot, setSnapshot] = useState<{ items: EventListItem[]; ts: number } | null>(null);
+  const [companionId, setCompanionId] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<{ items: EventListItem[]; ts: number } | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   const [feed, setFeed] = useState<FeedTab>("all");
@@ -232,7 +233,7 @@ export default function EventsPage() {
   const activeFilters = useMemo(() => {
     const chips: Array<{ label: string; onRemove: () => void }> = [];
     if (feed !== "all") chips.push({ label: "Источник: " + (feed === "external" ? "Афиши" : "Идём вместе"), onRemove: () => setFeed("all") });
-    if (category !== "popular") chips.push({ label: "Категория: " + category, onRemove: () => setCategory("popular") });
+    if (category !== "popular") chips.push({ label: "Категория: " + (categoryTabs.find((t) => t.key === category)?.label ?? category), onRemove: () => setCategory("popular") });
     if (dateFilter !== "all") chips.push({ label: "Дата: " + (dateFilter === "today" ? "Сегодня" : "Выходные"), onRemove: () => setDateFilter("all") });
     if (city.trim()) chips.push({ label: "Город: " + city.trim(), onRemove: () => setCity("") });
     if (search.trim()) chips.push({ label: "Поиск: " + search.trim(), onRemove: () => setSearch("") });
@@ -248,129 +249,134 @@ export default function EventsPage() {
 
   return (
     <PageShell>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Events hub</h1>
-          <p className="text-xs text-muted">Найди событие и компанию в одном экране</p>
+      <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.96)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">События</h1>
+            <p className="text-sm text-text2">Найди событие и компанию в одном экране</p>
+          </div>
+          <Link href="/events/new" className="inline-flex"><Button>+ Добавить</Button></Link>
         </div>
-        <Link href="/events/new" className="inline-flex"><Button>+ Добавить</Button></Link>
-      </div>
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        {feedTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setFeed(tab.key)}
-            className={`rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
-              feed === tab.key
-                ? "bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] text-white shadow-[0_10px_24px_rgb(var(--violet-rgb)/0.2)]"
-                : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {categoryTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setCategory(tab.key)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
-              category === tab.key
-                ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.18)]"
-                : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] text-text2"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-4 grid gap-2 md:grid-cols-[1fr_auto_auto]">
-        <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-3 py-2 text-sm text-text2">
-          <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="название, место..."
-            className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-          />
-        </label>
-
-        <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-3 py-2 text-sm text-text2">
-          <MapPin className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
-          <Input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Город"
-            className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-          />
-        </label>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {dateTabs.map((tab) => (
+        <div className="flex flex-wrap gap-2">
+          {feedTabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setDateFilter(tab.key)}
-              className={`rounded-full px-3 py-2 text-xs font-semibold transition active:scale-[0.98] ${
-                dateFilter === tab.key
-                  ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
+              onClick={() => setFeed(tab.key)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+                feed === tab.key
+                  ? "bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] text-white shadow-[0_10px_24px_rgb(var(--violet-rgb)/0.2)]"
                   : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
               }`}
             >
-              <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
               {tab.label}
             </button>
           ))}
         </div>
+
+        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] p-3">
+          <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
+            <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
+              <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="название, место..."
+                className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+              />
+            </label>
+
+            <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
+              <MapPin className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Город"
+                className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+              />
+            </label>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {dateTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setDateFilter(tab.key)}
+                  className={`rounded-full px-3 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+                    dateFilter === tab.key
+                      ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
+                      : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
+                  }`}
+                >
+                  <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {categoryTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setCategory(tab.key)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+                  category === tab.key
+                    ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.18)]"
+                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setFreeOnly((prev) => !prev)}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
+                freeOnly
+                  ? "border-[rgb(var(--teal-rgb)/0.5)] bg-[rgb(var(--teal-rgb)/0.18)] text-text"
+                  : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Бесплатно
+            </button>
+            <button
+              type="button"
+              onClick={() => setLookingOnly((prev) => !prev)}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
+                lookingOnly
+                  ? "border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.18)] text-text"
+                  : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
+              }`}
+            >
+              <Users2 className="h-3.5 w-3.5" />
+              Ищу компанию
+            </button>
+            <button
+              type="button"
+              onClick={() => eventsQuery.refetch()}
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 font-semibold text-text2 transition active:scale-[0.98]"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              Обновить
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-transparent px-3 py-2 font-semibold text-text3 transition hover:text-text"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <button
-          type="button"
-          onClick={() => setFreeOnly((prev) => !prev)}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
-            freeOnly
-              ? "border-[rgb(var(--teal-rgb)/0.5)] bg-[rgb(var(--teal-rgb)/0.18)] text-text"
-              : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
-          }`}
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-          Бесплатно
-        </button>
-        <button
-          type="button"
-          onClick={() => setLookingOnly((prev) => !prev)}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
-            lookingOnly
-              ? "border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.18)] text-text"
-              : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text2"
-          }`}
-        >
-          <Users2 className="h-3.5 w-3.5" />
-          Ищу компанию
-        </button>
-        <button
-          type="button"
-          onClick={() => eventsQuery.refetch()}
-          className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-3 py-2 font-semibold text-text2 transition active:scale-[0.98]"
-        >
-          <RefreshCcw className="h-3.5 w-3.5" />
-          Обновить
-        </button>
-        <button
-          type="button"
-          onClick={resetFilters}
-          className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-transparent px-3 py-2 font-semibold text-text3 transition hover:text-text"
-        >
-          Сбросить фильтры
-        </button>
-      </div>
 
       {activeFilters.length ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
