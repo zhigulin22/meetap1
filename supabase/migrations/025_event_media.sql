@@ -27,5 +27,47 @@ create index if not exists idx_event_media_primary on public.event_media(event_i
 alter table public.events
   add column if not exists primary_media_id uuid;
 
-create index if not exists idx_events_primary_media on public.events(primary_media_id);
+-- Extend event_status enum if it exists (production-safe).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_status') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
+      WHERE t.typname = 'event_status' AND e.enumlabel = 'draft'
+    ) THEN
+      ALTER TYPE event_status ADD VALUE 'draft';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
+      WHERE t.typname = 'event_status' AND e.enumlabel = 'pending_review'
+    ) THEN
+      ALTER TYPE event_status ADD VALUE 'pending_review';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
+      WHERE t.typname = 'event_status' AND e.enumlabel = 'published'
+    ) THEN
+      ALTER TYPE event_status ADD VALUE 'published';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
+      WHERE t.typname = 'event_status' AND e.enumlabel = 'hidden'
+    ) THEN
+      ALTER TYPE event_status ADD VALUE 'hidden';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
+      WHERE t.typname = 'event_status' AND e.enumlabel = 'removed'
+    ) THEN
+      ALTER TYPE event_status ADD VALUE 'removed';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
+      WHERE t.typname = 'event_status' AND e.enumlabel = 'archived'
+    ) THEN
+      ALTER TYPE event_status ADD VALUE 'archived';
+    END IF;
+  END IF;
+END $$;
 
+create index if not exists idx_events_primary_media on public.events(primary_media_id);

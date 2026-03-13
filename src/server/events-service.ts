@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 import { normalizeEventRow } from "@/server/events";
 
+export type EventStatus = "draft" | "pending_review" | "published" | "hidden" | "removed" | "archived";
+export type ModerationStatus = "pending" | "approved" | "rejected" | "flagged";
+
 export type EventCreateInput = {
   title: string;
   category: string;
@@ -18,6 +21,8 @@ export type EventCreateInput = {
   price_text?: string | null;
   organizer_name?: string | null;
   organizer_telegram?: string | null;
+  status?: EventStatus;
+  moderation_status?: ModerationStatus;
 };
 
 export async function createEvent(input: EventCreateInput, userId: string) {
@@ -41,8 +46,8 @@ export async function createEvent(input: EventCreateInput, userId: string) {
     event_date: input.starts_at,
     source_type: "community",
     source_kind: "community",
-    status: "pending",
-    moderation_status: "pending",
+    status: input.status ?? "draft",
+    moderation_status: input.moderation_status,
     is_paid: input.is_free === false,
     is_free: input.is_free !== false,
     price_text: input.price_text ?? null,
@@ -62,8 +67,8 @@ export async function createEvent(input: EventCreateInput, userId: string) {
 }
 
 export type EventUpdateInput = Partial<EventCreateInput> & {
-  status?: string;
-  moderation_status?: string;
+  status?: EventStatus;
+  moderation_status?: ModerationStatus;
   primary_media_id?: string | null;
 };
 
@@ -114,4 +119,3 @@ export async function listEvents(limit = 20, offset = 0) {
   if (error) throw new Error(error.message);
   return (data ?? []).map(normalizeEventRow);
 }
-

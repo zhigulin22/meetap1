@@ -27,6 +27,7 @@ export type EventListItem = {
   participant_limit: number | null;
   looking_for_count: number | null;
   status: string;
+  moderation_status?: string | null;
   is_today: boolean;
   participants: EventPerson[];
   going_count: number;

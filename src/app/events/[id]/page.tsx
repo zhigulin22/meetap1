@@ -29,6 +29,7 @@ type EventDetailResponse = {
   going_count: number;
   companion_count: number;
   looking_company: boolean;
+  is_owner: boolean;
 };
 
 function formatDate(dateISO: string) {
@@ -196,6 +197,16 @@ export default function EventDetailPage() {
               </div>
             ) : null}
 
+            {event.status && event.status !== "published" ? (
+              <div className="rounded-xl border border-[rgb(var(--warning-rgb)/0.2)] bg-[rgb(var(--warning-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--warning-rgb))]">
+                {event.status === "draft"
+                  ? "Черновик. Событие видно только вам."
+                  : event.status === "pending_review"
+                    ? "На модерации. Скоро появится в “Идём вместе”."
+                    : "Событие временно скрыто"}
+              </div>
+            ) : null}
+
             <p className="text-sm leading-relaxed text-text2">{event.full_description || event.short_description || "Описание скоро появится."}</p>
 
             <div className="grid grid-cols-2 gap-2">
@@ -249,6 +260,27 @@ export default function EventDetailPage() {
               <Button type="button" variant="secondary" onClick={() => refetch()} className="h-11 text-sm">
                 {isFetching ? "Обновляем..." : "Обновить"}
               </Button>
+
+              {data.is_owner && (event.status === "draft" || event.status === "pending_review") ? (
+                <Button variant="secondary" onClick={() => window.location.assign(`/events/new?draftId=${event.id}`)}>
+                  Редактировать
+                </Button>
+              ) : null}
+
+              {data.is_owner && event.status === "draft" ? (
+                <Button
+                  onClick={async () => {
+                    try {
+                      await api(`/api/events/${event.id}/submit`, { method: "POST" });
+                      await refetch();
+                    } catch (e) {
+                      setErrorBanner(e instanceof ApiClientError ? e.message : "Не удалось отправить на модерацию");
+                    }
+                  }}
+                >
+                  Отправить на модерацию
+                </Button>
+              ) : null}
             </div>
 
             {event.source_kind === "community" ? (

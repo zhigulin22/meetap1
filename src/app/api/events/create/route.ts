@@ -28,10 +28,9 @@ export async function POST(req: Request) {
       return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422);
     }
 
-    const id = await createEvent(parsed.data, userId);
+    const id = await createEvent({ ...parsed.data, status: "draft" }, userId);
     return ok({ id });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Не удалось создать событие", 500);
   }
 }
-

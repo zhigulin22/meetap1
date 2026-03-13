@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, ChevronLeft, ChevronRight, ImagePlus } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { ApiClientError, api } from "@/lib/api-client";
 
 const DRAFT_KEY = "event_wizard_draft_v2";
@@ -62,15 +63,51 @@ function parseError(error: unknown) {
 
 export default function CreateEventPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
   const [state, setState] = useState<WizardState>(initialState);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
 
   useEffect(() => {
+    const draftParam = searchParams.get("draftId");
+    if (draftParam) {
+      setDraftId(draftParam);
+      api<{ event: any }>(`/api/events/${draftParam}`)
+        .then((res) => {
+          const ev = res.event ?? {};
+          setState((prev) => ({
+            ...prev,
+            title: ev.title ?? "",
+            category: ev.category ?? "concerts",
+            format: ev.social_mode === "looking_company" ? "looking" : ev.social_mode === "collect_group" ? "group" : "organize",
+            city: ev.city ?? "",
+            venue: ev.venue_name ?? ev.venue_address ?? "",
+            date: ev.starts_at ? String(ev.starts_at).slice(0, 10) : "",
+            start_time: ev.starts_at ? String(ev.starts_at).slice(11, 16) : "",
+            end_time: ev.ends_at ? String(ev.ends_at).slice(11, 16) : "",
+            short_description: ev.short_description ?? "",
+            full_description: ev.full_description ?? "",
+            organizer_name: ev.organizer_name ?? "",
+            organizer_telegram: ev.organizer_telegram ?? "",
+            is_paid: Boolean(ev.is_paid),
+            price_text: ev.price_note ?? ev.price_text ?? "",
+            payment_url: ev.payment_url ?? "",
+          }));
+          if (ev.cover_url) setExistingCoverUrl(ev.cover_url);
+          if ((ev.status && ev.status !== "draft") || (ev.moderation_status && ev.moderation_status !== "pending")) {
+            setError("Это событие уже отправлено или опубликовано. Доступно только чтение.");
+          }
+        })
+        .catch(() => null);
+      return;
+    }
+
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return;
     try {
@@ -105,6 +142,8 @@ export default function CreateEventPage() {
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
   const requiredContacts = state.organizer_name.trim() && state.organizer_telegram.trim();
 
+  const draftReady = requiredBase && requiredWhenWhere;
+
   const canGoNext =
     (step === 1 && requiredBase) ||
     (step === 2 && requiredWhenWhere) ||
@@ -118,15 +157,19 @@ export default function CreateEventPage() {
     requiredContacts &&
     (!state.is_paid || !!state.price_text.trim() || !!state.payment_url.trim());
 
-  async function submit() {
-    if (!canSubmit) return;
+  async function saveDraft(redirect = true) {
+    if (!draftReady) {
+      setError("Заполни шаги 1–2, чтобы сохранить черновик");
+      return null;
+    }
     setLoading(true);
     setError(null);
 
     try {
-      const createRes = await api<{ id: string }>("/api/events/create", {
+      const draftRes = await api<{ id: string }>("/api/events/draft", {
         method: "POST",
         body: JSON.stringify({
+          event_id: draftId ?? undefined,
           title: state.title.trim(),
           category: state.category.trim(),
           city: state.city.trim(),
@@ -134,8 +177,8 @@ export default function CreateEventPage() {
           venue_address: state.venue.trim(),
           starts_at: toIso(state.date, state.start_time),
           ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
-          short_description: state.short_description.trim(),
-          full_description: state.full_description.trim(),
+          short_description: state.short_description.trim() || "Черновик: описание будет добавлено позже",
+          full_description: state.full_description.trim() || state.short_description.trim() || "Черновик: описание будет добавлено позже",
           is_free: !state.is_paid,
           price_text: state.price_text.trim(),
           organizer_name: state.organizer_name.trim(),
@@ -143,11 +186,13 @@ export default function CreateEventPage() {
         }),
       });
 
+      setDraftId(draftRes.id);
+
       if (coverFile) {
         const fd = new FormData();
         fd.append("file", coverFile);
         fd.append("makePrimary", "true");
-        const uploadRes = await fetch(`/api/events/${createRes.id}/media`, {
+        const uploadRes = await fetch(`/api/events/${draftRes.id}/media`, {
           method: "POST",
           body: fd,
           credentials: "include",
@@ -158,34 +203,35 @@ export default function CreateEventPage() {
         }
       }
 
-      const submissionRes = await api<{ submission_id: string }>("/api/event-submissions", {
+      localStorage.removeItem(DRAFT_KEY);
+      toast.success("Черновик сохранён");
+      if (redirect) router.push(`/events/${draftRes.id}`);
+      return draftRes.id;
+    } catch (e) {
+      setError(parseError(e));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submit() {
+    if (!canSubmit) {
+      setError("Заполни все обязательные поля перед отправкой");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+
+    try {
+      const eventId = (await saveDraft(false)) ?? draftId;
+      if (!eventId) return;
+
+      const submissionRes = await api<{ submission_id: string }>(`/api/events/${eventId}/submit`, {
         method: "POST",
-        body: JSON.stringify({
-          title: state.title.trim(),
-          category: state.category.trim(),
-          short_description: state.short_description.trim(),
-          full_description: state.full_description.trim(),
-          city: state.city.trim(),
-          address: state.venue.trim(),
-          starts_at: toIso(state.date, state.start_time),
-          ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
-          cover_urls: [],
-          mode: state.format === "organize" ? "organize" : state.format === "looking" ? "looking_company" : "collect_group",
-          is_paid: state.is_paid,
-          price: null,
-          payment_url: state.payment_url.trim() || null,
-          payment_note: state.price_text.trim() || null,
-          telegram_contact: state.organizer_telegram.trim(),
-          participant_limit: null,
-          looking_for_count: null,
-          moderator_comment: null,
-          trust_confirmed: true,
-          organizer_name: state.organizer_name.trim(),
-          event_id: createRes.id,
-        }),
       });
 
-      setSuccessId(submissionRes.submission_id);
+      setSuccessId(submissionRes.submission_id ?? eventId);
       localStorage.removeItem(DRAFT_KEY);
       setCoverFile(null);
     } catch (e) {
@@ -305,8 +351,8 @@ export default function CreateEventPage() {
                   onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
                 />
               </label>
-              {coverPreview ? (
-                <img src={coverPreview} alt="preview" className="h-40 w-full rounded-2xl object-cover" />
+              {coverPreview || existingCoverUrl ? (
+                <img src={coverPreview ?? existingCoverUrl ?? ""} alt="preview" className="h-40 w-full rounded-2xl object-cover" />
               ) : (
                 <p className="text-xs text-text3">Можно продолжить без фотографии, но с фото событие выглядит лучше.</p>
               )}
@@ -349,11 +395,11 @@ export default function CreateEventPage() {
             <ChevronLeft className="mr-1 h-4 w-4" /> Назад
           </Button>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="secondary" onClick={() => localStorage.setItem(DRAFT_KEY, JSON.stringify(state))}>
-              Сохранить черновик
+            <Button variant="secondary" onClick={() => saveDraft(true)} disabled={loading || !draftReady}>
+              {loading ? "Сохраняем..." : "Сохранить черновик"}
             </Button>
             {step < 5 ? (
-              <Button onClick={() => canGoNext && setStep((s) => (s + 1) as Step)} disabled={!canGoNext}>
+              <Button onClick={() => canGoNext && setStep((s) => (s + 1) as Step)} disabled={!canGoNext || loading}>
                 Далее <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
@@ -367,4 +413,3 @@ export default function CreateEventPage() {
     </PageShell>
   );
 }
-

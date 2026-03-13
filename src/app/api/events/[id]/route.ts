@@ -28,6 +28,8 @@ const updateSchema = z.object({
   organizer_name: z.string().trim().optional(),
   organizer_telegram: z.string().trim().optional(),
   primary_media_id: z.string().uuid().nullable().optional(),
+  status: z.enum(["draft", "pending_review", "published", "hidden", "removed", "archived"]).optional(),
+  moderation_status: z.enum(["pending", "approved", "rejected", "flagged"]).optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -64,6 +66,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     "submission_id",
     "status",
     "moderation_status",
+    "created_by_user_id",
+    "creator_user_id",
     "source_meta",
     "is_paid",
     "payment_url",
@@ -103,6 +107,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     });
   }
 
+  const ownerId = (rawEvent as any)?.created_by_user_id ?? (rawEvent as any)?.creator_user_id ?? null;
+
   return ok({
     event: normalized,
     participants,
@@ -110,6 +116,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     going_count: participants.length,
     companion_count: companionRows.length,
     looking_company: Boolean(userId && companionRows.some((x: any) => x.user_id === userId)),
+    is_owner: Boolean(userId && ownerId && String(ownerId) === String(userId)),
   });
 }
 
@@ -127,4 +134,3 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return fail(error instanceof Error ? error.message : "Не удалось обновить событие", 500);
   }
 }
-

@@ -138,7 +138,7 @@ function seedEventRows(now: Date, category: string, count: number) {
       price_max: 0,
       price_text: "Бесплатно",
       status: "published",
-      moderation_status: "published",
+      moderation_status: "approved",
     });
   }
   return rows;
@@ -399,4 +399,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Сервис перегружен. Повторите через пару секунд.", code: "SERVER_BUSY" }, { status: 503 });
   }
 }
-
