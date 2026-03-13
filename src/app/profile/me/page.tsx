@@ -51,6 +51,7 @@ export default function MyProfilePage() {
     const t = (localStorage.getItem("theme") as "dark" | "light" | null) ?? "dark";
     setTheme(t);
     document.documentElement.classList.toggle("dark", t === "dark");
+    document.documentElement.classList.toggle("light", t === "light");
   }, []);
 
   const profile = data?.profile;

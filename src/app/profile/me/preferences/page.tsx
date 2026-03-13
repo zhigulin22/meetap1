@@ -154,9 +154,9 @@ export default function ProfilePreferencesPage() {
         onChange={(e) => setMeetupFrequency(e.target.value as typeof meetupFrequency)}
         className="h-11 w-full rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.82)] px-3 text-sm text-text focus:border-[rgb(var(--sky-rgb)/0.4)] focus:outline-none"
       >
-        <option value="low" className="text-black">Редко</option>
-        <option value="medium" className="text-black">Средне</option>
-        <option value="high" className="text-black">Часто</option>
+        <option value="low" className="text-text">Редко</option>
+        <option value="medium" className="text-text">Средне</option>
+        <option value="high" className="text-text">Часто</option>
       </select>
 
       <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.88)]">

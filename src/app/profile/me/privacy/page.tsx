@@ -175,9 +175,9 @@ export default function ProfilePrivacyPage() {
             onChange={(e) => setPrivacy((prev) => ({ ...prev, who_can_message: e.target.value as PrivacySettings["who_can_message"] }))}
             className="h-11 w-full rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.82)] px-3 text-sm text-text focus:border-[rgb(var(--sky-rgb)/0.4)] focus:outline-none"
           >
-            <option value="everyone" className="text-black">Все</option>
-            <option value="shared_events" className="text-black">Только участники общих событий</option>
-            <option value="connections" className="text-black">Только контакты</option>
+            <option value="everyone" className="text-text">Все</option>
+            <option value="shared_events" className="text-text">Только участники общих событий</option>
+            <option value="connections" className="text-text">Только контакты</option>
           </select>
         </CardContent>
       </Card>

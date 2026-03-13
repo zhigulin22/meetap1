@@ -26,7 +26,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}",
+              "try{const t=localStorage.getItem('theme');const root=document.documentElement;root.classList.remove('light','dark');if(t==='light'){root.classList.add('light')}else{root.classList.add('dark')}}catch(e){}",
           }}
         />
         <Providers>{children}</Providers>
