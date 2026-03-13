@@ -2,11 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, HeartHandshake, Settings, Shield, Smartphone, Sparkles, Trophy, UserCircle } from "lucide-react";
+import { Bell, HeartHandshake, Settings, Shield, Smartphone, Sparkles, Trophy, UserCircle, type LucideIcon } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ type TabKey = (typeof tabs)[number];
 type QuickSetting = {
   label: string;
   href: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   color: string;
 };
 
