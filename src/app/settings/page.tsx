@@ -105,7 +105,7 @@ export default function SettingsPage() {
                   border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.35)")}`,
                 }}
               >
-                <item.icon className="h-5 w-5" style={{ color: item.color }} />
+                <span style={{ color: item.color }}><item.icon className="h-5 w-5" /></span>
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-text">{item.label}</span>

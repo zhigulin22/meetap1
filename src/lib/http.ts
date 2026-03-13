@@ -10,7 +10,8 @@ export type ApiErrorCode =
   | "RATE_LIMIT"
   | "UNKNOWN"
   | "SERVICE_ROLE_FAILED"
-  | "TIMEOUT";
+  | "TIMEOUT"
+  | "TELEGRAM";
 
 type FailMeta = {
   code?: ApiErrorCode;

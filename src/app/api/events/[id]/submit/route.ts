@@ -100,7 +100,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       });
 
       if (!sendRes.ok) {
-        return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "UNKNOWN", hint: sendRes.reason ?? "unknown" });
+        return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "TELEGRAM", hint: sendRes.reason ?? "unknown" });
       }
 
       return ok({ ok: true, submission_id: existing.data.id, already_exists: true });
@@ -164,7 +164,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     });
 
     if (!sendRes.ok) {
-      return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "UNKNOWN", hint: sendRes.reason ?? "unknown" });
+      return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "TELEGRAM", hint: sendRes.reason ?? "unknown" });
     }
 
     return ok({ ok: true, submission_id: ins.data.id });
