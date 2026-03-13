@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-
 type EventParticipantRow = {
   user_id: string;
   users:
@@ -217,11 +216,13 @@ export default function EventDetailPage() {
               </p>
             </section>
 
-
             <section className="grid gap-2 md:grid-cols-2">
               <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
                 <p className="text-xs uppercase tracking-wide text-text3">Где и когда</p>
                 <p className="mt-2 text-sm text-text">{formatDate(event.starts_at)}</p>
+                {event.ends_at ? (
+                  <p className="mt-1 text-xs text-text3">До {formatDate(event.ends_at)}</p>
+                ) : null}
                 {event.venue_name || event.venue_address ? (
                   <p className="mt-1 text-sm text-text2">{event.venue_name || event.venue_address}</p>
                 ) : null}
@@ -229,7 +230,9 @@ export default function EventDetailPage() {
               </div>
               <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
                 <p className="text-xs uppercase tracking-wide text-text3">Стоимость и формат</p>
-                <p className="mt-2 text-sm text-text">{event.is_paid ? event.price_note || (event.price ? `${event.price} ₽` : "Платное") : "Бесплатно"}</p>
+                <p className="mt-2 text-sm text-text">
+                  {event.is_paid ? event.price_note || (event.price ? `от ${event.price} ₽` : "Платное") : "Бесплатно"}
+                </p>
                 {event.source_kind === "community" ? (
                   <p className="mt-1 text-sm text-text2">Формат: {socialModeLabel(event.social_mode)}</p>
                 ) : null}
@@ -336,7 +339,6 @@ export default function EventDetailPage() {
                 </>
               )}
             </section>
-
 
             <section className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3">
               <p className="mb-2 text-sm font-semibold text-text">Кто уже идёт</p>

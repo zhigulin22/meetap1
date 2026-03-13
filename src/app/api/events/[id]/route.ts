@@ -60,6 +60,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     "external_source",
     "external_url",
     "organizer_telegram",
+    "organizer_name",
     "social_mode",
     "participant_limit",
     "looking_for_count",

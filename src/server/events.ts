@@ -28,6 +28,7 @@ export type EventProjection = {
   external_source: string | null;
   external_url: string | null;
   organizer_telegram: string | null;
+  organizer_name: string | null;
   social_mode: string;
   participant_limit: number | null;
   looking_for_count: number | null;
@@ -113,6 +114,7 @@ export function normalizeEventRow(row: any): EventProjection {
     external_source: toText(row?.external_source, toText(row?.source_name, "")) || null,
     external_url: toText(row?.external_url, toText(row?.source_url, "")) || null,
     organizer_telegram: toText(row?.organizer_telegram, "") || null,
+    organizer_name: toText(row?.organizer_name, "") || null,
     social_mode: toText(row?.social_mode, sourceKind === "community" ? "organize" : "discover"),
     participant_limit: row?.participant_limit == null ? null : toNum(row.participant_limit),
     looking_for_count: row?.looking_for_count == null ? null : toNum(row.looking_for_count),

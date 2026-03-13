@@ -23,6 +23,7 @@ export type EventListItem = {
   external_source: string | null;
   external_url: string | null;
   organizer_telegram: string | null;
+  organizer_name?: string | null;
   social_mode: string;
   participant_limit: number | null;
   looking_for_count: number | null;

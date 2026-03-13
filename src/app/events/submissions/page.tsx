@@ -19,6 +19,36 @@ type SubmissionItem = {
   event_id?: string | null;
 };
 
+function statusLabel(status?: string) {
+  switch (status) {
+    case "approved":
+      return "Одобрено";
+    case "rejected":
+      return "Отклонено";
+    case "clarification_needed":
+    case "flagged":
+      return "Нужно уточнение";
+    case "pending":
+    default:
+      return "На модерации";
+  }
+}
+
+function statusClass(status?: string) {
+  switch (status) {
+    case "approved":
+      return "border-[rgb(var(--teal-rgb)/0.35)] bg-[rgb(var(--teal-rgb)/0.12)] text-text";
+    case "rejected":
+      return "border-[rgb(var(--danger-rgb)/0.35)] bg-[rgb(var(--danger-rgb)/0.12)] text-[rgb(var(--danger-rgb))]";
+    case "clarification_needed":
+    case "flagged":
+      return "border-[rgb(var(--warning-rgb)/0.35)] bg-[rgb(var(--warning-rgb)/0.12)] text-[rgb(var(--warning-rgb))]";
+    case "pending":
+    default:
+      return "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] text-text2";
+  }
+}
+
 export default function EventSubmissionsPage() {
   const submissionsQuery = useQuery({
     queryKey: ["event-submissions"],
@@ -50,8 +80,8 @@ export default function EventSubmissionsPage() {
                       <p className="text-xs text-text2">{item.category} · {item.city}</p>
                       <p className="text-xs text-text3">Отправлено: {new Date(item.created_at).toLocaleString("ru-RU")}</p>
                     </div>
-                    <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] px-2 py-1 text-xs text-text2">
-                      {item.moderation_status}
+                    <span className={`rounded-full border px-2 py-1 text-xs ${statusClass(item.moderation_status)}`}>
+                      {statusLabel(item.moderation_status)}
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
