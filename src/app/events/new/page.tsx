@@ -61,6 +61,22 @@ function parseError(error: unknown) {
   return "Не удалось отправить заявку";
 }
 
+function missingFields(state: WizardState) {
+  const missing: string[] = [];
+  if (!state.title.trim()) missing.push("Название");
+  if (!state.category.trim()) missing.push("Категория");
+  if (!state.city.trim()) missing.push("Город");
+  if (!state.venue.trim()) missing.push("Место");
+  if (!state.date) missing.push("Дата");
+  if (!state.start_time) missing.push("Время начала");
+  if (state.short_description.trim().length < 10) missing.push("Короткое описание");
+  if (state.full_description.trim().length < 20) missing.push("Полное описание");
+  if (!state.organizer_name.trim()) missing.push("Имя организатора");
+  if (!state.organizer_telegram.trim()) missing.push("Telegram организатора");
+  if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) missing.push("Оплата/цена");
+  return missing;
+}
+
 function CreateEventPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -183,6 +199,7 @@ function CreateEventPageInner() {
           price_text: state.price_text.trim(),
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
+          social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
         }),
       });
 
@@ -217,7 +234,8 @@ function CreateEventPageInner() {
 
   async function submit() {
     if (!canSubmit) {
-      setError("Заполни все обязательные поля перед отправкой");
+      const missing = missingFields(state);
+      setError(missing.length ? `Заполни поля: ${missing.join(", ")}` : "Заполни все обязательные поля перед отправкой");
       return;
     }
     setLoading(true);

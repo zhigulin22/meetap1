@@ -644,7 +644,7 @@ function mapToEventInsert(row: ProviderEvent, jobId: string | null): EventInsert
     source_meta: row.sourceMeta,
     import_job_id: jobId,
     status: "published",
-    moderation_status: "published",
+    moderation_status: "approved",
     is_demo: row.sourceName === "seed",
     demo_group: row.sourceName === "seed" ? "seed" : null,
     updated_at: new Date().toISOString(),

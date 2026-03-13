@@ -63,6 +63,41 @@ export default function EventsPage() {
   const [lookingOnly, setLookingOnly] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const feedParam = params.get("feed") as FeedTab | null;
+    const categoryParam = params.get("category") as CategoryTab | null;
+    const dateParam = params.get("date") as DateFilter | null;
+    const cityParam = params.get("city");
+    const qParam = params.get("q");
+    const freeParam = params.get("free");
+    const lookingParam = params.get("looking");
+
+    if (feedParam && feedTabs.some((t) => t.key === feedParam)) setFeed(feedParam);
+    if (categoryParam && [...categoryTabs.map((t) => t.key), "all"].includes(categoryParam)) setCategory(categoryParam);
+    if (dateParam && dateTabs.some((t) => t.key === dateParam)) setDateFilter(dateParam);
+    if (cityParam) setCity(cityParam);
+    if (qParam) setSearch(qParam);
+    if (freeParam === "1") setFreeOnly(true);
+    if (lookingParam === "1") setLookingOnly(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (feed !== "all") params.set("feed", feed);
+    if (category !== "popular") params.set("category", category);
+    if (dateFilter !== "all") params.set("date", dateFilter);
+    if (city.trim()) params.set("city", city.trim());
+    if (search.trim()) params.set("q", search.trim());
+    if (freeOnly) params.set("free", "1");
+    if (lookingOnly) params.set("looking", "1");
+    const next = params.toString();
+    const url = next ? `?${next}` : window.location.pathname;
+    window.history.replaceState(null, "", url);
+  }, [feed, category, dateFilter, city, search, freeOnly, lookingOnly]);
+
+  useEffect(() => {
     const raw = localStorage.getItem(SNAPSHOT_KEY);
     if (!raw) return;
     try {
@@ -396,4 +431,3 @@ export default function EventsPage() {
       ) : null}    </PageShell>
   );
 }
-

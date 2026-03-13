@@ -21,6 +21,7 @@ export type EventCreateInput = {
   price_text?: string | null;
   organizer_name?: string | null;
   organizer_telegram?: string | null;
+  social_mode?: string | null;
   status?: EventStatus;
   moderation_status?: ModerationStatus;
 };
@@ -53,6 +54,7 @@ export async function createEvent(input: EventCreateInput, userId: string) {
     price_text: input.price_text ?? null,
     organizer_name: input.organizer_name ?? null,
     organizer_telegram: input.organizer_telegram ?? null,
+    social_mode: input.social_mode ?? null,
     created_by_user_id: userId,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -97,6 +99,7 @@ export async function updateEvent(eventId: string, input: EventUpdateInput) {
     is_free: input.is_free,
     organizer_name: input.organizer_name,
     organizer_telegram: input.organizer_telegram,
+    social_mode: input.social_mode,
     primary_media_id: input.primary_media_id,
     updated_at: new Date().toISOString(),
   };

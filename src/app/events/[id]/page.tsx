@@ -207,7 +207,28 @@ export default function EventDetailPage() {
               </div>
             ) : null}
 
-            <p className="text-sm leading-relaxed text-text2">{event.full_description || event.short_description || "Описание скоро появится."}</p>
+            <section className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
+              <p className="text-xs uppercase tracking-wide text-text3">О мероприятии</p>
+              <p className="mt-2 text-sm leading-relaxed text-text2">{event.full_description || event.short_description || "Описание скоро появится."}</p>
+            </section>
+
+            <section className="grid gap-2 md:grid-cols-2">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
+                <p className="text-xs uppercase tracking-wide text-text3">Где и когда</p>
+                <p className="mt-2 text-sm text-text">{formatDate(event.starts_at)}</p>
+                {event.venue_name || event.venue_address ? (
+                  <p className="mt-1 text-sm text-text2">{event.venue_name || event.venue_address}</p>
+                ) : null}
+                {event.city ? <p className="mt-1 text-sm text-text2">{event.city}</p> : null}
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
+                <p className="text-xs uppercase tracking-wide text-text3">Стоимость и формат</p>
+                <p className="mt-2 text-sm text-text">{event.is_paid ? event.price_note || (event.price ? `${event.price} ₽` : "Платное") : "Бесплатно"}</p>
+                {event.source_kind === "community" ? (
+                  <p className="mt-1 text-sm text-text2">Формат: {socialModeLabel(event.social_mode)}</p>
+                ) : null}
+              </div>
+            </section>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.22)] bg-[rgb(var(--teal-rgb)/0.08)] p-3">
@@ -283,29 +304,20 @@ export default function EventDetailPage() {
               ) : null}
             </div>
 
-            {event.source_kind === "community" ? (
-              <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3 text-xs text-text2">
-                <p>Формат: {socialModeLabel(event.social_mode)}</p>
-                {event.organizer_telegram ? <p className="mt-1">Контакт организатора: {event.organizer_telegram}</p> : null}
-                {event.is_paid ? (
-                  <p className="mt-1">
-                    Условия оплаты: {event.price_note || (event.price > 0 ? `${event.price} ₽` : "уточнить у организатора")}
-                  </p>
-                ) : (
-                  <p className="mt-1">Событие бесплатное</p>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3 text-xs text-text2">
-                <p>Источник: {event.external_source || "Партнёрская афиша"}</p>
-                {event.external_url ? (
-                  <a href={event.external_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[rgb(var(--sky-rgb))] hover:opacity-85">
-                    Открыть оригинал
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                ) : null}
-              </div>
-            )}
+            <section className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
+              <p className="text-xs uppercase tracking-wide text-text3">Контакты</p>
+              {event.source_kind === "community" ? (
+                <p className="mt-2 text-sm text-text2">{event.organizer_telegram ? `Telegram организатора: ${event.organizer_telegram}` : "Контакт организатора уточняется"}</p>
+              ) : (
+                <p className="mt-2 text-sm text-text2">Источник: {event.external_source || "Партнёрская афиша"}</p>
+              )}
+              {event.external_url ? (
+                <a href={event.external_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-[rgb(var(--sky-rgb))] hover:opacity-85">
+                  Открыть оригинал
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : null}
+            </section>
 
             <section className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3">
               <p className="mb-2 text-sm font-semibold text-text">Кто уже идёт</p>

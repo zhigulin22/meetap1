@@ -231,6 +231,10 @@ export async function GET(req: Request) {
 
     let query = supabaseAdmin.from("events").select(selectColumns.join(",")).range(offset, offset + limit - 1);
 
+    if (eventsCols.has("status")) {
+      query = query.eq("status", "published");
+    }
+
     if (feed === "external") {
       if (eventsCols.has("source_type")) {
         query = query.in("source_type", ["external", "seed"]);

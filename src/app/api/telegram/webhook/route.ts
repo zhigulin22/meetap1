@@ -83,7 +83,7 @@ async function publishSubmission(submission: any, moderatorUserId: string | null
     const updateEvent = pickExistingColumns(
       {
         status: "published",
-        moderation_status: "published",
+        moderation_status: "approved",
         submission_id: submission.id,
         updated_at: new Date().toISOString(),
       },
@@ -136,7 +136,7 @@ async function publishSubmission(submission: any, moderatorUserId: string | null
       organizer_telegram: submission.telegram_contact,
       participant_limit: submission.participant_limit ?? null,
       looking_for_count: submission.looking_for_count ?? null,
-      moderation_status: "published",
+      moderation_status: "approved",
       status: "published",
       submission_id: submission.id,
       source_meta: {
@@ -221,7 +221,8 @@ async function handleModerationCallback(payload: any) {
       return true;
     }
 
-    const status = action === "reject" ? "rejected" : "need_info";
+    const status = action === "reject" ? "rejected" : "flagged";
+    const nextEventStatus = action === "reject" ? "hidden" : "pending_review";
 
     await supabaseAdmin
       .from("event_submissions")
@@ -233,6 +234,10 @@ async function handleModerationCallback(payload: any) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", submissionId);
+
+    if (submission.event_id) {
+      await supabaseAdmin.from("events").update({ moderation_status: status, status: nextEventStatus, updated_at: new Date().toISOString() }).eq("id", submission.event_id);
+    }
 
     await logSubmissionAction({
       submissionId,

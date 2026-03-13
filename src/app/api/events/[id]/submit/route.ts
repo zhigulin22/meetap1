@@ -3,6 +3,7 @@ import { requireUserId } from "@/server/auth";
 import { supabaseAdmin } from "@/supabase/admin";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 import { updateEvent } from "@/server/events-service";
+import { normalizeTelegramContact, sendEventSubmissionToTelegramModerationBot } from "@/server/telegram-moderation";
 
 const REQUIRED_FIELDS = ["title", "category", "city", "venue_name", "starts_at", "short_description", "full_description", "organizer_telegram"] as const;
 
@@ -33,10 +34,13 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       "full_description",
       "organizer_telegram",
       "organizer_name",
+      "social_mode",
       "is_paid",
       "price_text",
       "payment_url",
       "payment_note",
+      "cover_url",
+      "image_url",
       "created_by_user_id",
       "creator_user_id",
     ].filter((c) => eventCols.has(c));
@@ -58,6 +62,13 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       }
     }
 
+    const normalizedTelegram = normalizeTelegramContact((event as any).organizer_telegram ?? "");
+    if (!normalizedTelegram) {
+      return fail("Укажи Telegram организатора в формате @username или https://t.me/username", 422, {
+        code: "VALIDATION",
+      });
+    }
+
     const existing = await supabaseAdmin
       .from("event_submissions")
       .select("id,status")
@@ -68,6 +79,25 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
     if (existing.data?.id) {
       await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
+      await sendEventSubmissionToTelegramModerationBot({
+        id: existing.data.id,
+        title: (event as any).title,
+        category: (event as any).category,
+        city: (event as any).city,
+        address: (event as any).venue_address ?? (event as any).venue_name ?? "",
+        startsAt: (event as any).starts_at,
+        endsAt: (event as any).ends_at ?? null,
+        mode: (event as any).social_mode ?? "organize",
+        isPaid: Boolean((event as any).is_paid),
+        price: null,
+        paymentUrl: (event as any).payment_url ?? null,
+        paymentNote: (event as any).payment_note ?? null,
+        telegramContact: normalizedTelegram,
+        shortDescription: (event as any).short_description,
+        fullDescription: (event as any).full_description,
+        coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
+        userId,
+      });
       return ok({ ok: true, submission_id: existing.data.id, already_exists: true });
     }
 
@@ -85,7 +115,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         ends_at: (event as any).ends_at ?? null,
         short_description: (event as any).short_description,
         full_description: (event as any).full_description,
-        organizer_telegram: (event as any).organizer_telegram,
+        organizer_telegram: normalizedTelegram,
         organizer_name: (event as any).organizer_name ?? null,
         is_paid: Boolean((event as any).is_paid),
         price_text: (event as any).price_text ?? null,
@@ -107,6 +137,26 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     }
 
     await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
+
+    await sendEventSubmissionToTelegramModerationBot({
+      id: ins.data.id,
+      title: (event as any).title,
+      category: (event as any).category,
+      city: (event as any).city,
+      address: (event as any).venue_address ?? (event as any).venue_name ?? "",
+      startsAt: (event as any).starts_at,
+      endsAt: (event as any).ends_at ?? null,
+      mode: (event as any).social_mode ?? "organize",
+      isPaid: Boolean((event as any).is_paid),
+      price: null,
+      paymentUrl: (event as any).payment_url ?? null,
+      paymentNote: (event as any).payment_note ?? null,
+      telegramContact: normalizedTelegram,
+      shortDescription: (event as any).short_description,
+      fullDescription: (event as any).full_description,
+      coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
+      userId,
+    });
 
     return ok({ ok: true, submission_id: ins.data.id });
   } catch (error) {
