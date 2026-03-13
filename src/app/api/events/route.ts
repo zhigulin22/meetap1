@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { getCurrentUserId } from "@/server/auth";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 import { normalizeEventRow } from "@/server/events";
+import { getPrimaryMediaMap } from "@/server/event-media";
 
 const CACHE_TTL_MS = 60_000;
 const MAX_LIMIT = 30;
@@ -296,6 +297,7 @@ export async function GET(req: Request) {
 
     const eventRows = (rows ?? []) as any[];
     const eventIds = eventRows.map((row) => row.id).filter(Boolean);
+    const mediaMap = await getPrimaryMediaMap(eventIds);
 
     const hasMembers = (schema["event_members"] ?? []).length > 0;
     const hasCompanion = (schema["event_companion_requests"] ?? []).length > 0;
@@ -352,9 +354,11 @@ export async function GET(req: Request) {
     const items = eventRows
       .map((row) => {
         const base = normalizeEventRow(row);
+        const mediaUrl = mediaMap.get(base.id);
         const startDate = base.starts_at.slice(0, 10);
         return {
           ...base,
+          cover_url: mediaUrl ?? base.cover_url,
           is_today: startDate === today,
           participants: participantMap.get(base.id) ?? [],
           going_count: goingCount.get(base.id) ?? 0,

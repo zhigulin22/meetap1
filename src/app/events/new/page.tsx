@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, ImagePlus } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiClientError, api } from "@/lib/api-client";
 
-const DRAFT_KEY = "event_wizard_draft_v1";
+const DRAFT_KEY = "event_wizard_draft_v2";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -24,7 +24,6 @@ type WizardState = {
   end_time: string;
   short_description: string;
   full_description: string;
-  cover_image_url: string;
   organizer_name: string;
   organizer_telegram: string;
   is_paid: boolean;
@@ -43,7 +42,6 @@ const initialState: WizardState = {
   end_time: "",
   short_description: "",
   full_description: "",
-  cover_image_url: "",
   organizer_name: "",
   organizer_telegram: "",
   is_paid: false,
@@ -66,6 +64,8 @@ export default function CreateEventPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [state, setState] = useState<WizardState>(initialState);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -87,6 +87,16 @@ export default function CreateEventPage() {
     }, 300);
     return () => window.clearTimeout(handle);
   }, [state]);
+
+  useEffect(() => {
+    if (!coverFile) {
+      setCoverPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(coverFile);
+    setCoverPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [coverFile]);
 
   const progress = useMemo(() => (step / 5) * 100, [step]);
 
@@ -114,36 +124,70 @@ export default function CreateEventPage() {
     setError(null);
 
     try {
-      const payload = {
-        title: state.title.trim(),
-        category: state.category.trim(),
-        short_description: state.short_description.trim(),
-        full_description: state.full_description.trim(),
-        city: state.city.trim(),
-        address: state.venue.trim(),
-        starts_at: toIso(state.date, state.start_time),
-        ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
-        cover_urls: state.cover_image_url ? [state.cover_image_url.trim()] : [],
-        mode: state.format === "organize" ? "organize" : state.format === "looking" ? "looking_company" : "collect_group",
-        is_paid: state.is_paid,
-        price: null,
-        payment_url: state.payment_url.trim() || null,
-        payment_note: state.price_text.trim() || null,
-        telegram_contact: state.organizer_telegram.trim(),
-        participant_limit: null,
-        looking_for_count: null,
-        moderator_comment: null,
-        trust_confirmed: true,
-        organizer_name: state.organizer_name.trim(),
-      };
-
-      const res = await api<{ submission_id: string }>("/api/event-submissions", {
+      const createRes = await api<{ id: string }>("/api/events/create", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          title: state.title.trim(),
+          category: state.category.trim(),
+          city: state.city.trim(),
+          venue_name: state.venue.trim(),
+          venue_address: state.venue.trim(),
+          starts_at: toIso(state.date, state.start_time),
+          ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
+          short_description: state.short_description.trim(),
+          full_description: state.full_description.trim(),
+          is_free: !state.is_paid,
+          price_text: state.price_text.trim(),
+          organizer_name: state.organizer_name.trim(),
+          organizer_telegram: state.organizer_telegram.trim(),
+        }),
       });
 
-      setSuccessId(res.submission_id);
+      if (coverFile) {
+        const fd = new FormData();
+        fd.append("file", coverFile);
+        fd.append("makePrimary", "true");
+        const uploadRes = await fetch(`/api/events/${createRes.id}/media`, {
+          method: "POST",
+          body: fd,
+          credentials: "include",
+        });
+        if (!uploadRes.ok) {
+          const payload = await uploadRes.json().catch(() => ({}));
+          throw new Error(payload?.error || "Не удалось загрузить обложку");
+        }
+      }
+
+      const submissionRes = await api<{ submission_id: string }>("/api/event-submissions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: state.title.trim(),
+          category: state.category.trim(),
+          short_description: state.short_description.trim(),
+          full_description: state.full_description.trim(),
+          city: state.city.trim(),
+          address: state.venue.trim(),
+          starts_at: toIso(state.date, state.start_time),
+          ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
+          cover_urls: [],
+          mode: state.format === "organize" ? "organize" : state.format === "looking" ? "looking_company" : "collect_group",
+          is_paid: state.is_paid,
+          price: null,
+          payment_url: state.payment_url.trim() || null,
+          payment_note: state.price_text.trim() || null,
+          telegram_contact: state.organizer_telegram.trim(),
+          participant_limit: null,
+          looking_for_count: null,
+          moderator_comment: null,
+          trust_confirmed: true,
+          organizer_name: state.organizer_name.trim(),
+          event_id: createRes.id,
+        }),
+      });
+
+      setSuccessId(submissionRes.submission_id);
       localStorage.removeItem(DRAFT_KEY);
+      setCoverFile(null);
     } catch (e) {
       setError(parseError(e));
     } finally {
@@ -172,7 +216,7 @@ export default function CreateEventPage() {
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-4">
           <h1 className="text-2xl font-semibold">Добавить событие</h1>
-          <p className="text-xs text-muted">Пошагово соберём качественную карточку для модерации</p>
+          <p className="text-xs text-muted">Пошагово соберём карточку и загрузим фото</p>
         </div>
 
         <div className="mb-4 rounded-full bg-[rgb(var(--surface-2-rgb)/0.9)]">
@@ -251,11 +295,21 @@ export default function CreateEventPage() {
                 value={state.full_description}
                 onChange={(e) => setState((s) => ({ ...s, full_description: e.target.value }))}
               />
-              <Input
-                placeholder="Ссылка на обложку (опционально)"
-                value={state.cover_image_url}
-                onChange={(e) => setState((s) => ({ ...s, cover_image_url: e.target.value }))}
-              />
+              <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-3 text-sm text-text2">
+                <ImagePlus className="h-5 w-5 text-[rgb(var(--sky-rgb))]" />
+                <span className="flex-1">Загрузить обложку (jpeg/png/webp)</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {coverPreview ? (
+                <img src={coverPreview} alt="preview" className="h-40 w-full rounded-2xl object-cover" />
+              ) : (
+                <p className="text-xs text-text3">Можно продолжить без фотографии, но с фото событие выглядит лучше.</p>
+              )}
             </div>
           ) : null}
 

@@ -24,6 +24,7 @@ const schema = z
     payment_url: z.string().url().nullable().optional(),
     payment_note: z.string().trim().max(500).nullable().optional(),
     telegram_contact: z.string().trim().min(5).max(80),
+    event_id: z.string().uuid().optional(),
     participant_limit: z.number().int().min(1).max(5000).nullable().optional(),
     looking_for_count: z.number().int().min(1).max(5000).nullable().optional(),
     moderator_comment: z.string().trim().max(600).nullable().optional(),
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
 
       const insertCandidate = {
         creator_user_id: userId,
+        event_id: parsed.data.event_id ?? null,
         user_id: userId,
         title: parsed.data.title,
         category: parsed.data.category,

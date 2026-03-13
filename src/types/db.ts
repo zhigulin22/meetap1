@@ -108,6 +108,18 @@ export type Database = {
           cover_url: string | null;
           event_date: string;
           price: number;
+          starts_at: string | null;
+          ends_at: string | null;
+          price_min: number | null;
+          price_max: number | null;
+          price_text: string | null;
+          is_free: boolean | null;
+          primary_media_id: string | null;
+          source_type: string | null;
+          source_name: string | null;
+          source_event_id: string | null;
+          source_url: string | null;
+          organizer_telegram: string | null;
           city: string;
           risk_score: number;
           moderation_status: string;
@@ -120,6 +132,26 @@ export type Database = {
           id: string;
           event_id: string;
           user_id: string;
+          created_at: string;
+        };
+      };
+      event_media: {
+        Row: {
+          id: string;
+          event_id: string;
+          media_type: string;
+          storage_bucket: string;
+          storage_path: string;
+          original_filename: string | null;
+          mime_type: string | null;
+          file_size_bytes: number | null;
+          width: number | null;
+          height: number | null;
+          duration_seconds: number | null;
+          alt_text: string | null;
+          sort_order: number;
+          is_primary: boolean;
+          uploaded_by: string | null;
           created_at: string;
         };
       };

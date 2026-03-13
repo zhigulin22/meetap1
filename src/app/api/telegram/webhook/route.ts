@@ -77,6 +77,38 @@ async function publishSubmission(submission: any, moderatorUserId: string | null
     throw new Error("Missing events/submission schema");
   }
 
+  const existingEventId = submission.event_id || submission.metadata?.event_id || null;
+
+  if (existingEventId) {
+    const updateEvent = pickExistingColumns(
+      {
+        status: "published",
+        moderation_status: "published",
+        submission_id: submission.id,
+        updated_at: new Date().toISOString(),
+      },
+      eventsCols,
+    );
+
+    await supabaseAdmin.from("events").update(updateEvent).eq("id", existingEventId);
+
+    const updatePayload = pickExistingColumns(
+      {
+        moderation_status: "approved",
+        moderation_reason: "Одобрено модератором в Telegram",
+        moderated_by: moderatorUserId,
+        moderated_at: new Date().toISOString(),
+        published_event_id: existingEventId,
+        updated_at: new Date().toISOString(),
+      },
+      subCols,
+    );
+
+    await supabaseAdmin.from("event_submissions").update(updatePayload).eq("id", submission.id);
+
+    return String(existingEventId);
+  }
+
   const startsAt = submission.starts_at ?? new Date().toISOString();
 
   const eventPayload = pickExistingColumns(

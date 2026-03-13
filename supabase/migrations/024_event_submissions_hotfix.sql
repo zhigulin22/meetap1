@@ -4,6 +4,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.event_submissions (
   id uuid primary key default gen_random_uuid(),
+  event_id uuid,
   user_id uuid,
   creator_user_id uuid references public.users(id) on delete set null,
   title text not null,
@@ -41,6 +42,7 @@ create table if not exists public.event_submissions (
 );
 
 alter table public.event_submissions
+  add column if not exists event_id uuid,
   add column if not exists user_id uuid,
   add column if not exists creator_user_id uuid,
   add column if not exists format text,
