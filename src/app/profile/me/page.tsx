@@ -13,6 +13,7 @@ import { api } from "@/lib/api-client";
 
 type PsychProfile = {
   style?: string;
+  energy?: string;
 };
 
 const tabs = ["Посты", "Репосты", "DUO"] as const;
@@ -37,6 +38,11 @@ const quickSettings: QuickSetting[] = [
   { label: "Достижения", href: "/settings/achievements", icon: Trophy, color: "rgb(var(--gold-rgb))" },
 ];
 
+function humanGoal(profile: any) {
+  const prefs = profile?.preferences ?? {};
+  return prefs.goal || prefs.intent || prefs.purpose || prefs.dating_goal || "";
+}
+
 export default function MyProfilePage() {
   const router = useRouter();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -59,51 +65,73 @@ export default function MyProfilePage() {
   const psychProfile = useMemo(() => (profile?.personality_profile ?? null) as PsychProfile | null, [profile]);
   const lastPsychAt = profile?.personality_updated_at ? new Date(profile.personality_updated_at) : null;
   const needsPsychRefresh = !lastPsychAt || Date.now() - lastPsychAt.getTime() > 1000 * 60 * 60 * 24 * 30 * 6;
+  const goal = humanGoal(profile);
 
   return (
     <PageShell>
       <div className="mx-auto max-w-3xl space-y-4">
         <Card className="overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] shadow-card">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <div className="relative">
-                <div className="absolute -inset-3 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.16),transparent_70%)] blur-2xl" />
-                <div className="rounded-full p-[4px]" style={{ background: "linear-gradient(135deg, rgb(var(--sky-rgb)), rgb(var(--violet-rgb)))" }}>
-                  <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
-                    <Image
-                      src={profile?.avatar_url || "https://placehold.co/320x320"}
-                      alt={profile?.name || "avatar"}
-                      width={240}
-                      height={240}
-                      className="h-36 w-36 rounded-full object-cover"
-                      unoptimized
-                    />
+          <CardContent className="relative p-6">
+            <div className="pointer-events-none absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.26),transparent_72%)] blur-3xl" />
+            <div className="flex flex-col gap-6 md:flex-row md:items-center">
+              <div className="flex flex-col items-center gap-3 text-center md:items-start md:text-left">
+                <div className="relative">
+                  <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.26),transparent_70%)] blur-2xl" />
+                  <div className="rounded-full p-[4px]" style={{ background: "var(--grad-primary)" }}>
+                    <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
+                      <Image
+                        src={profile?.avatar_url || "https://placehold.co/320x320"}
+                        alt={profile?.name || "avatar"}
+                        width={240}
+                        height={240}
+                        className="h-36 w-36 rounded-full object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h1 className="text-2xl font-semibold text-text">{profile?.name || "Профиль"}</h1>
+                  {profile?.username ? <p className="text-sm text-text2">@{profile.username}</p> : null}
+                  <div className="mt-1 flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                    {profile?.city ? <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] px-2 py-0.5 text-xs text-text2">{profile.city}</span> : null}
+                    {profile?.work ? <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] px-2 py-0.5 text-xs text-text2">{profile.work}</span> : null}
+                    {profile?.telegram_verified ? (
+                      <span className="rounded-full border border-[rgb(var(--success-rgb)/0.4)] bg-[rgb(var(--success-rgb)/0.18)] px-2 py-0.5 text-xs text-[rgb(var(--text-rgb))]">Верифицирован</span>
+                    ) : (
+                      <span className="rounded-full border border-[rgb(var(--warning-rgb)/0.4)] bg-[rgb(var(--warning-rgb)/0.18)] px-2 py-0.5 text-xs text-[rgb(var(--text-rgb))]">Не верифицирован</span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h1 className="text-2xl font-semibold text-text">{profile?.name || "Пользователь"}</h1>
-                <p className="text-sm text-text2">{profile?.work || profile?.university || "Добавь род занятий"}</p>
-                {profile?.username ? <p className="text-xs text-text3">@{profile.username}</p> : null}
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={() => router.push("/profile/me/edit")} className="w-full">Редактировать профиль</Button>
+                  <Button variant="secondary" onClick={() => router.push("/settings")} className="w-full">
+                    <Settings className="mr-1 h-4 w-4" /> Настройки
+                  </Button>
+                </div>
+                <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+                  <p className="text-xs text-text2">Цель знакомства</p>
+                  <p className="text-sm text-text mt-1">{goal || "Добавь цель знакомства — это улучшит рекомендации"}</p>
+                </div>
               </div>
+            </div>
 
-              <div className="grid w-full grid-cols-3 gap-2">
-                {[
-                  { label: "Посты", value: stats.posts },
-                  { label: "События", value: stats.events },
-                  { label: "Коннекты", value: stats.connects },
-                ].map((s) => (
-                  <div key={s.label} className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3 text-center">
-                    <p className="text-lg font-semibold text-text">{s.value}</p>
-                    <p className="text-xs text-text2">{s.label}</p>
-                  </div>
-                ))}
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2 text-center">
+                <p className="text-sm font-semibold text-text">{stats.posts}</p>
+                <p className="text-[11px] text-text3">посты</p>
               </div>
-
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Link href="/settings/profile" className="inline-flex"><Button variant="secondary">Редактировать профиль</Button></Link>
-                <Link href="/settings" className="inline-flex"><Button><Settings className="mr-2 h-4 w-4" />Настройки</Button></Link>
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2 text-center">
+                <p className="text-sm font-semibold text-text">{stats.events}</p>
+                <p className="text-[11px] text-text3">события</p>
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2 text-center">
+                <p className="text-sm font-semibold text-text">{stats.connects}</p>
+                <p className="text-[11px] text-text3">коннекты</p>
               </div>
             </div>
           </CardContent>
@@ -111,20 +139,18 @@ export default function MyProfilePage() {
 
         <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
           <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] p-2">
-                <Sparkles className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgb(var(--violet-rgb)/0.2)] text-[rgb(var(--violet-rgb))]">
+                <Sparkles className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-text">Психопрофиль</p>
                 <p className="text-xs text-text2">{psychProfile?.style || "Не пройден"}</p>
-                {needsPsychRefresh ? (
-                  <p className="mt-1 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест для более точных рекомендаций.</p>
-                ) : null}
-                <Link href="/settings/psychotest" className="mt-2 inline-flex">
-                  <Button variant="secondary" size="sm">{needsPsychRefresh ? "Обновить психотест" : "Открыть психотест"}</Button>
-                </Link>
+                {needsPsychRefresh ? <p className="mt-1 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест для более точных рекомендаций.</p> : null}
               </div>
+              <Link href="/settings/psychotest">
+                <Button variant="secondary" size="sm">{needsPsychRefresh ? "Обновить" : "Открыть"}</Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -134,7 +160,7 @@ export default function MyProfilePage() {
             <div className="mb-2 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-text">Быстрые настройки</p>
-                <p className="text-xs text-text2">Как в Telegram: каждый раздел — отдельная страница</p>
+                <p className="text-xs text-text2">Каждый раздел — отдельная страница</p>
               </div>
               <Link href="/settings" className="text-xs text-[rgb(var(--sky-rgb))]">Все настройки</Link>
             </div>
