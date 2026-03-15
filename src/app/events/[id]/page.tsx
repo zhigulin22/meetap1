@@ -120,7 +120,6 @@ export default function EventDetailPage() {
           companion_count: Math.max(0, prev.companion_count + delta),
         };
       });
-      queryClient.invalidateQueries({ queryKey: ["events-v3"] });
     } catch (e) {
       setErrorBanner(e instanceof ApiClientError ? e.message : "Не удалось обновить поиск компании");
     } finally {
@@ -131,67 +130,50 @@ export default function EventDetailPage() {
   if (isLoading || !data) {
     return (
       <PageShell>
-        <Card className="overflow-hidden bg-[rgb(var(--surface-1-rgb)/0.95)]">
-          <CardContent className="p-4">
-            <div className="mb-3 h-56 animate-pulse rounded-2xl bg-[rgb(var(--surface-3-rgb)/0.64)]" />
-            <div className="h-5 w-2/3 animate-pulse rounded bg-[rgb(var(--surface-3-rgb)/0.64)]" />
-            <div className="mt-2 h-4 w-full animate-pulse rounded bg-[rgb(var(--surface-3-rgb)/0.58)]" />
-            <div className="mt-2 h-4 w-5/6 animate-pulse rounded bg-[rgb(var(--surface-3-rgb)/0.58)]" />
-          </CardContent>
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+          <CardContent className="p-6">Загружаем событие...</CardContent>
         </Card>
       </PageShell>
     );
   }
 
-  const event = data.event;
+  const { event } = data;
 
   return (
     <PageShell>
-      <article className="dual-edge relative overflow-hidden rounded-[26px] bg-[rgb(var(--surface-1-rgb)/0.96)]">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-12 top-2 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.12),transparent_65%)] blur-2xl" />
-          <div className="absolute -right-12 top-2 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.12),transparent_65%)] blur-2xl" />
-        </div>
-
-        <div className="relative overflow-hidden rounded-[25px]">
-          <div className="relative">
-            <Image
-              src={event.cover_url || "https://placehold.co/1280x800/eff3ff/6b74b6?text=EVENT"}
-              alt={event.title}
-              width={1280}
-              height={800}
-              className="h-60 w-full object-cover"
-              unoptimized
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.04),rgba(17,24,39,0.48))]" />
-
-            <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2.5 py-1 text-[11px] font-medium text-text">
-              {event.source_kind === "community" ? "Комьюнити" : "Афиша"}
-            </div>
-
-            <div className="absolute bottom-4 left-3 right-3">
-              <h1 className="text-2xl font-semibold leading-tight text-white">{event.title}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/90">
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/20 px-2 py-1">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  {formatDate(event.starts_at)}
+      <article className="space-y-4">
+        <div className="overflow-hidden rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
+          <div className="relative h-60 w-full overflow-hidden">
+            {event.cover_url ? (
+              <Image src={event.cover_url} alt={event.title} fill className="object-cover" unoptimized />
+            ) : (
+              <div className="h-full w-full bg-[linear-gradient(135deg,rgb(var(--sky-rgb)/0.35),rgb(var(--violet-rgb)/0.4))]" />
+            )}
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,6,14,0.05),rgba(4,6,14,0.75))]" />
+            <div className="absolute bottom-4 left-4 right-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-white/90">
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-1">
+                  <CalendarClock className="h-3.5 w-3.5" /> {formatDate(event.starts_at)}
                 </span>
                 {event.city ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/20 px-2 py-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {event.city}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-1">
+                    <MapPin className="h-3.5 w-3.5" /> {event.city}
                   </span>
                 ) : null}
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/20 px-2 py-1">
-                  {event.category || "Событие"}
-                </span>
+                {event.source_kind === "community" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/30 px-2 py-1">
+                    <Users2 className="h-3.5 w-3.5" /> {socialModeLabel(event.social_mode)}
+                  </span>
+                ) : null}
               </div>
+              <h1 className="mt-3 text-2xl font-semibold leading-tight text-white">{event.title}</h1>
+              {event.short_description ? <p className="mt-2 text-sm text-white/80">{event.short_description}</p> : null}
             </div>
           </div>
 
           <div className="space-y-4 p-4">
             {errorBanner ? (
-              <div className="rounded-xl border border-[rgb(var(--danger-rgb)/0.24)] bg-[rgb(var(--danger-rgb)/0.08)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
+              <div className="rounded-xl border border-[rgb(var(--danger-rgb)/0.2)] bg-[rgb(var(--danger-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
                 {errorBanner}
               </div>
             ) : null}
@@ -208,9 +190,6 @@ export default function EventDetailPage() {
 
             <section className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
               <p className="text-xs uppercase tracking-wide text-text3">О мероприятии</p>
-              {event.short_description ? (
-                <p className="mt-2 text-sm font-medium text-text">Кратко: {event.short_description}</p>
-              ) : null}
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-text2">
                 {event.full_description || event.short_description || "Описание скоро появится."}
               </p>
@@ -220,9 +199,7 @@ export default function EventDetailPage() {
               <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
                 <p className="text-xs uppercase tracking-wide text-text3">Где и когда</p>
                 <p className="mt-2 text-sm text-text">{formatDate(event.starts_at)}</p>
-                {event.ends_at ? (
-                  <p className="mt-1 text-xs text-text3">До {formatDate(event.ends_at)}</p>
-                ) : null}
+                {event.ends_at ? <p className="mt-1 text-xs text-text3">До {formatDate(event.ends_at)}</p> : null}
                 {event.venue_name || event.venue_address ? (
                   <p className="mt-1 text-sm text-text2">{event.venue_name || event.venue_address}</p>
                 ) : null}
@@ -280,7 +257,7 @@ export default function EventDetailPage() {
                   href={event.external_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-11 items-center justify-center gap-1 rounded-xl border border-[rgb(var(--gold-rgb)/0.42)] bg-[rgb(var(--gold-rgb)/0.22)] px-4 text-sm font-semibold text-[rgb(98,75,20)] transition hover:brightness-[1.02] active:scale-[0.98]"
+                  className="inline-flex h-11 items-center justify-center gap-1 rounded-xl border border-[rgb(var(--gold-rgb)/0.42)] bg-[rgb(var(--gold-rgb)/0.22)] px-4 text-sm font-semibold text-[rgb(244,216,140)] transition hover:brightness-[1.02] active:scale-[0.98]"
                 >
                   Купить билет
                   <ExternalLink className="h-4 w-4" />
