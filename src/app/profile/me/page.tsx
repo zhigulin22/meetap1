@@ -174,11 +174,11 @@ export default function MyProfilePage() {
                   <span
                     className="flex h-10 w-10 items-center justify-center rounded-2xl"
                     style={{
-                      background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.18)"),
-                      border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.35)")}`,
+                      background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.32)"),
+                      border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.5)")}`,
                     }}
                   >
-                    <span style={{ color: item.color }}><item.icon className="h-5 w-5" /></span>
+                    <span className="text-white"><item.icon className="h-5 w-5" /></span>
                   </span>
                   <span className="text-sm font-medium text-text">{item.label}</span>
                 </Link>
