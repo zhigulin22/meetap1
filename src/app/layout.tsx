@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import { Manrope, Rubik } from "next/font/google";
+import { Inter } from "next/font/google";
+import "../styles/theme.css";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const rubik = Rubik({
-  subsets: ["latin", "latin-ext", "cyrillic"],
+const inter = Inter({
+  subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-rubik",
-});
-
-const manrope = Manrope({
-  subsets: ["latin", "latin-ext", "cyrillic"],
-  weight: ["500", "600", "700", "800"],
-  variable: "--font-manrope",
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -27,11 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={`${rubik.variable} ${manrope.variable} font-sans`}>
+      <body className={`${inter.variable} font-sans`}>
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}",
+              "try{const t=localStorage.getItem('theme');const root=document.documentElement;root.classList.remove('light','dark');if(t==='light'){root.classList.add('light')}else{root.classList.add('dark')}}catch(e){}",
           }}
         />
         <Providers>{children}</Providers>

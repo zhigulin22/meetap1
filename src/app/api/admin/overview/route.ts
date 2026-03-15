@@ -103,7 +103,7 @@ export async function GET() {
     }
 
     const topButtons = [...eventCounter.entries()]
-      .sort((a, b) => b[1] - a[1])
+      .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 12)
       .map(([eventName, count]) => ({ eventName, count }));
 
@@ -119,7 +119,7 @@ export async function GET() {
         openFlags: openFlagsRes.count ?? 0,
         blockedUsers: blockedRes.count ?? 0,
       },
-      funnel: funnelKeys.map((key) => ({ key, count: funnelMap.get(key) ?? 0 })),
+      funnel: funnelKeys.map((key: any) => ({ key, count: funnelMap.get(key) ?? 0 })),
       series: [...seriesMap.values()],
       topButtons,
     });

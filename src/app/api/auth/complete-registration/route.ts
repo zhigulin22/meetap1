@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { cookies } from "next/headers";
 import { completeRegistrationSchema } from "@/lib/schemas";
 import { fail, ok } from "@/lib/http";
@@ -6,6 +7,10 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { buildTelegramCode } from "@/lib/telegram-code";
 import { detectDeviceLabel } from "@/lib/session";
 import { trackEvent } from "@/server/analytics";
+
+function phoneActorKey(phone: string) {
+  return createHash("sha256").update(phone).digest("hex").slice(0, 20);
+}
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? "local";
@@ -47,14 +52,23 @@ export async function POST(req: Request) {
   }
 
   const resolvedPhone = verification.verified_phone ?? verification.phone;
+  const actorKey = phoneActorKey(resolvedPhone);
 
   const { data: existingRaw } = await supabaseAdmin
     .from("users")
-    .select("id, name")
+    .select("id,name,is_blocked,blocked_until,deleted_at")
     .eq("phone", resolvedPhone)
     .maybeSingle();
 
-  const existing = existingRaw as { id: string; name: string } | null;
+  const existing = existingRaw as { id: string; name: string; is_blocked?: boolean; blocked_until?: string | null; deleted_at?: string | null } | null;
+
+  if (existing?.id) {
+    const blockedUntil = existing.blocked_until ? new Date(existing.blocked_until).getTime() : null;
+    const blocked = Boolean(existing.is_blocked) && (!blockedUntil || blockedUntil > Date.now());
+    if (blocked || existing.deleted_at) {
+      return fail("Аккаунт ограничен", 403);
+    }
+  }
   let userId = existing?.id;
 
   if (!userId) {
@@ -122,7 +136,12 @@ export async function POST(req: Request) {
     cookieStore.set("meetap_session_id", session.id, base);
   }
 
-  await trackEvent({ eventName: "registration_completed", userId, path: "/register", properties: { mode: existing ? "login" : "register" } });
+  await trackEvent({
+    eventName: "auth.registration_completed",
+    userId,
+    path: "/register",
+    properties: { mode: existing ? "login" : "register", actor_key: actorKey },
+  });
 
   return ok({ userId, mode: existing ? "login" : "register" });
 }
