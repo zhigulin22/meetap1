@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, MapPin, RefreshCcw, Search, Users2 } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCcw, Search, SlidersHorizontal, Users2 } from "lucide-react";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { EventPosterCard } from "@/components/events/event-poster-card";
 import { EventSocialCard } from "@/components/events/event-social-card";
 import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ApiClientError, api } from "@/lib/api-client";
 
@@ -41,6 +42,7 @@ export default function EventsHub() {
   const [companionId, setCompanionId] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [errorBanner, setErrorBanner] = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [feed, setFeed] = useState("all");
   const [category, setCategory] = useState("popular");
@@ -49,6 +51,15 @@ export default function EventsHub() {
   const [search, setSearch] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
   const [lookingOnly, setLookingOnly] = useState(false);
+  const [draftFilters, setDraftFilters] = useState({
+    feed: "all",
+    category: "popular",
+    dateFilter: "all",
+    city: "",
+    search: "",
+    freeOnly: false,
+    lookingOnly: false,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -213,6 +224,42 @@ export default function EventsHub() {
     setLookingOnly(false);
   }
 
+  function resetDraftFilters() {
+    setDraftFilters({
+      feed: "all",
+      category: "popular",
+      dateFilter: "all",
+      city: "",
+      search: "",
+      freeOnly: false,
+      lookingOnly: false,
+    });
+  }
+
+  function applyDraftFilters() {
+    setFeed(draftFilters.feed);
+    setCategory(draftFilters.category);
+    setDateFilter(draftFilters.dateFilter);
+    setCity(draftFilters.city);
+    setSearch(draftFilters.search);
+    setFreeOnly(draftFilters.freeOnly);
+    setLookingOnly(draftFilters.lookingOnly);
+    setFiltersOpen(false);
+  }
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    setDraftFilters({
+      feed,
+      category,
+      dateFilter,
+      city,
+      search,
+      freeOnly,
+      lookingOnly,
+    });
+  }, [filtersOpen, feed, category, dateFilter, city, search, freeOnly, lookingOnly]);
+
   const activeFilters = useMemo(() => {
     const chips = [];
     if (feed !== "all") {
@@ -272,100 +319,19 @@ export default function EventsHub() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] p-3">
-            <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
-              <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
-                <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="название, место..."
-                  className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-                />
-              </label>
-
-              <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
-                <MapPin className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
-                <Input
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Город"
-                  className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-                />
-              </label>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {dateTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setDateFilter(tab.key)}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition active:scale-[0.98] ${
-                      dateFilter === tab.key
-                        ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
-                        : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
-                    }`}
-                  >
-                    <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] p-3">
+            <div>
+              <p className="text-xs text-text3">Фильтры</p>
+              <p className="text-xs text-text2">Категория, город, дата, стоимость</p>
             </div>
-
-            <div className="mt-3">
-              <p className="text-xs text-text3">Категории</p>
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                {categoryTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setCategory(tab.key)}
-                    className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
-                      category === tab.key
-                        ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.18)]"
-                        : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setFreeOnly((prev) => !prev)}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
-                  freeOnly
-                    ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
-                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
-                }`}
-              >
-                Бесплатно
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setLookingOnly((prev) => !prev)}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
-                  lookingOnly
-                    ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white"
-                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text2"
-                }`}
-              >
-                <Users2 className="h-3.5 w-3.5" /> Ищу компанию
-              </button>
-
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 font-semibold text-text2 transition active:scale-[0.98]"
-              >
-                <RefreshCcw className="h-3.5 w-3.5" /> Сбросить
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-2 text-xs font-semibold text-text transition active:scale-[0.98]"
+            >
+              <SlidersHorizontal className="h-4 w-4 text-[rgb(var(--violet-rgb))]" />
+              Фильтры{activeFilters.length ? ` · ${activeFilters.length}` : ""}
+            </button>
           </div>
         </div>
       </div>
@@ -458,6 +424,131 @@ export default function EventsHub() {
           {eventsQuery.isFetchingNextPage ? "Загружаем..." : "Показать ещё"}
         </Button>
       )}
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen} mobileFullscreen>
+        <DialogHeader className="sticky top-0 z-10 flex items-center justify-between border-b border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-3">
+          <DialogTitle>Фильтры событий</DialogTitle>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(false)}
+            className="rounded-full border border-[color:var(--border-soft)] px-3 py-1 text-xs text-text2"
+          >
+            Закрыть
+          </button>
+        </DialogHeader>
+
+        <div className="space-y-5 px-4 pb-6 pt-2">
+          <div>
+            <p className="text-xs text-text3">Поиск</p>
+            <label className="mt-2 flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-3 py-2 text-sm text-text2">
+              <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
+              <Input
+                value={draftFilters.search}
+                onChange={(e) => setDraftFilters((prev) => ({ ...prev, search: e.target.value }))}
+                placeholder="название, место..."
+                className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+              />
+            </label>
+          </div>
+
+          <div>
+            <p className="text-xs text-text3">Город</p>
+            <label className="mt-2 flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-3 py-2 text-sm text-text2">
+              <MapPin className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
+              <Input
+                value={draftFilters.city}
+                onChange={(e) => setDraftFilters((prev) => ({ ...prev, city: e.target.value }))}
+                placeholder="Город"
+                className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+              />
+            </label>
+          </div>
+
+          <div>
+            <p className="text-xs text-text3">Дата</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {dateTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setDraftFilters((prev) => ({ ...prev, dateFilter: tab.key }))}
+                  className={`rounded-full px-3 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+                    draftFilters.dateFilter === tab.key
+                      ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
+                      : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text2"
+                  }`}
+                >
+                  <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-text3">Категории</p>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {categoryTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setDraftFilters((prev) => ({ ...prev, category: tab.key }))}
+                  className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${
+                    draftFilters.category === tab.key
+                      ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.18)]"
+                      : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text2"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setDraftFilters((prev) => ({ ...prev, freeOnly: !prev.freeOnly }))}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
+                draftFilters.freeOnly
+                  ? "border border-[rgb(var(--sky-rgb)/0.5)] bg-[rgb(var(--sky-rgb)/0.2)] text-white"
+                  : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text2"
+              }`}
+            >
+              Бесплатно
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDraftFilters((prev) => ({ ...prev, lookingOnly: !prev.lookingOnly }))}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-2 font-semibold transition active:scale-[0.98] ${
+                draftFilters.lookingOnly
+                  ? "border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] text-white"
+                  : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text2"
+              }`}
+            >
+              <Users2 className="h-3.5 w-3.5" /> Ищу компанию
+            </button>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-3">
+          <button
+            type="button"
+            onClick={resetDraftFilters}
+            className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-4 py-2 text-xs font-semibold text-text2"
+          >
+            <RefreshCcw className="h-4 w-4" /> Сбросить
+          </button>
+          <button
+            type="button"
+            onClick={applyDraftFilters}
+            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] px-5 py-2 text-xs font-semibold text-white shadow-[0_10px_24px_rgb(var(--violet-rgb)/0.2)]"
+          >
+            Применить
+          </button>
+        </div>
+      </Dialog>
     </PageShell>
   );
 }
