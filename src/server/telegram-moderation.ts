@@ -1,4 +1,4 @@
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv, isPlaceholderEnvValue } from "@/lib/env";
 
 type SubmissionPreview = {
   id: string;
@@ -52,10 +52,15 @@ export async function sendEventSubmissionToTelegramModerationBot(input: Submissi
     };
   }
 
-  const chatId = env.TELEGRAM_MODERATION_CHAT_ID;
-  if (!chatId) {
+  if (isPlaceholderEnvValue(env.TELEGRAM_BOT_TOKEN)) {
+    return { ok: false as const, reason: "TELEGRAM_BOT_TOKEN is missing" };
+  }
+
+  if (isPlaceholderEnvValue(env.TELEGRAM_MODERATION_CHAT_ID)) {
     return { ok: false as const, reason: "TELEGRAM_MODERATION_CHAT_ID is missing" };
   }
+
+  const chatId = env.TELEGRAM_MODERATION_CHAT_ID;
 
   const lines = [
     `🧭 <b>Новая заявка события (комьюнити)</b>`,
@@ -89,20 +94,25 @@ export async function sendEventSubmissionToTelegramModerationBot(input: Submissi
     ],
   };
 
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: lines.join("\n"),
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-      reply_markup: inlineKeyboard,
-    }),
-  }).catch(() => null);
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: lines.join("\n"),
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+        reply_markup: inlineKeyboard,
+      }),
+    });
 
-  if (!res || !res.ok) {
-    return { ok: false as const, reason: "Telegram sendMessage failed" };
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      return { ok: false as const, reason: payload?.description || "Telegram sendMessage failed" };
+    }
+  } catch (error) {
+    return { ok: false as const, reason: error instanceof Error ? error.message : "Telegram request failed" };
   }
 
   return { ok: true as const };

@@ -295,9 +295,12 @@ function CreateEventPageInner() {
       });
 
       if (submissionRes.bot && !submissionRes.bot.ok) {
-        toast.warning("Заявка сохранена, но Telegram не ответил", {
+        setError("Не удалось отправить заявку в Telegram. Проверь настройки бота и попробуй снова.");
+        setValidationErrors([]);
+        toast.error("Telegram недоступен", {
           description: submissionRes.bot.reason ?? "Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_MODERATION_CHAT_ID",
         });
+        return;
       }
 
       setSuccessId(submissionRes.submission_id ?? eventId);
