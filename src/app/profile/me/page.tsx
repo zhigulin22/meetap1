@@ -32,10 +32,10 @@ const quickSettings: QuickSetting[] = [
   { label: "Профиль", href: "/settings/profile", icon: User, color: "rgb(var(--violet-rgb))" },
   { label: "Приватность", href: "/settings/privacy", icon: Lock, color: "rgb(var(--violet-rgb))" },
   { label: "Сессии", href: "/settings/devices", icon: Smartphone, color: "rgb(var(--sky-rgb))" },
-  { label: "Уведомления", href: "/settings/notifications", icon: Bell, color: "rgb(var(--gold-rgb))" },
-  { label: "Знакомства", href: "/settings/dating", icon: HeartHandshake, color: "rgb(var(--teal-rgb))" },
+  { label: "Уведомления", href: "/settings/notifications", icon: Bell, color: "rgb(var(--sky-rgb))" },
+  { label: "Знакомства", href: "/settings/dating", icon: HeartHandshake, color: "rgb(var(--violet-rgb))" },
   { label: "Психотест", href: "/settings/psychotest", icon: Brain, color: "rgb(var(--violet-rgb))" },
-  { label: "Достижения", href: "/settings/achievements", icon: Trophy, color: "rgb(var(--gold-rgb))" },
+  { label: "Достижения", href: "/settings/achievements", icon: Trophy, color: "rgb(var(--sky-rgb))" },
 ];
 
 function humanGoal(profile: any) {
@@ -70,13 +70,14 @@ export default function MyProfilePage() {
   return (
     <PageShell>
       <div className="mx-auto max-w-3xl space-y-4">
-        <Card className="overflow-hidden border-[color:var(--border-strong)] bg-[rgb(var(--surface-2-rgb)/0.98)] shadow-card">
+        <Card className="relative overflow-hidden border-[color:var(--border-strong)] bg-[linear-gradient(140deg,rgba(20,24,42,0.98),rgba(12,14,24,0.98))] shadow-card">
+          <div className="pointer-events-none absolute -top-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.28),transparent_70%)] blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 right-6 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.24),transparent_72%)] blur-3xl" />
           <CardContent className="relative p-6">
-            <div className="pointer-events-none absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.32),transparent_70%)] blur-3xl" />
             <div className="flex flex-col gap-6 md:flex-row md:items-center">
               <div className="flex flex-col items-center gap-3 text-center md:items-start md:text-left">
                 <div className="relative">
-                  <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.36),transparent_68%)] blur-2xl" />
+                  <div className="absolute -inset-5 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.34),transparent_68%)] blur-2xl" />
                   <div className="rounded-full p-[4px]" style={{ background: "var(--grad-primary)" }}>
                     <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
                       <Image
@@ -93,10 +94,10 @@ export default function MyProfilePage() {
 
                 <div>
                   <h1 className="text-2xl font-semibold text-text">{profile?.name || "Профиль"}</h1>
-                  {profile?.username ? <p className="text-sm text-text2">@{profile.username}</p> : null}
-                  <div className="mt-1 flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                  {profile?.work ? <p className="mt-1 text-sm text-text2">{profile.work}</p> : null}
+                  {profile?.username ? <p className="text-xs text-text3">@{profile.username}</p> : null}
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
                     {profile?.city ? <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] px-2 py-0.5 text-xs text-text2">{profile.city}</span> : null}
-                    {profile?.work ? <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] px-2 py-0.5 text-xs text-text2">{profile.work}</span> : null}
                     {profile?.telegram_verified ? (
                       <span className="rounded-full border border-[rgb(var(--success-rgb)/0.4)] bg-[rgb(var(--success-rgb)/0.18)] px-2 py-0.5 text-xs text-[rgb(var(--text-rgb))]">Верифицирован</span>
                     ) : (
@@ -121,15 +122,15 @@ export default function MyProfilePage() {
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-3-rgb)/0.75)] p-2 text-center">
                 <p className="text-sm font-semibold text-text">{stats.posts}</p>
                 <p className="text-[11px] text-text3">посты</p>
               </div>
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-3-rgb)/0.75)] p-2 text-center">
                 <p className="text-sm font-semibold text-text">{stats.events}</p>
                 <p className="text-[11px] text-text3">события</p>
               </div>
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-3-rgb)/0.75)] p-2 text-center">
                 <p className="text-sm font-semibold text-text">{stats.connects}</p>
                 <p className="text-[11px] text-text3">коннекты</p>
               </div>
