@@ -290,9 +290,15 @@ function CreateEventPageInner() {
       const eventId = draftId ?? (await createOrUpdateDraftForSubmit());
       if (!eventId) return;
 
-      const submissionRes = await api<{ submission_id: string }>(`/api/events/${eventId}/submit`, {
+      const submissionRes = await api<{ submission_id: string; bot?: { ok: boolean; reason?: string } }>(`/api/events/${eventId}/submit`, {
         method: "POST",
       });
+
+      if (submissionRes.bot && !submissionRes.bot.ok) {
+        toast.warning("Заявка сохранена, но Telegram не ответил", {
+          description: submissionRes.bot.reason ?? "Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_MODERATION_CHAT_ID",
+        });
+      }
 
       setSuccessId(submissionRes.submission_id ?? eventId);
       localStorage.removeItem(DRAFT_KEY);

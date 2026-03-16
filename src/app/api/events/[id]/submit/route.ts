@@ -100,10 +100,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       });
 
       if (!sendRes.ok) {
-        return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "TELEGRAM", hint: sendRes.reason ?? "unknown" });
+        return ok({ ok: true, submission_id: existing.data.id, already_exists: true, bot: { ok: false, reason: sendRes.reason ?? 'unknown' } });
       }
 
-      return ok({ ok: true, submission_id: existing.data.id, already_exists: true });
+      return ok({ ok: true, submission_id: existing.data.id, already_exists: true, bot: { ok: true } });
     }
 
     const payload = pickExistingColumns(
@@ -164,10 +164,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     });
 
     if (!sendRes.ok) {
-      return fail("Не удалось отправить в Telegram. Попробуй ещё раз", 502, { code: "TELEGRAM", hint: sendRes.reason ?? "unknown" });
+      return ok({ ok: true, submission_id: ins.data.id, bot: { ok: false, reason: sendRes.reason ?? 'unknown' } });
     }
 
-    return ok({ ok: true, submission_id: ins.data.id });
+    return ok({ ok: true, submission_id: ins.data.id, bot: { ok: true } });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Не удалось отправить", 500);
   }

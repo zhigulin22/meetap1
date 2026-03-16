@@ -52,11 +52,11 @@ function SettingsRow({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-4 py-3 text-sm text-text transition hover:bg-[rgb(var(--surface-3-rgb)/0.8)]"
+      className="flex items-center justify-between rounded-2xl shadow-soft border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)] px-4 py-3 text-sm text-text transition hover:bg-[rgb(var(--surface-3-rgb)/0.8)]"
     >
       <span className="flex min-w-0 items-center gap-3">
         <span
-          className="flex h-11 w-11 items-center justify-center rounded-2xl"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-soft"
           style={{
             background: color.replace("rgb(", "rgba(").replace(")", ", 0.32)"),
             border: `1px solid ${color.replace("rgb(", "rgba(").replace(")", ", 0.5)")}`,
@@ -86,7 +86,7 @@ export default function SettingsPage() {
 
       <div className="space-y-4">
         {sections.map((section) => (
-          <div key={section.title} className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] p-3">
+          <div key={section.title} className="rounded-2xl shadow-soft border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.82)] p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-text3">{section.title}</p>
             <div className="space-y-2">
               {section.items.map((item) => (

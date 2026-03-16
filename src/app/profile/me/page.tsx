@@ -70,13 +70,13 @@ export default function MyProfilePage() {
   return (
     <PageShell>
       <div className="mx-auto max-w-3xl space-y-4">
-        <Card className="overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] shadow-card">
+        <Card className="overflow-hidden border-[color:var(--border-strong)] bg-[rgb(var(--surface-2-rgb)/0.98)] shadow-card">
           <CardContent className="relative p-6">
-            <div className="pointer-events-none absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.26),transparent_72%)] blur-3xl" />
+            <div className="pointer-events-none absolute -top-28 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.32),transparent_70%)] blur-3xl" />
             <div className="flex flex-col gap-6 md:flex-row md:items-center">
               <div className="flex flex-col items-center gap-3 text-center md:items-start md:text-left">
                 <div className="relative">
-                  <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.26),transparent_70%)] blur-2xl" />
+                  <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.36),transparent_68%)] blur-2xl" />
                   <div className="rounded-full p-[4px]" style={{ background: "var(--grad-primary)" }}>
                     <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
                       <Image
@@ -113,7 +113,7 @@ export default function MyProfilePage() {
                     <Settings className="mr-1 h-4 w-4" /> Настройки
                   </Button>
                 </div>
-                <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+                <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3">
                   <p className="text-xs text-text2">Цель знакомства</p>
                   <p className="text-sm text-text mt-1">{goal || "Добавь цель знакомства — это улучшит рекомендации"}</p>
                 </div>
@@ -121,15 +121,15 @@ export default function MyProfilePage() {
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-2 text-center">
                 <p className="text-sm font-semibold text-text">{stats.posts}</p>
                 <p className="text-[11px] text-text3">посты</p>
               </div>
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-2 text-center">
                 <p className="text-sm font-semibold text-text">{stats.events}</p>
                 <p className="text-[11px] text-text3">события</p>
               </div>
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-2 text-center">
                 <p className="text-sm font-semibold text-text">{stats.connects}</p>
                 <p className="text-[11px] text-text3">коннекты</p>
               </div>
@@ -169,10 +169,10 @@ export default function MyProfilePage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-3 py-2 text-sm text-text transition hover:bg-[rgb(var(--surface-2-rgb))]"
+                  className="flex items-center gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] px-3 py-2 text-sm text-text transition hover:bg-[rgb(var(--surface-2-rgb))]"
                 >
                   <span
-                    className="flex h-10 w-10 items-center justify-center rounded-2xl"
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl shadow-soft"
                     style={{
                       background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.22)"),
                       border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.55)")}`,
@@ -187,7 +187,7 @@ export default function MyProfilePage() {
           </CardContent>
         </Card>
 
-        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-2">
+        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.98)] p-2">
           <div className="grid grid-cols-3 gap-2">
             {tabs.map((tab) => (
               <button
