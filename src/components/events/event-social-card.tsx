@@ -3,15 +3,24 @@ import Link from "next/link";
 import { CalendarClock, MapPin, MessageCircleHeart, Users } from "lucide-react";
 import type { EventListItem } from "@/components/events/types";
 
-function formatDate(dateISO: string) {
-  const date = new Date(dateISO);
-  if (!Number.isFinite(date.getTime())) return "Дата не указана";
-  return new Intl.DateTimeFormat("ru-RU", {
+function formatDateTimeRange(startsAt: string, endsAt?: string | null) {
+  const start = new Date(startsAt);
+  if (!Number.isFinite(start.getTime())) return "Дата не указана";
+  const startText = new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  }).format(start);
+
+  if (!endsAt) return startText;
+  const end = new Date(endsAt);
+  if (!Number.isFinite(end.getTime())) return startText;
+  const endText = new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(end);
+  return `${startText} – ${endText}`;
 }
 
 function socialLabel(mode: string) {
@@ -24,6 +33,18 @@ function socialModeMeta(mode: string) {
   if (mode === "looking_company") return "Ищу компанию";
   if (mode === "collect_group") return "Собираю группу";
   return "Организую";
+}
+
+function priceText(event: EventListItem) {
+  if (!event.is_paid || event.price <= 0) return "Бесплатно";
+  return event.price_note?.trim() || `${event.price} ₽`;
+}
+
+function venueText(event: EventListItem) {
+  if (event.venue_name && event.venue_address) return `${event.venue_name}, ${event.venue_address}`;
+  if (event.venue_name) return event.venue_name;
+  if (event.venue_address) return event.venue_address;
+  return "Место уточняется";
 }
 
 export function EventSocialCard({
@@ -58,7 +79,7 @@ export function EventSocialCard({
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text2">
           <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
             <CalendarClock className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
-            {formatDate(event.starts_at)}
+            {formatDateTimeRange(event.starts_at, event.ends_at)}
           </span>
           {event.city ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
@@ -69,9 +90,13 @@ export function EventSocialCard({
           <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
             {socialModeMeta(event.social_mode)}
           </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
+            {priceText(event)}
+          </span>
         </div>
 
-        <p className="line-clamp-3 text-sm text-text2">{event.short_description || event.full_description || "Описание скоро появится."}</p>
+        <p className="text-xs text-text3">{venueText(event)}</p>
+        <p className="mt-2 line-clamp-3 text-sm text-text2">{event.short_description || event.full_description || "Описание скоро появится."}</p>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.08)] p-2">
@@ -137,10 +162,10 @@ export function EventSocialCard({
           </button>
         </div>
 
-        {event.organizer_telegram ? (
+        {event.organizer_telegram || event.organizer_name ? (
           <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2.5 py-1 text-[11px] text-text2">
             <Users className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
-            Организатор: {event.organizer_telegram}
+            Организатор: {event.organizer_name || event.organizer_telegram}
           </div>
         ) : null}
       </div>

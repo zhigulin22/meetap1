@@ -3,20 +3,36 @@ import Link from "next/link";
 import { CalendarDays, ExternalLink, MapPin, Ticket } from "lucide-react";
 import type { EventListItem } from "@/components/events/types";
 
-function formatDate(dateISO: string) {
-  const date = new Date(dateISO);
-  if (!Number.isFinite(date.getTime())) return "Дата не указана";
-  return new Intl.DateTimeFormat("ru-RU", {
+function formatDateTimeRange(startsAt: string, endsAt?: string | null) {
+  const start = new Date(startsAt);
+  if (!Number.isFinite(start.getTime())) return "Дата не указана";
+  const startText = new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  }).format(start);
+
+  if (!endsAt) return startText;
+  const end = new Date(endsAt);
+  if (!Number.isFinite(end.getTime())) return startText;
+  const endText = new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(end);
+  return `${startText} – ${endText}`;
 }
 
 function getPriceText(event: EventListItem) {
   if (!event.is_paid || event.price <= 0) return "Бесплатно";
   return event.price_note?.trim() || `${event.price} ₽`;
+}
+
+function venueText(event: EventListItem) {
+  if (event.venue_name && event.venue_address) return `${event.venue_name}, ${event.venue_address}`;
+  if (event.venue_name) return event.venue_name;
+  if (event.venue_address) return event.venue_address;
+  return "Место уточняется";
 }
 
 export function EventPosterCard({
@@ -47,7 +63,7 @@ export function EventPosterCard({
 
         <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--text-rgb))]">
           <CalendarDays className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
-          {formatDate(event.starts_at)}
+          {formatDateTimeRange(event.starts_at, event.ends_at)}
         </div>
 
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
@@ -70,6 +86,9 @@ export function EventPosterCard({
               {event.city}
             </span>
           ) : null}
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2 py-1">
+            {venueText(event)}
+          </span>
           {event.external_source ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2 py-1">
               <Ticket className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" />
