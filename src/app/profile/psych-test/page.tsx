@@ -45,7 +45,7 @@ const OPTIONS = [
   { value: 5, label: "Очень похоже" },
 ];
 
-const PER_STEP = 3;
+const PER_STEP = 2;
 
 function chunk<T>(arr: T[], size: number) {
   const out: T[][] = [];
@@ -85,8 +85,8 @@ export default function PsychTestPage() {
   const currentChunk = chunks[step] ?? null;
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
   const ready = answeredCount >= QUESTIONS.length;
-
   const canGoNext = currentChunk ? currentChunk.every((q) => Boolean(answers[q.id])) : true;
+  const stepLabel = `Шаг ${Math.min(step + 1, totalSteps)} из ${totalSteps}`;
 
   async function submit() {
     if (!ready) {
@@ -177,17 +177,20 @@ export default function PsychTestPage() {
     <PageShell>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
         <Card className="overflow-hidden border-borderStrong">
-          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--mint-rgb) / 0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--blue-rgb) / 0.5),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
+          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--violet-rgb)/0.32),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--sky-rgb)/0.45),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
           <CardContent className="-mt-8 space-y-2 p-4">
             <div className="flex items-center gap-2">
               <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] p-2"><Brain className="h-5 w-5" /></div>
               <h1 className="text-xl font-semibold">Психологический профиль</h1>
             </div>
-            <p className="text-sm text-muted">По 2–3 вопроса за шаг, без перегруза.</p>
+            <p className="text-sm text-muted">По 2 вопроса за шаг, без перегруза.</p>
             <div className="mt-2 h-2 w-full rounded-full bg-[rgb(var(--surface-3-rgb)/0.6)]">
               <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))]" style={{ width: `${progress}%` }} />
             </div>
-            <p className="text-xs text-muted">Заполнено: {answeredCount}/{QUESTIONS.length}</p>
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>{stepLabel}</span>
+              <span>Заполнено: {answeredCount}/{QUESTIONS.length}</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -252,7 +255,7 @@ export default function PsychTestPage() {
         )}
 
         <div className="grid grid-cols-2 gap-2 pb-2">
-          {step == 0 ? (
+          {step === 0 ? (
             <Link href="/profile/me/psych-test" className="block">
               <Button variant="secondary" className="w-full">Назад</Button>
             </Link>
