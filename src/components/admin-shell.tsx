@@ -8,7 +8,6 @@ import {
   Bot,
   ChartColumnIncreasing,
   Activity,
-  Database,
   Flag,
   Gauge,
   HardDriveDownload,
@@ -19,14 +18,15 @@ import {
   SlidersHorizontal,
   Sparkles,
   Users,
-  Wrench,
-  LifeBuoy,
-  ScrollText,
-  Settings2,
   Workflow,
   FileBarChart2,
   UserCog,
   Megaphone,
+  LifeBuoy,
+  ScrollText,
+  Settings2,
+  Wrench,
+  Database,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,6 @@ export type AdminSection =
 
 export type AdminSegment = "all" | "demo" | "real" | "verified" | "new" | "active";
 
-
 function isSectionAllowed(role: string | null, section: AdminSection) {
   if (!role) return true;
   if (["guide"].includes(section)) return true;
@@ -92,104 +91,148 @@ function isSectionAllowed(role: string | null, section: AdminSection) {
   return true;
 }
 
-const items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { id: "overview", title: "Обзор", icon: Gauge },
-  { id: "guide", title: "Как пользоваться", icon: LifeBuoy },
-  { id: "operations", title: "Operations Center", icon: Workflow },
-  { id: "metrics_lab", title: "Метрики (Lab)", icon: ChartColumnIncreasing },
-  { id: "funnels", title: "Воронки", icon: ChartColumnIncreasing },
-  { id: "retention", title: "Когорты", icon: Sparkles },
-  { id: "events_live", title: "События (Live)", icon: Activity },
-  { id: "users", title: "Users 360", icon: Users },
-  { id: "support", title: "Support Desk", icon: LifeBuoy },
-  { id: "reports", title: "Жалобы", icon: Flag },
-  { id: "risk", title: "Risk Center", icon: ShieldAlert },
-  { id: "moderation", title: "Модерация", icon: Shield },
-  { id: "audit", title: "Admin Audit Log", icon: ScrollText },
-  { id: "config", title: "Config Center", icon: Settings2 },
-  { id: "flags", title: "Feature Flags", icon: SlidersHorizontal },
-  { id: "experiments", title: "Эксперименты", icon: Beaker },
-  { id: "alerts", title: "Алерты", icon: BellRing },
-  { id: "data_quality", title: "Data Quality", icon: FileBarChart2 },
-  { id: "exports", title: "Exports & Snapshots", icon: HardDriveDownload },
-  { id: "rbac", title: "RBAC & Admins", icon: UserCog },
-  { id: "traffic", title: "Traffic Generator", icon: Bot },
-  { id: "assistant", title: "AI Ассистент", icon: Bot },
-  { id: "system", title: "System Settings", icon: Wrench },
-  { id: "integrations", title: "Интеграции", icon: Plug },
-  { id: "security", title: "Безопасность", icon: Database },
-  { id: "backup", title: "Backup", icon: HardDriveDownload },
-  { id: "campaigns", title: "Campaigns", icon: Megaphone },
+const NAV_GROUPS: Array<{
+  title: string;
+  items: Array<{ id: AdminSection; title: string; icon: React.ComponentType<{ className?: string }> }>;
+}> = [
+  {
+    title: "Monitoring",
+    items: [
+      { id: "overview", title: "Overview", icon: Gauge },
+      { id: "operations", title: "Operations", icon: Workflow },
+      { id: "metrics_lab", title: "Metrics Lab", icon: ChartColumnIncreasing },
+      { id: "funnels", title: "Funnels", icon: ChartColumnIncreasing },
+      { id: "retention", title: "Cohorts", icon: Sparkles },
+      { id: "events_live", title: "Events Live", icon: Activity },
+      { id: "traffic", title: "Traffic", icon: Activity },
+      { id: "alerts", title: "Alerts", icon: BellRing },
+    ],
+  },
+  {
+    title: "Users & Trust",
+    items: [
+      { id: "users", title: "Users 360", icon: Users },
+      { id: "reports", title: "Reports", icon: Flag },
+      { id: "risk", title: "Risk Center", icon: ShieldAlert },
+      { id: "moderation", title: "Moderation", icon: Shield },
+      { id: "support", title: "Support Desk", icon: LifeBuoy },
+    ],
+  },
+  {
+    title: "Content & Events",
+    items: [
+      { id: "events_live", title: "Events Moderation", icon: Activity },
+    ],
+  },
+  {
+    title: "Product Ops",
+    items: [
+      { id: "flags", title: "Feature Flags", icon: SlidersHorizontal },
+      { id: "experiments", title: "Experiments", icon: Beaker },
+      { id: "config", title: "Config Center", icon: Settings2 },
+      { id: "assistant", title: "AI Assistant", icon: Bot },
+      { id: "integrations", title: "Integrations", icon: Plug },
+      { id: "campaigns", title: "Campaigns", icon: Megaphone },
+    ],
+  },
+  {
+    title: "Governance & Security",
+    items: [
+      { id: "audit", title: "Admin Audit", icon: ScrollText },
+      { id: "rbac", title: "RBAC & Admins", icon: UserCog },
+      { id: "data_quality", title: "Data Quality", icon: FileBarChart2 },
+      { id: "exports", title: "Exports & Snapshots", icon: HardDriveDownload },
+      { id: "security", title: "Security", icon: ShieldAlert },
+      { id: "backup", title: "Backups", icon: Database },
+    ],
+  },
+  {
+    title: "Guide",
+    items: [{ id: "guide", title: "Как пользоваться", icon: LifeBuoy }],
+  },
 ];
 
 export function AdminShell({
-  children,
   section,
   onSectionChange,
+  onSearch,
+  children,
   dateRange,
   onDateRangeChange,
   segment,
   onSegmentChange,
   onAskAI,
-  search,
-  onSearch,
   helpMode,
   onHelpModeChange,
   role,
 }: {
-  children: React.ReactNode;
   section: AdminSection;
-  onSectionChange: (v: AdminSection) => void;
+  onSectionChange: (s: AdminSection) => void;
+  onSearch: (q: string) => void;
+  children: React.ReactNode;
   dateRange: "7d" | "14d" | "30d" | "90d";
-  onDateRangeChange: (v: "7d" | "14d" | "30d" | "90d") => void;
+  onDateRangeChange: (d: "7d" | "14d" | "30d" | "90d") => void;
   segment: AdminSegment;
-  onSegmentChange: (v: AdminSegment) => void;
+  onSegmentChange: (s: AdminSegment) => void;
   onAskAI: () => void;
-  search: string;
-  onSearch: (v: string) => void;
   helpMode: boolean;
-  onHelpModeChange: (v: boolean) => void;
-  role?: string | null;
+  onHelpModeChange: (next: boolean) => void;
+  role: string | null;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const SideNav = (
-    <div className="flex h-full flex-col gap-2">
-      <div className="mb-3 rounded-2xl border border-border bg-surface2/90 p-3">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Control Center</p>
-        <p className="font-display text-lg font-semibold text-text">Meetap Admin</p>
-        <p className="text-xs text-muted">numbers-first · ops · safety</p>
+    <div className="flex h-full flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgb(var(--violet-rgb)/0.2)] text-[rgb(var(--violet-rgb))]">
+          <Wrench className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">MeetAp Admin</p>
+          <p className="text-xs text-text3">Control Center</p>
+        </div>
       </div>
 
-      {items.filter((item) => isSectionAllowed(role ?? null, item.id)).map((item) => {
-        const Icon = item.icon;
-        const active = section === item.id;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => {
-              onSectionChange(item.id);
-              setOpen(false);
-            }}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition active:scale-[0.98]",
-              active
-                ? "bg-[linear-gradient(135deg,rgb(var(--blue-rgb)/0.18),rgb(var(--mint-rgb)/0.14))] text-text shadow-glow"
-                : "border-border bg-surface2/75 text-text2 hover:text-text",
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            {item.title}
-          </button>
-        );
-      })}
+      <div className="space-y-4">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.title} className="rounded-2xl border border-border bg-surface2/70 p-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text3">{group.title}</p>
+            <div className="space-y-2">
+              {group.items
+                .filter((item) => isSectionAllowed(role, item.id))
+                .map((item) => {
+                  const Icon = item.icon;
+                  const active = section === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onSectionChange(item.id);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-medium transition active:scale-[0.98]",
+                        active
+                          ? "bg-[linear-gradient(135deg,rgb(var(--blue-rgb)/0.18),rgb(var(--mint-rgb)/0.14))] text-text shadow-glow"
+                          : "border-border bg-surface2/75 text-text2 hover:text-text",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.title}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div className="mt-auto rounded-2xl border border-border bg-surface2/75 p-3 text-xs text-text2">
         <p>Project: {pathname}</p>
         <p className="mt-1 inline-flex items-center gap-1 text-amber">
-          <Flag className="h-3 w-3" /> Reactive moderation ON
+          <ShieldAlert className="h-3 w-3" /> Moderation guard ON
         </p>
       </div>
 
@@ -214,7 +257,7 @@ export function AdminShell({
                 <p className="font-display text-lg font-semibold">Admin Command</p>
               </div>
 
-              <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Поиск: user, event, report, message..." />
+              <Input value={""} onChange={(e) => onSearch(e.target.value)} placeholder="Поиск: user, event, report, message..." />
 
               <select
                 value={dateRange}
