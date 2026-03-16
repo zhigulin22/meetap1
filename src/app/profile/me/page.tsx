@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, HeartHandshake, Settings, Shield, Smartphone, Sparkles, Trophy, UserCircle, type LucideIcon } from "lucide-react";
+import { Bell, HeartHandshake, Settings, Lock, Smartphone, User, Brain, Trophy, UserCircle, type LucideIcon } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,12 +29,12 @@ type QuickSetting = {
 
 const quickSettings: QuickSetting[] = [
   { label: "Аккаунт", href: "/settings/account", icon: UserCircle, color: "rgb(var(--sky-rgb))" },
-  { label: "Профиль", href: "/settings/profile", icon: Sparkles, color: "rgb(var(--violet-rgb))" },
-  { label: "Приватность", href: "/settings/privacy", icon: Shield, color: "rgb(var(--teal-rgb))" },
+  { label: "Профиль", href: "/settings/profile", icon: User, color: "rgb(var(--violet-rgb))" },
+  { label: "Приватность", href: "/settings/privacy", icon: Lock, color: "rgb(var(--violet-rgb))" },
   { label: "Сессии", href: "/settings/devices", icon: Smartphone, color: "rgb(var(--sky-rgb))" },
   { label: "Уведомления", href: "/settings/notifications", icon: Bell, color: "rgb(var(--gold-rgb))" },
   { label: "Знакомства", href: "/settings/dating", icon: HeartHandshake, color: "rgb(var(--teal-rgb))" },
-  { label: "Психотест", href: "/settings/psychotest", icon: Sparkles, color: "rgb(var(--violet-rgb))" },
+  { label: "Психотест", href: "/settings/psychotest", icon: Brain, color: "rgb(var(--violet-rgb))" },
   { label: "Достижения", href: "/settings/achievements", icon: Trophy, color: "rgb(var(--gold-rgb))" },
 ];
 
@@ -45,7 +45,7 @@ function humanGoal(profile: any) {
 
 export default function MyProfilePage() {
   const router = useRouter();
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark">("dark");
   const [activeTab, setActiveTab] = useState<TabKey>("Посты");
 
   const { data } = useQuery({
@@ -54,10 +54,10 @@ export default function MyProfilePage() {
   });
 
   useEffect(() => {
-    const t = (localStorage.getItem("theme") as "dark" | "light" | null) ?? "dark";
+    const t = "dark";
     setTheme(t);
-    document.documentElement.classList.toggle("dark", t === "dark");
-    document.documentElement.classList.toggle("light", t === "light");
+    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("light");
   }, []);
 
   const profile = data?.profile;
@@ -141,7 +141,7 @@ export default function MyProfilePage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgb(var(--violet-rgb)/0.2)] text-[rgb(var(--violet-rgb))]">
-                <Sparkles className="h-5 w-5" />
+                <Brain className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-text">Психопрофиль</p>
@@ -174,8 +174,8 @@ export default function MyProfilePage() {
                   <span
                     className="flex h-10 w-10 items-center justify-center rounded-2xl"
                     style={{
-                      background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.32)"),
-                      border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.5)")}`,
+                      background: item.color.replace("rgb(", "rgba(").replace(")", ", 0.22)"),
+                      border: `1px solid ${item.color.replace("rgb(", "rgba(").replace(")", ", 0.55)")}`,
                     }}
                   >
                     <span className="text-white"><item.icon className="h-5 w-5" /></span>

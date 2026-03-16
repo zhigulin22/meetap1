@@ -8,19 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function AppearanceSettingsPage() {
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [theme, setTheme] = useState<"dark">("dark");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const current = (localStorage.getItem("theme") as "light" | "dark" | null) ?? "dark";
+    const current = "dark";
     setTheme(current);
   }, []);
 
   async function save() {
     setSaving(true);
-    localStorage.setItem("theme", theme);
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.classList.toggle("light", theme === "light");
+    localStorage.setItem("theme", "dark");
+    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("light");
     toast.success("Тема сохранена");
     setSaving(false);
   }
@@ -33,18 +33,18 @@ export default function AppearanceSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {[
-            { value: "dark", label: "Тёмная (по умолчанию)" },
-            { value: "light", label: "Светлая" },
+            { value: "dark", label: "Тёмная (бренд)" },
+            { value: "light", label: "Светлая (скоро)" , disabled: true},
           ].map((opt) => (
             <button
               key={opt.value}
               type="button"
-              onClick={() => setTheme(opt.value as "light" | "dark")}
+              onClick={() => !opt.disabled && setTheme("dark")}
               className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
                 theme === opt.value
                   ? "border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] text-text"
                   : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] text-text2"
-              }`}
+              } ${opt.disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
               {opt.label}
             </button>

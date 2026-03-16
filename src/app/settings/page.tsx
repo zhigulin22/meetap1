@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, ChevronRight, Globe, HeartHandshake, HelpCircle, Palette, Shield, Smartphone, Sparkles, Trophy, UserCircle } from "lucide-react";
+import { Bell, ChevronRight, Globe, HeartHandshake, HelpCircle, Palette, Lock, Smartphone, User, Brain, Trophy, UserCircle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 
 const sections = [
@@ -7,7 +7,7 @@ const sections = [
     title: "Основные",
     items: [
       { href: "/settings/account", label: "Аккаунт", hint: "Имя, username, почта, пароль", icon: UserCircle, color: "rgb(var(--sky-rgb))" },
-      { href: "/settings/profile", label: "Профиль", hint: "Фото, био, интересы, факты", icon: Sparkles, color: "rgb(var(--violet-rgb))" },
+      { href: "/settings/profile", label: "Профиль", hint: "Фото, био, интересы, факты", icon: User, color: "rgb(var(--violet-rgb))" },
       { href: "/settings/notifications", label: "Уведомления", hint: "События, сообщения, коннекты", icon: Bell, color: "rgb(var(--gold-rgb))" },
       { href: "/settings/appearance", label: "Оформление", hint: "Тема и визуальные настройки", icon: Palette, color: "rgb(var(--violet-rgb))" },
       { href: "/settings/language", label: "Язык", hint: "Язык интерфейса", icon: Globe, color: "rgb(var(--sky-rgb))" },
@@ -16,7 +16,7 @@ const sections = [
   {
     title: "Безопасность",
     items: [
-      { href: "/settings/privacy", label: "Конфиденциальность", hint: "Кто видит данные и может писать", icon: Shield, color: "rgb(var(--teal-rgb))" },
+      { href: "/settings/privacy", label: "Конфиденциальность", hint: "Кто видит данные и может писать", icon: Lock, color: "rgb(var(--violet-rgb))" },
       { href: "/settings/devices", label: "Устройства и сессии", hint: "Активные входы и выход", icon: Smartphone, color: "rgb(var(--sky-rgb))" },
     ],
   },
@@ -24,7 +24,7 @@ const sections = [
     title: "Знакомства",
     items: [
       { href: "/settings/dating", label: "Настройки знакомств", hint: "Режим и предпочтения", icon: HeartHandshake, color: "rgb(var(--teal-rgb))" },
-      { href: "/settings/psychotest", label: "Психотест", hint: "Улучшает рекомендации", icon: Sparkles, color: "rgb(var(--violet-rgb))" },
+      { href: "/settings/psychotest", label: "Психотест", hint: "Улучшает рекомендации", icon: Brain, color: "rgb(var(--violet-rgb))" },
       { href: "/settings/achievements", label: "Достижения", hint: "Долгие бейджи и прогресс", icon: Trophy, color: "rgb(var(--gold-rgb))" },
     ],
   },
