@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles, Users2 } from "lucide-react";
 import { DailyDuoDialog } from "@/components/daily-duo-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageShell } from "@/components/page-shell";
@@ -116,45 +116,43 @@ export default function FeedPage() {
     queryFn: () => api<FeedResponse>("/api/feed/posts"),
   });
 
-  const { data: commentsData, isLoading: commentsLoading } = useQuery({
+  const items = data?.items?.length ? data.items : demoFeed();
+  const filtered = useMemo(() => {
+    if (mode === "all") return items;
+    return items.filter((post) => mediaKind(post) === mode);
+  }, [items, mode]);
+
+  const commentsQuery = useQuery({
     queryKey: ["comments", commentsPost?.id],
     queryFn: () => api<{ items: CommentItem[] }>(`/api/feed/posts/${commentsPost?.id}/comments`),
-    enabled: Boolean(commentsPost?.id && commentsOpen && !String(commentsPost?.id).startsWith("demo-")),
-    refetchInterval: commentsOpen ? 2500 : false,
+    enabled: Boolean(commentsPost?.id) && !commentsPost?.id?.startsWith("demo-"),
   });
 
-  const sourceItems = useMemo(() => {
-    const realItems = data?.items ?? [];
-    if (realItems.length) return realItems;
-    if (process.env.NODE_ENV !== "production") return demoFeed();
-    return [];
-  }, [data?.items]);
-
-  const filtered = useMemo(() => {
-    if (mode === "all") return sourceItems;
-    return sourceItems.filter((item) => mediaKind(item) === mode);
-  }, [sourceItems, mode]);
-
   useEffect(() => {
-    if (!commentsOpen) return;
-    commentsBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [commentsOpen, commentsData?.items?.length]);
+    if (commentsBottomRef.current) {
+      commentsBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [commentsQuery.data]);
 
-  async function react(postId: string, reactionType: "like" | "star") {
-    if (postId.startsWith("demo-")) return;
+  async function react(post: FeedPost, reactionType: "like" | "connect" | "star") {
+    if (post.id.startsWith("demo-")) {
+      toast.message("Демо-карточка", { description: "В проде здесь откроется реальный flow знакомства." });
+      return;
+    }
+
     try {
-      await api(`/api/feed/posts/${postId}/react`, {
+      await api(`/api/feed/posts/${post.id}/react`, {
         method: "POST",
         body: JSON.stringify({ reactionType }),
       });
       queryClient.invalidateQueries({ queryKey: ["feed"] });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка реакции");
+      toast.error(e instanceof Error ? e.message : "Не удалось обновить реакцию");
     }
   }
 
   async function connect(post: FeedPost) {
-    if (!post.user?.id || post.id.startsWith("demo-")) {
+    if (!post.user || post.id.startsWith("demo-")) {
       toast.message("Демо-карточка", { description: "В проде здесь откроется реальный flow знакомства." });
       return;
     }
@@ -206,10 +204,10 @@ export default function FeedPage() {
     <PageShell>
       <TopBar
         title="Лента"
-        subtitle="Свежие посты и DUO в спокойной премиальной подаче"
+        subtitle="Живые моменты, DUO и тёплые знакомства"
         right={
           <div className="flex items-center gap-2">
-            <Pill tone="teal">DUO</Pill>
+            <Pill tone="violet">DUO</Pill>
             <Button size="icon" onClick={() => setCreateOpen(true)} aria-label="Создать пост">
               <Plus className="h-4 w-4" />
             </Button>
@@ -229,6 +227,19 @@ export default function FeedPage() {
           ]}
           className="w-full"
         />
+      </div>
+
+      <div className="mb-3 grid gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+          <p className="text-xs text-text3">DUO — фирменный формат MeetAp</p>
+          <p className="mt-1 text-sm text-text">Два фото, живой момент и доверие. Отмечай людей и контекст встречи.</p>
+          <Button size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>Сделать DUO</Button>
+        </div>
+        <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+          <p className="text-xs text-text3">Почему это работает</p>
+          <p className="mt-1 text-sm text-text">DUO увеличивает совместимость, потому что фиксирует реальные встречи.</p>
+          <Button size="sm" variant="secondary" className="mt-2" onClick={() => setWhyOpen(true)}>Подробнее</Button>
+        </div>
       </div>
 
       <DailyDuoDialog
@@ -288,14 +299,14 @@ export default function FeedPage() {
         </DialogHeader>
         <div className="space-y-3">
           <div className="max-h-[52vh] space-y-2 overflow-y-auto rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.68)] p-2 pr-1">
-            {commentsLoading ? <Skeleton className="h-16 w-full" /> : null}
-            {(commentsData?.items ?? []).map((comment) => (
+            {commentsQuery.isLoading ? <Skeleton className="h-16 w-full" /> : null}
+            {(commentsQuery.data?.items ?? []).map((comment) => (
               <div key={comment.id} className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.76)] p-3">
                 <p className="text-xs text-muted">{comment.user?.name ?? "Пользователь"}</p>
                 <p className="text-sm leading-5">{comment.content}</p>
               </div>
             ))}
-            {!commentsLoading && !(commentsData?.items ?? []).length ? <p className="text-sm text-muted">Пока нет комментариев</p> : null}
+            {!commentsQuery.isLoading && !(commentsQuery.data?.items ?? []).length ? <p className="text-sm text-muted">Пока нет комментариев</p> : null}
             <div ref={commentsBottomRef} />
           </div>
 
