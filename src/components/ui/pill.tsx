@@ -7,7 +7,7 @@ export function Pill({
   className,
 }: {
   children: ReactNode;
-  tone?: "default" | "teal" | "gold" | "mint";
+  tone?: "default" | "teal" | "gold" | "mint" | "violet";
   className?: string;
 }) {
   const toneClass =
@@ -17,6 +17,8 @@ export function Pill({
       ? "border-[rgb(var(--gold-rgb)/0.5)] bg-[rgb(var(--gold-rgb)/0.24)] text-[rgb(var(--text-rgb))]"
       : tone === "mint"
       ? "border-[rgb(var(--sky-rgb)/0.35)] bg-[rgb(var(--sky-rgb)/0.14)] text-[rgb(var(--text-rgb))]"
+      : tone === "violet"
+      ? "border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.2)] text-white"
       : "border-[rgb(var(--teal-rgb)/0.28)] bg-[rgb(var(--teal-rgb)/0.12)] text-[rgb(var(--text-rgb))]";
 
   return (

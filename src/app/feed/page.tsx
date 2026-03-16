@@ -134,7 +134,10 @@ export default function FeedPage() {
     }
   }, [commentsQuery.data]);
 
-  async function react(post: FeedPost, reactionType: "like" | "connect" | "star") {
+  async function react(postId: string, reactionType: "like" | "star") {
+    const post = items.find((item) => item.id === postId);
+    if (!post) return;
+
     if (post.id.startsWith("demo-")) {
       toast.message("Демо-карточка", { description: "В проде здесь откроется реальный flow знакомства." });
       return;

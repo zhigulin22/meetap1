@@ -156,6 +156,7 @@ export function AdminShell({
   section,
   onSectionChange,
   onSearch,
+  search,
   children,
   dateRange,
   onDateRangeChange,
@@ -169,6 +170,7 @@ export function AdminShell({
   section: AdminSection;
   onSectionChange: (s: AdminSection) => void;
   onSearch: (q: string) => void;
+  search?: string;
   children: React.ReactNode;
   dateRange: "7d" | "14d" | "30d" | "90d";
   onDateRangeChange: (d: "7d" | "14d" | "30d" | "90d") => void;
@@ -257,7 +259,7 @@ export function AdminShell({
                 <p className="font-display text-lg font-semibold">Admin Command</p>
               </div>
 
-              <Input value={""} onChange={(e) => onSearch(e.target.value)} placeholder="Поиск: user, event, report, message..." />
+              <Input value={search ?? ""} onChange={(e) => onSearch(e.target.value)} placeholder="Поиск: user, event, report, message..." />
 
               <select
                 value={dateRange}
