@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { Camera } from "lucide-react";
+import { Camera, BadgeCheck, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { ProfileSettingsLayout } from "@/components/profile-settings-layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,11 +62,20 @@ export default function ProfileEditPage() {
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const studentFileRef = useRef<HTMLInputElement | null>(null);
+  const [studentIdNumber, setStudentIdNumber] = useState("");
+  const [studentUploading, setStudentUploading] = useState(false);
+  const [studentError, setStudentError] = useState("");
   const [error, setError] = useState("");
 
   const meQuery = useQuery({
     queryKey: ["profile-edit-me"],
     queryFn: () => api<{ profile: any }>("/api/profile/me"),
+  });
+
+  const verificationQuery = useQuery({
+    queryKey: ["student-verification"],
+    queryFn: () => api<{ verification: any }>("/api/profile/student-verification"),
   });
 
   useEffect(() => {
@@ -87,6 +96,31 @@ export default function ProfileEditPage() {
     setInterests(Array.isArray(p.interests) ? p.interests : []);
     setHobbies(Array.isArray(p.hobbies) ? p.hobbies : []);
   }, [meQuery.data]);
+
+
+  async function submitStudentVerification(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setStudentError("Можно загрузить только изображение");
+      return;
+    }
+
+    try {
+      setStudentUploading(true);
+      setStudentError("");
+      const fd = new FormData();
+      fd.append("student_id", file);
+      if (university) fd.append("university", university);
+      if (studentIdNumber.trim()) fd.append("student_id_number", studentIdNumber.trim());
+
+      await api("/api/profile/student-verification", { method: "POST", body: fd });
+      await verificationQuery.refetch();
+      toast.success("Заявка на верификацию отправлена");
+    } catch (e) {
+      setStudentError(e instanceof Error ? e.message : "Не удалось отправить заявку");
+    } finally {
+      setStudentUploading(false);
+    }
+  }
 
   async function uploadAvatar(file: File) {
     if (!file.type.startsWith("image/")) {

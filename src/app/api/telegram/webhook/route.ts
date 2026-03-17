@@ -276,6 +276,122 @@ async function handleModerationCallback(payload: any) {
   return true;
 }
 
+
+async function handleStudentVerificationCallback(payload: any) {
+  const callback = payload?.callback_query;
+  if (!callback) return false;
+
+  const data = String(callback.data ?? "");
+  const chatId = String(callback.message?.chat?.id ?? "");
+  const callbackId = String(callback.id ?? "");
+  const tgUserId = String(callback.from?.id ?? "");
+
+  const match = data.match(/^studentver:(approve|reject):([0-9a-fA-F-]{36})$/);
+  if (!match) return false;
+
+  const action = match[1] as ModerationAction;
+  const verificationId = match[2];
+
+  const env = getServerEnv();
+  const allowedIds = parseIdList(env.TELEGRAM_MODERATION_ADMIN_IDS);
+  const allowedByEnv = allowedIds.includes(tgUserId);
+
+  const [{ data: verification }, actor, schema] = await Promise.all([
+    supabaseAdmin.from("student_verifications").select("*").eq("id", verificationId).maybeSingle(),
+    resolveAdminByTelegram(tgUserId),
+    getSchemaSnapshot(["student_verifications", "users"]),
+  ]);
+
+  if (!verification) {
+    await answerCallbackQuery(callbackId, "Заявка не найдена");
+    await sendTelegramMessage(chatId, `⚠️ Заявка <code>${verificationId}</code> не найдена`);
+    return true;
+  }
+
+  if (!actor.canModerate && !allowedByEnv) {
+    await answerCallbackQuery(callbackId, "Нет прав");
+    await sendTelegramMessage(chatId, "⛔ У тебя нет прав модерации");
+    return true;
+  }
+
+  const verCols = asSet(schema, "student_verifications");
+  const userCols = asSet(schema, "users");
+
+  if (!verCols.size) {
+    await answerCallbackQuery(callbackId, "Нет таблицы student_verifications");
+    await sendTelegramMessage(chatId, "⚠️ Таблица student_verifications не найдена");
+    return true;
+  }
+
+  const moderatorUserId = actor.adminUserId ?? null;
+  const now = new Date().toISOString();
+
+  try {
+    if (action === "approve") {
+      const updateVerification = pickExistingColumns(
+        {
+          status: "approved",
+          reviewed_by: moderatorUserId,
+          reviewed_at: now,
+          updated_at: now,
+        },
+        verCols,
+      );
+
+      await supabaseAdmin.from("student_verifications").update(updateVerification).eq("id", verificationId);
+
+      const updateUser = pickExistingColumns(
+        {
+          student_verified: true,
+          student_verified_at: now,
+          student_university: verification.university ?? null,
+          student_verification_status: "approved",
+        },
+        userCols,
+      );
+
+      if (Object.keys(updateUser).length) {
+        await supabaseAdmin.from("users").update(updateUser).eq("id", verification.user_id);
+      }
+
+      await answerCallbackQuery(callbackId, "Одобрено");
+      await sendTelegramMessage(chatId, `✅ Студенческая верификация <code>${verificationId}</code> одобрена`);
+      return true;
+    }
+
+    const updateVerification = pickExistingColumns(
+      {
+        status: "rejected",
+        reviewed_by: moderatorUserId,
+        reviewed_at: now,
+        updated_at: now,
+      },
+      verCols,
+    );
+
+    await supabaseAdmin.from("student_verifications").update(updateVerification).eq("id", verificationId);
+
+    const updateUser = pickExistingColumns(
+      {
+        student_verification_status: "rejected",
+      },
+      userCols,
+    );
+
+    if (Object.keys(updateUser).length) {
+      await supabaseAdmin.from("users").update(updateUser).eq("id", verification.user_id);
+    }
+
+    await answerCallbackQuery(callbackId, "Отклонено");
+    await sendTelegramMessage(chatId, `❌ Студенческая верификация <code>${verificationId}</code> отклонена`);
+  } catch (error) {
+    await answerCallbackQuery(callbackId, "Ошибка обработки");
+    await sendTelegramMessage(chatId, `⚠️ Ошибка обработки заявки <code>${verificationId}</code>: ${(error as Error).message}`);
+  }
+
+  return true;
+}
+
 export async function POST(req: Request) {
   const env = getServerEnv();
   if (isPlaceholderEnvValue(env.TELEGRAM_BOT_TOKEN)) {
@@ -286,7 +402,7 @@ export async function POST(req: Request) {
   if (!payload) return fail("Invalid payload", 400);
 
   if (payload.callback_query) {
-    const okHandled = await handleModerationCallback(payload);
+    const okHandled = (await handleModerationCallback(payload)) || (await handleStudentVerificationCallback(payload));
     return ok({ ok: okHandled });
   }
 

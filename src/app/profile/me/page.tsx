@@ -103,6 +103,9 @@ export default function MyProfilePage() {
                     ) : (
                       <span className="rounded-full border border-[rgb(var(--warning-rgb)/0.4)] bg-[rgb(var(--warning-rgb)/0.18)] px-2 py-0.5 text-xs text-[rgb(var(--text-rgb))]">Не верифицирован</span>
                     )}
+                    {profile?.student_verified ? (
+                      <span className="rounded-full border border-[rgb(var(--violet-rgb)/0.4)] bg-[rgb(var(--violet-rgb)/0.2)] px-2 py-0.5 text-xs text-text">Студент подтверждён</span>
+                    ) : null}
                   </div>
                 </div>
               </div>
