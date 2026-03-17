@@ -74,7 +74,7 @@ export async function GET() {
     const userId = requireUserId();
     const fields = await getProfileFieldList();
     const [{ data }, postsCount, eventsCount, connectsCount] = await Promise.all([
-      supabaseAdmin.from("users").select(fields).eq("id", userId).single(),
+      supabaseAdmin.from("users").select(fields).eq("id", userId).limit(1).maybeSingle(),
       supabaseAdmin.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
       supabaseAdmin.from("event_members").select("id", { count: "exact", head: true }).eq("user_id", userId),
       supabaseAdmin.from("connections").select("id", { count: "exact", head: true }).eq("from_user_id", userId),
@@ -114,7 +114,8 @@ async function updateProfile(req: Request) {
       .update(payload)
       .eq("id", userId)
       .select(fields)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (error) {
       return fail(error.message, 500);

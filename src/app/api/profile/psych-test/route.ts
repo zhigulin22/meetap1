@@ -94,7 +94,8 @@ export async function GET() {
       .from("users")
       .select("personality_profile,personality_updated_at")
       .eq("id", userId)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (error) return fail(error.message, 500);
 

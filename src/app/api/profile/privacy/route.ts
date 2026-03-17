@@ -85,7 +85,7 @@ export async function GET() {
 
     const [privacyRowRes, userRes] = await Promise.all([
       supabaseAdmin.from("user_privacy_settings").select("*").eq("user_id", userId).maybeSingle(),
-      supabaseAdmin.from("users").select("privacy_settings").eq("id", userId).single(),
+      supabaseAdmin.from("users").select("privacy_settings").eq("id", userId).limit(1).maybeSingle(),
     ]);
 
     const privacyJson = toObject(userRes.data?.privacy_settings);
@@ -112,7 +112,7 @@ export async function PUT(req: Request) {
 
     const [privacyRowRes, userRes] = await Promise.all([
       supabaseAdmin.from("user_privacy_settings").select("show_badges").eq("user_id", userId).maybeSingle(),
-      supabaseAdmin.from("users").select("privacy_settings").eq("id", userId).single(),
+      supabaseAdmin.from("users").select("privacy_settings").eq("id", userId).limit(1).maybeSingle(),
     ]);
 
     const currentPrivacyJson = toObject(userRes.data?.privacy_settings);
