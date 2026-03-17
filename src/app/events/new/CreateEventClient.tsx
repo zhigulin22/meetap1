@@ -336,6 +336,19 @@ function CreateEventPageInner() {
 
       const submissionRes = await api<{ submission_id: string }>(`/api/events/${eventId}/submit`, {
         method: "POST",
+        body: JSON.stringify({
+          title: state.title.trim(),
+          category: state.category.trim(),
+          city: state.city.trim(),
+          venue_name: state.venue.trim(),
+          venue_address: state.venue.trim(),
+          starts_at: toIso(state.date, state.start_time),
+          ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
+          short_description: state.short_description.trim(),
+          full_description: state.full_description.trim(),
+          organizer_name: state.organizer_name.trim(),
+          organizer_telegram: state.organizer_telegram.trim(),
+        }),
       });
 
       setSuccessId(submissionRes.submission_id ?? eventId);
