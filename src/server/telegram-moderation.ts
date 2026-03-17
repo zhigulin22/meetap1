@@ -14,6 +14,7 @@ type SubmissionPreview = {
   paymentUrl?: string | null;
   paymentNote?: string | null;
   telegramContact: string;
+  organizerPhone?: string | null;
   shortDescription: string;
   fullDescription: string;
   coverUrls: string[];
@@ -97,6 +98,7 @@ export async function sendEventSubmissionToTelegramModerationBot(input: Submissi
     `Ссылка на оплату: ${input.paymentUrl || "—"}`,
     `Комментарий по оплате: ${input.paymentNote || "—"}`,
     `Telegram организатора: ${input.telegramContact}`,
+    `Телефон: ${input.organizerPhone || "—"}` ,
     `Пользователь: ${input.userName || "—"} (${input.userId || "—"})`,
     "",
     `<b>Кратко:</b> ${input.shortDescription}`,

@@ -27,6 +27,7 @@ type WizardState = {
   full_description: string;
   organizer_name: string;
   organizer_telegram: string;
+  organizer_phone: string;
   is_paid: boolean;
   price_text: string;
   payment_url: string;
@@ -45,11 +46,44 @@ const initialState: WizardState = {
   full_description: "",
   organizer_name: "",
   organizer_telegram: "",
+  organizer_phone: "",
   is_paid: false,
   price_text: "",
   payment_url: "",
 };
 
+
+function normalizePhone(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+  const digits = raw.replace(/[^0-9+]/g, "");
+  const normalized = digits.startsWith("+") ? digits : digits.replace(/^8/, "+7");
+  const onlyDigits = normalized.replace(/[^0-9]/g, "");
+  if (onlyDigits.length < 10 || onlyDigits.length > 15) return null;
+  return normalized;
+}
+
+function isValidTelegram(value: string) {
+  const raw = value.trim();
+  if (!raw) return false;
+  if (/^https?:\/\/t\.me\/[A-Za-z0-9_]{5,32}$/i.test(raw)) return true;
+  if (/^@?[A-Za-z0-9_]{5,32}$/.test(raw)) return true;
+  return false;
+}
+
+function isValidDateRange(date: string, startTime: string, endTime: string) {
+  if (!date || !startTime) return { ok: false, reason: "Дата/время" };
+  const start = new Date(`${date}T${startTime}:00`);
+  if (Number.isNaN(start.getTime())) return { ok: false, reason: "Дата/время" };
+  const now = Date.now();
+  if (start.getTime() < now - 5 * 60 * 1000) return { ok: false, reason: "Дата в прошлом" };
+  if (endTime) {
+    const end = new Date(`${date}T${endTime}:00`);
+    if (Number.isNaN(end.getTime())) return { ok: false, reason: "Дата окончания" };
+    if (end.getTime() <= start.getTime()) return { ok: false, reason: "Конец раньше начала" };
+  }
+  return { ok: true };
+}
 function toIso(date: string, time: string) {
   const safe = time || "00:00";
   return new Date(`${date}T${safe}:00`).toISOString();
@@ -72,6 +106,7 @@ function missingFields(state: WizardState) {
   if (state.full_description.trim().length < 20) missing.push("Полное описание");
   if (!state.organizer_name.trim()) missing.push("Имя организатора");
   if (!state.organizer_telegram.trim()) missing.push("Telegram организатора");
+  if (!state.organizer_phone.trim()) missing.push("Контактный телефон");
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) missing.push("Оплата/цена");
   return missing;
 }
@@ -80,7 +115,7 @@ function firstMissingStep(state: WizardState): Step {
   if (!state.title.trim() || !state.category.trim() || !state.format) return 1;
   if (!state.date || !state.start_time || !state.venue.trim()) return 2;
   if (state.short_description.trim().length < 10 || state.full_description.trim().length < 20) return 3;
-  if (!state.organizer_name.trim() || !state.organizer_telegram.trim()) return 4;
+  if (!state.organizer_name.trim() || !state.organizer_telegram.trim() || !state.organizer_phone.trim()) return 4;
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) return 4;
   return 5;
 }
@@ -166,7 +201,7 @@ function CreateEventPageInner() {
   const requiredBase = state.title.trim() && state.category.trim() && state.format;
   const requiredWhenWhere = state.date && state.start_time && state.venue.trim();
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
-  const requiredContacts = state.organizer_name.trim() && state.organizer_telegram.trim();
+  const requiredContacts = state.organizer_name.trim() && state.organizer_telegram.trim() && state.organizer_phone.trim() && isValidTelegram(state.organizer_telegram);
 
   const draftReady = requiredBase && requiredWhenWhere;
 
@@ -212,6 +247,7 @@ function CreateEventPageInner() {
           price_text: state.price_text.trim(),
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
+          organizer_phone: state.organizer_phone.trim(),
           social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
         }),
       });
@@ -316,6 +352,19 @@ function CreateEventPageInner() {
 
   async function onSubmitForModeration() {
     const missing = missingFields(state);
+    if (state.city.trim() !== "Москва") {
+      missing.push("Город (доступна Москва)");
+    }
+    if (!isValidTelegram(state.organizer_telegram)) {
+      missing.push("Telegram организатора (неверный формат)");
+    }
+    if (!normalizePhone(state.organizer_phone)) {
+      missing.push("Контактный телефон (неверный формат)");
+    }
+    const dateCheck = isValidDateRange(state.date, state.start_time, state.end_time);
+    if (!dateCheck.ok) {
+      missing.push("Дата/время (некорректно)");
+    }
     if (missing.length) {
       setValidationErrors(missing);
       setError("Не заполнены обязательные поля: " + missing.join(", ") );
@@ -348,6 +397,7 @@ function CreateEventPageInner() {
           full_description: state.full_description.trim(),
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
+          organizer_phone: state.organizer_phone.trim(),
         }),
       });
 

@@ -13,6 +13,7 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   short_description: "Короткое описание",
   full_description: "Полное описание",
   organizer_telegram: "Telegram организатора",
+  organizer_phone: "Телефон организатора",
   venue: "Место",
 };
 
@@ -27,6 +28,7 @@ type SubmitBody = {
   short_description?: string;
   full_description?: string;
   organizer_telegram?: string;
+  organizer_phone?: string;
   organizer_name?: string;
 };
 
@@ -58,6 +60,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       "short_description",
       "full_description",
       "organizer_telegram",
+      "organizer_phone",
       "organizer_name",
       "social_mode",
       "is_paid",
@@ -93,6 +96,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       short_description: (event as any).short_description ?? body?.short_description ?? "",
       full_description: (event as any).full_description ?? body?.full_description ?? "",
       organizer_telegram: (event as any).organizer_telegram ?? body?.organizer_telegram ?? "",
+      organizer_phone: (event as any).organizer_phone ?? body?.organizer_phone ?? "",
       organizer_name: (event as any).organizer_name ?? body?.organizer_name ?? "",
     };
 
@@ -110,6 +114,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!merged.short_description) missing.push(REQUIRED_FIELD_LABELS.short_description);
     if (!merged.full_description) missing.push(REQUIRED_FIELD_LABELS.full_description);
     if (!merged.organizer_telegram) missing.push(REQUIRED_FIELD_LABELS.organizer_telegram);
+    if (!merged.organizer_phone) missing.push(REQUIRED_FIELD_LABELS.organizer_phone);
     if (!merged.venue_name && !merged.venue_address) missing.push(REQUIRED_FIELD_LABELS.venue);
 
     if (missing.length) {
@@ -120,6 +125,38 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     const normalizedTelegram = normalizeTelegramContact(merged.organizer_telegram);
+
+    const phoneDigits = String(merged.organizer_phone || "").replace(/[^0-9]/g, "");
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      return fail("Укажи корректный телефон организатора", 422, {
+        code: "VALIDATION",
+        fields: [REQUIRED_FIELD_LABELS.organizer_phone],
+      });
+    }
+
+    if (merged.city.trim() !== "Москва") {
+      return fail("Пока доступен только город Москва", 422, {
+        code: "VALIDATION",
+        fields: [REQUIRED_FIELD_LABELS.city],
+      });
+    }
+
+    const startsAt = new Date(merged.starts_at);
+    if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() < Date.now() - 5 * 60 * 1000) {
+      return fail("Дата начала должна быть в будущем", 422, {
+        code: "VALIDATION",
+        fields: [REQUIRED_FIELD_LABELS.starts_at],
+      });
+    }
+    if (merged.ends_at) {
+      const endsAt = new Date(merged.ends_at);
+      if (!Number.isFinite(endsAt.getTime()) || endsAt.getTime() <= startsAt.getTime()) {
+        return fail("Дата окончания должна быть позже начала", 422, {
+          code: "VALIDATION",
+          fields: [REQUIRED_FIELD_LABELS.starts_at],
+        });
+      }
+    }
     if (!normalizedTelegram) {
       return fail("Укажи Telegram организатора в формате @username или https://t.me/username", 422, {
         code: "VALIDATION",
@@ -151,6 +188,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         paymentUrl: (event as any).payment_url ?? null,
         paymentNote: (event as any).payment_note ?? null,
         telegramContact: normalizedTelegram,
+        organizerPhone: merged.organizer_phone || null,
         shortDescription: merged.short_description,
         fullDescription: merged.full_description,
         coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
@@ -184,6 +222,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         short_description: merged.short_description,
         full_description: merged.full_description,
         organizer_telegram: normalizedTelegram,
+        organizer_phone: merged.organizer_phone || null,
         organizer_name: merged.organizer_name || null,
         is_paid: Boolean((event as any).is_paid),
         price_text: (event as any).price_text ?? null,

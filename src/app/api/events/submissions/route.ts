@@ -31,12 +31,36 @@ const schema = z
     moderator_comment: z.string().trim().max(600).nullable().optional(),
     trust_confirmed: z.boolean(),
     organizer_name: z.string().trim().min(2).max(120).optional(),
+    organizer_phone: z.string().trim().min(6).max(30),
   })
   .superRefine((data, ctx) => {
     if (!data.trust_confirmed) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Подтверди, что событие реальное и не мошенническое", path: ["trust_confirmed"] });
     }
 
+
+    const starts = new Date(data.starts_at);
+    if (!Number.isFinite(starts.getTime())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Некорректная дата начала", path: ["starts_at"] });
+    } else if (starts.getTime() < Date.now() - 5 * 60 * 1000) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Дата начала в прошлом", path: ["starts_at"] });
+    }
+    if (data.ends_at) {
+      const ends = new Date(data.ends_at);
+      if (!Number.isFinite(ends.getTime()) || ends.getTime() <= starts.getTime()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Дата окончания должна быть позже начала", path: ["ends_at"] });
+      }
+    }
+
+    if (data.city.trim() !== "Москва") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Пока доступен только город Москва", path: ["city"] });
+    }
+
+    const phone = data.organizer_phone.replace(/[^0-9+]/g, "");
+    const digits = phone.replace(/[^0-9]/g, "");
+    if (digits.length < 10 || digits.length > 15) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Некорректный телефон", path: ["organizer_phone"] });
+    }
     if (data.is_paid) {
       const hasPrice = Number(data.price ?? 0) > 0 || Boolean(data.payment_note?.trim());
       const hasPayment = Boolean(data.payment_url);
@@ -116,6 +140,7 @@ export async function POST(req: Request) {
         telegram_contact: tg,
         organizer_telegram: tg,
         organizer_name: parsed.data.organizer_name ?? null,
+        organizer_phone: parsed.data.organizer_phone ?? null,
         participant_limit: parsed.data.participant_limit ?? null,
         looking_for_count: parsed.data.looking_for_count ?? null,
         moderator_comment: parsed.data.moderator_comment ?? null,
@@ -150,6 +175,7 @@ export async function POST(req: Request) {
         paymentUrl: parsed.data.payment_url,
         paymentNote: parsed.data.payment_note,
         telegramContact: tg,
+        organizerPhone: parsed.data.organizer_phone,
         shortDescription: parsed.data.short_description,
         fullDescription: parsed.data.full_description,
         coverUrls: parsed.data.cover_urls ?? [],

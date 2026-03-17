@@ -18,6 +18,7 @@ const schema = z.object({
   price_text: z.string().trim().optional().default(""),
   organizer_name: z.string().trim().optional().default(""),
   organizer_telegram: z.string().trim().optional().default(""),
+  organizer_phone: z.string().trim().optional().default(""),
   social_mode: z.string().trim().optional().nullable(),
 });
 
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
         price_text: parsed.data.price_text,
         organizer_name: parsed.data.organizer_name,
         organizer_telegram: parsed.data.organizer_telegram,
+        organizer_phone: parsed.data.organizer_phone,
         social_mode: parsed.data.social_mode ?? null,
         status: "draft",
       });
@@ -66,6 +68,7 @@ export async function POST(req: Request) {
         price_text: parsed.data.price_text,
         organizer_name: parsed.data.organizer_name,
         organizer_telegram: parsed.data.organizer_telegram,
+        organizer_phone: parsed.data.organizer_phone,
         social_mode: parsed.data.social_mode ?? null,
         status: "draft",
       },
