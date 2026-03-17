@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, RefreshCcw, SlidersHorizontal, Users2 } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCcw, SlidersHorizontal, Users2 } from "lucide-react";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { EventPosterCard } from "@/components/events/event-poster-card";
@@ -267,29 +267,29 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-4 rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(18,26,50,0.98),rgba(18,26,50,0.7))] p-5 shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-6 rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(18,26,50,0.98),rgba(18,26,50,0.7))] p-6 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold">События</h1>
             <p className="text-sm text-text2">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
-            <Button className="rounded-full px-5">+ Добавить</Button>
+            <Button className="h-11 rounded-2xl px-6">+ Добавить</Button>
           </Link>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-text3">Режим</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-3">
             {feedTabs.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setFeed(tab.key)}
-                className={`rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
+                className={`rounded-2xl px-5 py-3 text-sm font-semibold transition active:scale-[0.98] ${
                   feed === tab.key
-                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_10px_24px_rgba(122,84,255,0.4)]"
-                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
+                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)]"
+                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] text-text"
                 }`}
               >
                 {tab.label}
@@ -298,16 +298,16 @@ export default function EventsHub() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-4 shadow-soft">
+        <div className="mt-5 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-5 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 py-3 text-sm font-medium text-text">
-              Город: Москва
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 py-3 text-sm font-medium text-text">
+              <MapPin className="h-4 w-4 text-[rgb(var(--sky-rgb))]" /> Город: Москва
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-5 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-6 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
@@ -315,7 +315,7 @@ export default function EventsHub() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 text-sm font-semibold text-text transition active:scale-[0.98]"
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-5 text-sm font-semibold text-text transition active:scale-[0.98]"
               >
                 <RefreshCcw className="h-4 w-4" /> Сбросить
               </button>
@@ -365,7 +365,7 @@ export default function EventsHub() {
       ) : null}
 
       {eventsQuery.isLoading && !items.length ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <EventCardSkeleton />
           <EventCardSkeleton />
           <EventCardSkeleton />
@@ -406,7 +406,7 @@ export default function EventsHub() {
       {eventsQuery.hasNextPage && (
         <Button
           variant="secondary"
-          className="mt-4 w-full"
+          className="mt-5 w-full"
           onClick={() => eventsQuery.fetchNextPage()}
           disabled={eventsQuery.isFetchingNextPage}
         >
