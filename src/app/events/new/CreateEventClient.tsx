@@ -76,6 +76,15 @@ function missingFields(state: WizardState) {
   return missing;
 }
 
+function firstMissingStep(state: WizardState): Step {
+  if (!state.title.trim() || !state.category.trim() || !state.format) return 1;
+  if (!state.date || !state.start_time || !state.venue.trim()) return 2;
+  if (state.short_description.trim().length < 10 || state.full_description.trim().length < 20) return 3;
+  if (!state.organizer_name.trim() || !state.organizer_telegram.trim()) return 4;
+  if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) return 4;
+  return 5;
+}
+
 function CreateEventPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -301,7 +310,10 @@ function CreateEventPageInner() {
     const missing = missingFields(state);
     if (missing.length) {
       setValidationErrors(missing);
-      setError("Заполни обязательные поля перед отправкой");
+      setError("Не заполнены обязательные поля: " + missing.join(", ") );
+      const nextStep = firstMissingStep(state);
+      setStep(nextStep);
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
