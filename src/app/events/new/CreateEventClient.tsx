@@ -290,18 +290,9 @@ function CreateEventPageInner() {
       const eventId = draftId ?? (await createOrUpdateDraftForSubmit());
       if (!eventId) return;
 
-      const submissionRes = await api<{ submission_id: string; bot?: { ok: boolean; reason?: string } }>(`/api/events/${eventId}/submit`, {
+      const submissionRes = await api<{ submission_id: string }>(`/api/events/${eventId}/submit`, {
         method: "POST",
       });
-
-      if (submissionRes.bot && !submissionRes.bot.ok) {
-        setError("Не удалось отправить заявку в Telegram. Проверь настройки бота и попробуй снова.");
-        setValidationErrors([]);
-        toast.error("Telegram недоступен", {
-          description: submissionRes.bot.reason ?? "Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_MODERATION_CHAT_ID",
-        });
-        return;
-      }
 
       setSuccessId(submissionRes.submission_id ?? eventId);
       localStorage.removeItem(DRAFT_KEY);

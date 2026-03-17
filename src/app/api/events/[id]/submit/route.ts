@@ -100,7 +100,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       });
 
       if (!sendRes.ok) {
-        return ok({ ok: true, submission_id: existing.data.id, already_exists: true, bot: { ok: false, reason: sendRes.reason ?? 'unknown' } });
+        return fail("Заявка сохранена, но не доставлена модераторам", 502, {
+          code: "TELEGRAM",
+          hint: sendRes.reason ?? "unknown",
+        });
       }
 
       return ok({ ok: true, submission_id: existing.data.id, already_exists: true, bot: { ok: true } });
@@ -164,7 +167,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     });
 
     if (!sendRes.ok) {
-      return ok({ ok: true, submission_id: ins.data.id, bot: { ok: false, reason: sendRes.reason ?? 'unknown' } });
+      return fail("Заявка сохранена, но не доставлена модераторам", 502, {
+        code: "TELEGRAM",
+        hint: sendRes.reason ?? "unknown",
+      });
     }
 
     return ok({ ok: true, submission_id: ins.data.id, bot: { ok: true } });

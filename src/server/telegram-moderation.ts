@@ -28,6 +28,14 @@ function fmtDate(value: string | null | undefined) {
   return d.toLocaleString("ru-RU");
 }
 
+function parseChatIds(raw: string | null | undefined) {
+  if (!raw) return [];
+  return raw
+    .split(/[;,\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
 export function normalizeTelegramContact(value: string) {
   const raw = value.trim();
   if (!raw) return null;
@@ -39,6 +47,21 @@ export function normalizeTelegramContact(value: string) {
   }
 
   return null;
+}
+
+async function sendMessage(token: string, chatId: string, payload: Record<string, unknown>) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, ...payload }),
+  });
+
+  if (!res.ok) {
+    const errorPayload = await res.json().catch(() => null);
+    return { ok: false as const, reason: errorPayload?.description || "Telegram sendMessage failed" };
+  }
+
+  return { ok: true as const };
 }
 
 export async function sendEventSubmissionToTelegramModerationBot(input: SubmissionPreview) {
@@ -56,11 +79,10 @@ export async function sendEventSubmissionToTelegramModerationBot(input: Submissi
     return { ok: false as const, reason: "TELEGRAM_BOT_TOKEN is missing" };
   }
 
-  if (isPlaceholderEnvValue(env.TELEGRAM_MODERATION_CHAT_ID)) {
+  const chatIds = parseChatIds(env.TELEGRAM_MODERATION_CHAT_ID);
+  if (!chatIds.length) {
     return { ok: false as const, reason: "TELEGRAM_MODERATION_CHAT_ID is missing" };
   }
-
-  const chatId = env.TELEGRAM_MODERATION_CHAT_ID;
 
   const lines = [
     `🧭 <b>Новая заявка события (комьюнити)</b>`,
@@ -94,26 +116,32 @@ export async function sendEventSubmissionToTelegramModerationBot(input: Submissi
     ],
   };
 
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: lines.join("\n"),
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-        reply_markup: inlineKeyboard,
-      }),
-    });
+  const payload = {
+    text: lines.join("\n"),
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: inlineKeyboard,
+  };
 
-    if (!res.ok) {
-      const payload = await res.json().catch(() => null);
-      return { ok: false as const, reason: payload?.description || "Telegram sendMessage failed" };
+  let lastError: string | null = null;
+  const delivered: string[] = [];
+
+  for (const chatId of chatIds) {
+    try {
+      const res = await sendMessage(env.TELEGRAM_BOT_TOKEN, chatId, payload);
+      if (res.ok) {
+        delivered.push(chatId);
+      } else {
+        lastError = res.reason ?? lastError;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
     }
-  } catch (error) {
-    return { ok: false as const, reason: error instanceof Error ? error.message : "Telegram request failed" };
   }
 
-  return { ok: true as const };
+  if (!delivered.length) {
+    return { ok: false as const, reason: lastError ?? "Telegram sendMessage failed" };
+  }
+
+  return { ok: true as const, delivered };
 }
