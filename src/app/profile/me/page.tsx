@@ -62,6 +62,7 @@ export default function MyProfilePage() {
 
   const profile = data?.profile;
   const stats = data?.stats ?? { posts: 0, events: 0, connects: 0 };
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const psychProfile = useMemo(() => (profile?.personality_profile ?? null) as PsychProfile | null, [profile]);
   const lastPsychAt = profile?.personality_updated_at ? new Date(profile.personality_updated_at) : null;
   const needsPsychRefresh = !lastPsychAt || Date.now() - lastPsychAt.getTime() > 1000 * 60 * 60 * 24 * 30 * 6;
@@ -117,6 +118,11 @@ export default function MyProfilePage() {
                     <Settings className="mr-1 h-4 w-4" /> Настройки
                   </Button>
                 </div>
+                {isAdmin ? (
+                  <Button variant="secondary" onClick={() => router.push("/admin")} className="w-full">
+                    Открыть Admin
+                  </Button>
+                ) : null}
                 <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3">
                   <p className="text-xs text-text2">Цель знакомства</p>
                   <p className="text-sm text-text mt-1">{goal || "Добавь цель знакомства — это улучшит рекомендации"}</p>
