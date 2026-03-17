@@ -1,6 +1,6 @@
 import { fail, ok } from "@/lib/http";
 import { supabaseAdmin } from "@/supabase/admin";
-import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
+import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 import { getCurrentUserId } from "@/server/auth";
 
 const BASE_FIELDS = [
@@ -80,6 +80,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   try {
     const viewerId = getCurrentUserId();
     const fields = await getProfileFieldList();
+
     const { data: profile, error } = await supabaseAdmin
       .from("users")
       .select(fields)
@@ -89,9 +90,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     if (error || !profile) return fail("Профиль не найден", 404);
 
-    const schema = await getSchemaSnapshot(["posts", "photos", "event_members", "connections"]);
+    const schema = await getSchemaSnapshot(["posts", "photos", "event_members", "connections", "events", "users"]);
     const postCols = asSet(schema, "posts");
     const photoCols = asSet(schema, "photos");
+    const eventsCols = asSet(schema, "events");
+    const membersCols = asSet(schema, "event_members");
+    const connectionsCols = asSet(schema, "connections");
+    const usersCols = asSet(schema, "users");
 
     let posts: any[] = [];
     let photos: any[] = [];
@@ -129,6 +134,47 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const compatibility = viewerId && viewerId !== params.id ? computeCompatibility(viewerRes.data, profile) : null;
 
+    let commonEvents: any[] = [];
+    if (viewerId && viewerId !== params.id && membersCols.has("event_id") && membersCols.has("user_id") && eventsCols.size) {
+      const [viewerEvents, targetEvents] = await Promise.all([
+        supabaseAdmin.from("event_members").select("event_id").eq("user_id", viewerId).limit(200),
+        supabaseAdmin.from("event_members").select("event_id").eq("user_id", params.id).limit(200),
+      ]);
+
+      const viewerSet = new Set((viewerEvents.data ?? []).map((x: any) => x.event_id));
+      const sharedIds = (targetEvents.data ?? []).map((x: any) => x.event_id).filter((id: any) => viewerSet.has(id));
+      if (sharedIds.length) {
+        const selectCols = ["id", "title", "city", "starts_at", "cover_url", "image_url"].filter((c) => eventsCols.has(c));
+        const { data: eventsData } = await supabaseAdmin
+          .from("events")
+          .select(selectCols.join(","))
+          .in("id", sharedIds.slice(0, 8));
+        commonEvents = eventsData ?? [];
+      }
+    }
+
+    let commonPeople: any[] = [];
+    if (viewerId && viewerId !== params.id && connectionsCols.size && usersCols.size) {
+      const hasFrom = connectionsCols.has("from_user_id");
+      const hasTo = connectionsCols.has("to_user_id");
+      if (hasFrom && hasTo) {
+        const [viewerConn, targetConn] = await Promise.all([
+          supabaseAdmin.from("connections").select("from_user_id,to_user_id,status").eq("from_user_id", viewerId).limit(200),
+          supabaseAdmin.from("connections").select("from_user_id,to_user_id,status").eq("from_user_id", params.id).limit(200),
+        ]);
+        const viewerIds = new Set((viewerConn.data ?? []).map((x: any) => x.to_user_id));
+        const shared = (targetConn.data ?? []).map((x: any) => x.to_user_id).filter((id: any) => viewerIds.has(id));
+        if (shared.length) {
+          const selectCols = ["id", "name", "avatar_url", "interests"].filter((c) => usersCols.has(c));
+          const { data: people } = await supabaseAdmin
+            .from("users")
+            .select(selectCols.join(","))
+            .in("id", shared.slice(0, 8));
+          commonPeople = people ?? [];
+        }
+      }
+    }
+
     const stats = {
       followers: 0,
       publications: posts.length,
@@ -142,6 +188,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       positiveFact: "Заполненный профиль повышает доверие и совместимость.",
       content: buildContent(posts, photos),
       compatibility,
+      common_events: commonEvents,
+      common_people: commonPeople,
       privacy_settings: {
         ...privacyJson,
         show_facts: privacyRowRes.data?.show_facts ?? true,
