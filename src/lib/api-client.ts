@@ -2,6 +2,8 @@ export class ApiClientError extends Error {
   status?: number;
   code?: string;
   hint?: string;
+  fields?: string[];
+  details?: unknown;
 }
 
 function mapStatusToMessage(status: number, serverMessage?: string) {
@@ -43,6 +45,8 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
     err.status = res.status;
     err.code = payload?.code ?? payload?.error_code;
     err.hint = payload?.hint;
+    err.fields = payload?.fields ?? payload?.missing;
+    err.details = payload;
     throw err;
   }
 

@@ -1,34 +1,29 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
+
 import "../styles/theme.css";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const inter = Inter({
-  subsets: ["latin", "latin-ext"],
+const manrope = Manrope({
+  subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-inter",
+  variable: "--font-manrope",
 });
 
 export const metadata: Metadata = {
   title: "Meetap MVP",
-  description: "Соцсеть для офлайн-знакомств",
+  description: "Meetap social app",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans`}>
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{const root=document.documentElement;root.classList.remove('light','dark');root.classList.add('dark');localStorage.setItem('theme','dark');}catch(e){}",
-          }}
-        />
+    <html lang="ru" className={manrope.variable}>
+      <body className="bg-app text-foreground">
         <Providers>{children}</Providers>
       </body>
     </html>

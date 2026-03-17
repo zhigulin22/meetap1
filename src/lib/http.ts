@@ -18,6 +18,7 @@ type FailMeta = {
   hint?: string;
   endpoint?: string;
   details?: Record<string, unknown>;
+  fields?: string[];
 };
 
 function codeFromStatus(status: number, message: string): ApiErrorCode {
@@ -45,6 +46,7 @@ export function fail(message: string, status = 400, meta?: FailMeta) {
       code,
       hint: meta?.hint ?? null,
       endpoint: meta?.endpoint ?? null,
+      ...(meta?.fields ? { fields: meta.fields } : {}),
       ...(meta?.details ? { details: meta.details } : {}),
     },
     { status },

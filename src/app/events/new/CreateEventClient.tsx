@@ -250,7 +250,15 @@ function CreateEventPageInner() {
       }
       router.push(`/events/${draftRes.id}`);
     } catch (e) {
-      setError(parseError(e));
+      if (e instanceof ApiClientError && e.fields && e.fields.length) {
+        setValidationErrors(e.fields);
+        setError("Не заполнены обязательные поля: " + e.fields.join(", "));
+        const nextStep = firstMissingStep(state);
+        setStep(nextStep);
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        setError(parseError(e));
+      }
     } finally {
       setLoading(false);
     }
@@ -334,7 +342,15 @@ function CreateEventPageInner() {
       localStorage.removeItem(DRAFT_KEY);
       setCoverFile(null);
     } catch (e) {
-      setError(parseError(e));
+      if (e instanceof ApiClientError && e.fields && e.fields.length) {
+        setValidationErrors(e.fields);
+        setError("Не заполнены обязательные поля: " + e.fields.join(", "));
+        const nextStep = firstMissingStep(state);
+        setStep(nextStep);
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        setError(parseError(e));
+      }
     } finally {
       setLoading(false);
     }

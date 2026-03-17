@@ -46,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     if (error || !profile) return fail("Профиль не найден", 404);
 
-    const privacyRowRes = await supabaseAdmin.from("user_privacy_settings").select("*").eq("user_id", params.id).maybeSingle();
+    const privacyRowRes = await supabaseAdmin.from("user_privacy_settings").select("*").eq("user_id", params.id).limit(1).maybeSingle();
     const privacyJson = toObject(profile.privacy_settings);
 
     return ok({

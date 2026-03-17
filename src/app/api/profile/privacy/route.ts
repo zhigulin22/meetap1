@@ -84,7 +84,7 @@ export async function GET() {
     const userId = requireUserId();
 
     const [privacyRowRes, userRes] = await Promise.all([
-      supabaseAdmin.from("user_privacy_settings").select("*").eq("user_id", userId).maybeSingle(),
+      supabaseAdmin.from("user_privacy_settings").select("*").eq("user_id", userId).limit(1).maybeSingle(),
       supabaseAdmin.from("users").select("privacy_settings").eq("id", userId).limit(1).maybeSingle(),
     ]);
 
@@ -111,7 +111,7 @@ export async function PUT(req: Request) {
     const incoming = parsed.data;
 
     const [privacyRowRes, userRes] = await Promise.all([
-      supabaseAdmin.from("user_privacy_settings").select("show_badges").eq("user_id", userId).maybeSingle(),
+      supabaseAdmin.from("user_privacy_settings").select("show_badges").eq("user_id", userId).limit(1).maybeSingle(),
       supabaseAdmin.from("users").select("privacy_settings").eq("id", userId).limit(1).maybeSingle(),
     ]);
 

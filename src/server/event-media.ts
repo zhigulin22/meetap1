@@ -15,7 +15,7 @@ async function ensureEventMediaBucket() {
   if (error) {
     throw new Error("Не удалось проверить хранилище медиа");
   }
-  const exists = (data ?? []).some((bucket) => bucket.name === "event-media");
+  const exists = (data ?? []).some((bucket: { name?: string }) => bucket.name === "event-media");
   if (!exists) {
     const { error: createError } = await supabaseAdmin.storage.createBucket("event-media", { public: true });
     if (createError && !/exists/i.test(createError.message)) {

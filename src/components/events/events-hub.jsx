@@ -267,7 +267,7 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.96)] p-4">
+      <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-[color:var(--border-strong)] bg-[linear-gradient(140deg,rgb(var(--surface-1-rgb)/0.96),rgb(var(--surface-2-rgb)/0.92))] p-4 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">События</h1>
@@ -289,8 +289,8 @@ export default function EventsHub() {
                   onClick={() => setFeed(tab.key)}
                   className={`rounded-full px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
                     feed === tab.key
-                      ? "bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] text-white shadow-[0_10px_24px_rgb(var(--violet-rgb)/0.2)]"
-                      : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
+                      ? "bg-[image:var(--grad-primary)] text-white shadow-[0_10px_24px_rgba(122,84,255,0.4)]"
+                      : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
                   }`}
                 >
                   {tab.label}
@@ -299,16 +299,16 @@ export default function EventsHub() {
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] p-4">
+          <div className="grid gap-3 rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)] p-4 shadow-soft">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-3 text-sm font-medium text-text">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 py-3 text-sm font-medium text-text">
                 Город: Москва
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(true)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] px-5 text-sm font-semibold text-white shadow-[0_12px_26px_rgb(var(--violet-rgb)/0.32)] transition active:scale-[0.98]"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-5 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
@@ -316,7 +316,7 @@ export default function EventsHub() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 text-sm font-semibold text-text transition active:scale-[0.98]"
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 text-sm font-semibold text-text transition active:scale-[0.98]"
                 >
                   <RefreshCcw className="h-4 w-4" /> Сбросить
                 </button>
@@ -335,7 +335,7 @@ export default function EventsHub() {
               key={chip.label}
               type="button"
               onClick={chip.onRemove}
-              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] px-3 py-1.5 text-text2 transition hover:text-text"
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-3 py-1.5 text-text2 transition hover:text-text"
             >
               {chip.label}
               <span className="text-text3">×</span>
@@ -345,7 +345,7 @@ export default function EventsHub() {
       )}
 
       {staleInfo && (
-        <div className="mb-3 rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.6)] px-3 py-2 text-xs text-text2">
+        <div className="mb-3 rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.7)] px-3 py-2 text-xs text-text2">
           Показаны последние доступные данные. Обновлено {new Date(staleInfo.at).toLocaleString("ru-RU")}.
         </div>
       )}
@@ -357,7 +357,7 @@ export default function EventsHub() {
       )}
 
       {!eventsQuery.isLoading && eventsQuery.isError && !items.length ? (
-        <div className="rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.6)] px-3 py-3 text-sm">
+        <div className="rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.7)] px-3 py-3 text-sm">
           <p className="text-sm">Не удалось загрузить события.</p>
           <p className="text-xs text-text2">Проверь соединение и попробуй снова.</p>
           <Button className="mt-2" onClick={() => eventsQuery.refetch()}>
@@ -390,7 +390,7 @@ export default function EventsHub() {
           )}
         </div>
       ) : (
-        <div className="rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-6 text-center">
+        <div className="rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-6 text-center">
           <p className="text-lg font-semibold text-text">Событий нет по фильтрам</p>
           <p className="mt-1 text-sm text-text2">Попробуй изменить фильтры или обновить список.</p>
           <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
@@ -417,7 +417,7 @@ export default function EventsHub() {
       )}
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen} mobileFullscreen>
-        <DialogHeader className="sticky top-0 z-10 flex items-center justify-between border-b border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-3">
+        <DialogHeader className="sticky top-0 z-10 flex items-center justify-between border-b border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-4 py-3">
           <DialogTitle>Фильтры событий</DialogTitle>
           <button
             type="button"
@@ -439,7 +439,7 @@ export default function EventsHub() {
                   onClick={() => setDraftFilters((prev) => ({ ...prev, dateFilter: tab.key }))}
                   className={`rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
                     draftFilters.dateFilter === tab.key
-                      ? "border border-[rgb(var(--sky-rgb)/0.7)] bg-[linear-gradient(135deg,rgb(var(--sky-rgb)/0.6),rgb(var(--violet-rgb)/0.45))] text-white"
+                      ? "bg-[image:var(--grad-primary)] text-white shadow-[0_12px_24px_rgba(122,84,255,0.3)]"
                       : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
                   }`}
                 >
@@ -460,7 +460,7 @@ export default function EventsHub() {
                   onClick={() => setDraftFilters((prev) => ({ ...prev, category: tab.key }))}
                   className={`whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
                     draftFilters.category === tab.key
-                      ? "border border-[rgb(var(--violet-rgb)/0.6)] bg-[linear-gradient(135deg,rgb(var(--violet-rgb)/0.6),rgb(var(--sky-rgb)/0.4))] text-white shadow-[0_14px_26px_rgb(var(--violet-rgb)/0.2)]"
+                      ? "bg-[image:var(--grad-primary)] text-white shadow-[0_14px_26px_rgba(122,84,255,0.3)]"
                       : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
                   }`}
                 >
@@ -476,8 +476,8 @@ export default function EventsHub() {
               onClick={() => setDraftFilters((prev) => ({ ...prev, freeOnly: !prev.freeOnly }))}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 font-semibold transition active:scale-[0.98] ${
                 draftFilters.freeOnly
-                  ? "border border-[rgb(var(--sky-rgb)/0.6)] bg-[rgb(var(--sky-rgb)/0.35)] text-white"
-                  : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
+                  ? "bg-[rgb(var(--sky-rgb)/0.35)] text-white border-[rgb(var(--sky-rgb)/0.6)]"
+                  : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
               }`}
             >
               Бесплатно
@@ -488,8 +488,8 @@ export default function EventsHub() {
               onClick={() => setDraftFilters((prev) => ({ ...prev, lookingOnly: !prev.lookingOnly }))}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 font-semibold transition active:scale-[0.98] ${
                 draftFilters.lookingOnly
-                  ? "border border-[rgb(var(--violet-rgb)/0.6)] bg-[rgb(var(--violet-rgb)/0.35)] text-white"
-                  : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
+                  ? "bg-[rgb(var(--violet-rgb)/0.35)] text-white border-[rgb(var(--violet-rgb)/0.6)]"
+                  : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
               }`}
             >
               <Users2 className="h-3.5 w-3.5" /> Ищу компанию
@@ -497,18 +497,18 @@ export default function EventsHub() {
           </div>
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-3">
+        <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-4 py-3">
           <button
             type="button"
             onClick={resetDraftFilters}
-            className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-5 py-2.5 text-sm font-semibold text-text"
+            className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-5 py-2.5 text-sm font-semibold text-text"
           >
             <RefreshCcw className="h-4 w-4" /> Сбросить
           </button>
           <button
             type="button"
             onClick={applyDraftFilters}
-            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgb(var(--violet-rgb)/0.2)]"
+            className="inline-flex items-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(122,84,255,0.35)]"
           >
             Применить
           </button>

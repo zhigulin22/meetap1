@@ -5,7 +5,15 @@ import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-i
 import { updateEvent } from "@/server/events-service";
 import { normalizeTelegramContact, sendEventSubmissionToTelegramModerationBot } from "@/server/telegram-moderation";
 
-const REQUIRED_FIELDS = ["title", "category", "city", "venue_name", "starts_at", "short_description", "full_description", "organizer_telegram"] as const;
+const REQUIRED_FIELD_LABELS: Record<string, string> = {
+  title: "Название",
+  category: "Категория",
+  city: "Город",
+  starts_at: "Дата",
+  short_description: "Короткое описание",
+  full_description: "Полное описание",
+  organizer_telegram: "Telegram организатора",
+};
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -45,7 +53,11 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       "creator_user_id",
     ].filter((c) => eventCols.has(c));
 
-    const { data: event, error } = await supabaseAdmin.from("events").select(selectCols.join(",")).eq("id", params.id).single();
+    const { data: event, error } = await supabaseAdmin
+      .from("events")
+      .select(selectCols.join(","))
+      .eq("id", params.id)
+      .single();
     if (error || !event) return fail("Событие не найдено", 404);
 
     const ownerId = (event as any).created_by_user_id ?? (event as any).creator_user_id ?? null;
@@ -53,19 +65,37 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       return fail("Нет доступа", 403);
     }
 
-    for (const key of REQUIRED_FIELDS) {
-      if (!(event as any)[key]) {
-        return fail("Заполни обязательные поля перед отправкой", 422, {
-          code: "VALIDATION",
-          hint: `Поле ${key} обязательно для модерации`,
-        });
-      }
+    const missing: string[] = [];
+    if (eventCols.has("title") && !(event as any).title) missing.push(REQUIRED_FIELD_LABELS.title);
+    if (eventCols.has("category") && !(event as any).category) missing.push(REQUIRED_FIELD_LABELS.category);
+    if (eventCols.has("city") && !(event as any).city) missing.push(REQUIRED_FIELD_LABELS.city);
+    if (eventCols.has("starts_at") && !(event as any).starts_at) missing.push(REQUIRED_FIELD_LABELS.starts_at);
+    if (eventCols.has("short_description") && !(event as any).short_description)
+      missing.push(REQUIRED_FIELD_LABELS.short_description);
+    if (eventCols.has("full_description") && !(event as any).full_description)
+      missing.push(REQUIRED_FIELD_LABELS.full_description);
+
+    const hasVenueCol = eventCols.has("venue_name") || eventCols.has("venue_address");
+    if (hasVenueCol && !(event as any).venue_name && !(event as any).venue_address) {
+      missing.push("Место");
+    }
+
+    if (eventCols.has("organizer_telegram") && !(event as any).organizer_telegram) {
+      missing.push(REQUIRED_FIELD_LABELS.organizer_telegram);
+    }
+
+    if (missing.length) {
+      return fail(`Не заполнены обязательные поля: ${missing.join(", ")}`, 422, {
+        code: "VALIDATION",
+        fields: missing,
+      });
     }
 
     const normalizedTelegram = normalizeTelegramContact((event as any).organizer_telegram ?? "");
     if (!normalizedTelegram) {
       return fail("Укажи Telegram организатора в формате @username или https://t.me/username", 422, {
         code: "VALIDATION",
+        fields: [REQUIRED_FIELD_LABELS.organizer_telegram],
       });
     }
 
@@ -129,7 +159,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         price_text: (event as any).price_text ?? null,
         payment_url: (event as any).payment_url ?? null,
         payment_note: (event as any).payment_note ?? null,
-        status: "pending",
+        status: "pending_review",
         moderation_status: "pending",
         trust_confirmed: true,
         metadata: { source: "event-submit", event_id: params.id },

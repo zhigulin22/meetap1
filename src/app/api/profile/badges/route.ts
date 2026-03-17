@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   if (!userId) return fail("Unauthorized", 401);
 
-  const privacyRes = await supabaseAdmin.from("user_privacy_settings").select("show_badges").eq("user_id", userId).maybeSingle();
+  const privacyRes = await supabaseAdmin.from("user_privacy_settings").select("show_badges").eq("user_id", userId).limit(1).maybeSingle();
   const showBadges = privacyRes.data?.show_badges ?? true;
 
   if (!showBadges && currentUserId !== userId) {
