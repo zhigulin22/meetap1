@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CalendarClock, MapPin, MessageCircleHeart, Users, Sparkles } from "lucide-react";
 import type { EventListItem } from "@/components/events/types";
+import { Button } from "@/components/ui/button";
 
 function formatDateTimeRange(startsAt: string, endsAt?: string | null) {
   const start = new Date(startsAt);
@@ -61,68 +62,60 @@ export function EventSocialCard({
   onToggleCompanion: (eventId: string) => Promise<void> | void;
 }) {
   return (
-    <article className="dual-edge relative overflow-hidden rounded-[24px] bg-[rgb(var(--surface-2-rgb)/0.94)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_12%,rgb(var(--sky-rgb)/0.12),transparent_42%),radial-gradient(circle_at_92%_8%,rgb(var(--violet-rgb)/0.12),transparent_40%)]" />
+    <article className="dual-edge relative overflow-hidden rounded-[28px] bg-[rgb(var(--surface-1-rgb)/0.92)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgb(var(--sky-rgb)/0.12),transparent_42%),radial-gradient(circle_at_92%_8%,rgb(var(--violet-rgb)/0.12),transparent_40%)]" />
       <div className="relative p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.14)] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--text-rgb))]">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.14)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
               {socialLabel(event.social_mode)}
             </div>
             <h3 className="text-lg font-semibold leading-tight text-text">{event.title}</h3>
           </div>
-          <span className="shrink-0 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.88)] px-2.5 py-1 text-xs text-text2">
+          <span className="shrink-0 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-3 py-1.5 text-xs text-text2">
             {event.category || "Комьюнити"}
           </span>
         </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-1 text-white">
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px]">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2.5 py-1 text-white">
             Комьюнити
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2.5 py-1 text-white">
             Verified
           </span>
           {event.is_today ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2.5 py-1 text-white">
               <Sparkles className="h-3.5 w-3.5" /> Сегодня
-            </span>
-          ) : null}
-          {event.going_count > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.16)] px-2 py-1 text-text">
-              <Users className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> {event.going_count} идут
             </span>
           ) : null}
         </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
+        <div className="grid gap-2 text-xs text-text2 sm:grid-cols-2">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1">
             <CalendarClock className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
             {formatDateTimeRange(event.starts_at, event.ends_at)}
           </span>
-          {event.city ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
-              <MapPin className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" />
-              {event.city}
-            </span>
-          ) : null}
-          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
-            {socialModeMeta(event.social_mode)}
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1">
+            <MapPin className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
+            {event.city || "Москва"}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2 py-1">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1">
+            {venueText(event)}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--gold-rgb)/0.45)] bg-[rgb(var(--gold-rgb)/0.2)] px-2.5 py-1 text-[#5b3f14]">
             {priceText(event)}
           </span>
         </div>
 
-        <p className="text-xs text-text3">{venueText(event)}</p>
-        <p className="mt-2 line-clamp-3 text-sm text-text2">{event.short_description || event.full_description || "Описание скоро появится."}</p>
+        <p className="mt-3 line-clamp-3 text-sm text-text2">{event.short_description || event.full_description || "Описание скоро появится."}</p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.08)] p-2">
+        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div className="rounded-2xl border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.08)] p-3">
             <p className="mb-1 text-text3">Идут</p>
             <p className="text-base font-semibold text-text">{event.going_count}</p>
           </div>
-          <div className="rounded-xl border border-[rgb(var(--sky-rgb)/0.24)] bg-[rgb(var(--sky-rgb)/0.08)] p-2">
+          <div className="rounded-2xl border border-[rgb(var(--sky-rgb)/0.24)] bg-[rgb(var(--sky-rgb)/0.08)] p-3">
             <p className="mb-1 text-text3">Ищут компанию</p>
             <p className="text-base font-semibold text-text">{event.companion_count}</p>
           </div>
@@ -132,23 +125,22 @@ export function EventSocialCard({
           {event.participants.slice(0, 6).map((person) => (
             <Image
               key={person.id}
-              src={person.avatar_url || "https://placehold.co/100/edf2ff/5f6fb7?text=U"}
+              src={person.avatar_url || "https://placehold.co/100/0c1326/8b9bd6?text=U"}
               alt={person.name || "Участник"}
               width={64}
               height={64}
-              className="h-8 w-8 rounded-full border border-[rgb(var(--teal-rgb)/0.35)] object-cover"
+              className="h-9 w-9 rounded-full border border-[rgb(var(--teal-rgb)/0.35)] object-cover"
               unoptimized
             />
           ))}
           {event.going_count > 6 ? <span className="ml-3 inline-flex items-center text-xs text-text3">+{event.going_count - 6}</span> : null}
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Link
-            href={`/events/${event.id}`}
-            className="inline-flex h-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb))] text-sm font-medium text-text transition hover:bg-[rgb(var(--teal-rgb)/0.08)] active:scale-[0.98]"
-          >
-            Посмотреть
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <Link href={`/events/${event.id}`} className="w-full">
+            <Button variant="secondary" className="w-full h-12 rounded-2xl">
+              Посмотреть
+            </Button>
           </Link>
 
           {event.joined ? (
@@ -160,7 +152,7 @@ export function EventSocialCard({
               type="button"
               disabled={joining}
               onClick={() => onJoin(event.id)}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[rgb(var(--peach-rgb))] px-2 text-center text-xs font-semibold text-white shadow-[0_10px_22px_rgb(var(--peach-rgb)/0.24)] transition hover:bg-[rgb(var(--peach-pressed-rgb))] disabled:opacity-60 active:scale-[0.98]"
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[image:var(--grad-primary)] px-2 text-center text-xs font-semibold text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.3)] transition hover:brightness-[1.03] disabled:opacity-60 active:scale-[0.98]"
             >
               {joining ? "..." : "Я иду"}
             </button>
@@ -173,7 +165,7 @@ export function EventSocialCard({
             className={`inline-flex h-12 items-center justify-center gap-1 rounded-2xl border px-2 text-center text-xs font-semibold transition disabled:opacity-60 active:scale-[0.98] ${
               event.looking_company
                 ? "border-[rgb(var(--teal-rgb)/0.42)] bg-[rgb(var(--teal-rgb)/0.16)] text-text"
-                : "border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb))] text-text hover:bg-[rgb(var(--teal-rgb)/0.08)]"
+                : "border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-2-rgb))] text-text hover:bg-[rgb(var(--teal-rgb)/0.08)]"
             }`}
           >
             <MessageCircleHeart className="h-3.5 w-3.5" />
@@ -182,11 +174,13 @@ export function EventSocialCard({
         </div>
 
         {event.organizer_telegram || event.organizer_name ? (
-          <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.86)] px-2.5 py-1 text-[11px] text-text2">
+          <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.86)] px-3 py-1 text-[11px] text-text2">
             <Users className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
             Организатор: {event.organizer_name || event.organizer_telegram}
           </div>
         ) : null}
+
+        <div className="mt-3 text-xs text-text3">Формат: {socialModeMeta(event.social_mode)}</div>
       </div>
     </article>
   );

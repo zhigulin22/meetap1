@@ -20,7 +20,12 @@ export function SegmentedTabs<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cn("relative inline-flex rounded-[14px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-1", className)}>
+    <div
+      className={cn(
+        "relative inline-flex rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-1.5",
+        className,
+      )}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -29,14 +34,14 @@ export function SegmentedTabs<T extends string>({
             type="button"
             onClick={() => onChange(option.value)}
             className={cn(
-              "relative z-10 min-w-[72px] rounded-[10px] px-3 py-1.5 text-xs font-medium transition tap-press",
+              "relative z-10 min-w-[96px] rounded-full px-5 py-2 text-sm font-semibold transition tap-press",
               active ? "text-white" : "text-text2 hover:text-text",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="segmented-active"
-                className="absolute inset-0 -z-10 rounded-[10px] border border-[rgb(var(--teal-rgb)/0.3)] bg-[image:var(--grad-primary)] shadow-[0_0_14px_rgb(var(--teal-rgb)/0.26)]"
+                className="absolute inset-0 -z-10 rounded-full border border-[rgb(var(--teal-rgb)/0.28)] bg-[image:var(--grad-primary)] shadow-[0_0_18px_rgb(var(--teal-rgb)/0.32)]"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               />
             ) : null}

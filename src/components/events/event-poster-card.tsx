@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, ExternalLink, MapPin, Ticket, Users, Sparkles } from "lucide-react";
 import type { EventListItem } from "@/components/events/types";
+import { Button } from "@/components/ui/button";
 
 function formatDateTimeRange(startsAt: string, endsAt?: string | null) {
   const start = new Date(startsAt);
@@ -45,33 +46,33 @@ export function EventPosterCard({
   onJoin: (eventId: string) => Promise<void> | void;
 }) {
   return (
-    <article className="dual-edge overflow-hidden rounded-[24px] bg-[rgb(var(--surface-2-rgb)/0.94)]">
+    <article className="dual-edge overflow-hidden rounded-[28px] bg-[rgb(var(--surface-1-rgb)/0.92)]">
       <div className="relative">
         <Image
-          src={event.cover_url || "https://placehold.co/1200x800/edf2ff/5f6fb7?text=EVENT"}
+          src={event.cover_url || "https://placehold.co/1200x800/0c1326/8b9bd6?text=EVENT"}
           alt={event.title}
           width={1200}
           height={800}
-          className="h-52 w-full object-cover"
+          className="h-56 w-full object-cover"
           unoptimized
         />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.08),rgba(17,24,39,0.5))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,18,36,0.1),rgba(10,16,32,0.75))]" />
 
-        <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--text-rgb))]">
+        <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
           {event.category || "Событие"}
-          <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-[10px] font-semibold text-white">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-[10px] font-semibold text-white">
             Trend
           </span>
         </div>
 
-        <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--text-rgb))]">
-          <CalendarDays className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
+        <div className="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
+          <CalendarDays className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
           {formatDateTimeRange(event.starts_at, event.ends_at)}
         </div>
 
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
           <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-white">{event.title}</h3>
-          <span className="shrink-0 rounded-full border border-[rgb(var(--gold-rgb)/0.45)] bg-[rgb(var(--gold-rgb)/0.24)] px-2.5 py-1 text-xs font-semibold text-[#654400]">
+          <span className="shrink-0 rounded-full border border-[rgb(var(--gold-rgb)/0.45)] bg-[rgb(var(--gold-rgb)/0.26)] px-3 py-1.5 text-xs font-semibold text-[#5b3f14]">
             {getPriceText(event)}
           </span>
         </div>
@@ -80,19 +81,19 @@ export function EventPosterCard({
       <div className="space-y-3 p-4">
         <div className="signature-line" />
 
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
           {event.is_today ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-1 text-white">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2.5 py-1 text-white">
               <Sparkles className="h-3.5 w-3.5" /> Сегодня
             </span>
           ) : null}
           {!event.is_paid || event.price <= 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2.5 py-1 text-white">
               <Ticket className="h-3.5 w-3.5" /> Бесплатно
             </span>
           ) : null}
           {event.going_count > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.16)] px-2 py-1 text-text">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.16)] px-2.5 py-1 text-text">
               <Users className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> {event.going_count} идут
             </span>
           ) : null}
@@ -102,28 +103,27 @@ export function EventPosterCard({
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-text2">
           {event.city ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2 py-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1">
               <MapPin className="h-3.5 w-3.5 text-[rgb(var(--sky-rgb))]" />
               {event.city}
             </span>
           ) : null}
-          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2 py-1">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1">
             {venueText(event)}
           </span>
           {event.external_source ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.84)] px-2 py-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-2.5 py-1">
               <Ticket className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" />
               {event.external_source}
             </span>
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Link
-            href={`/events/${event.id}`}
-            className="inline-flex h-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb))] text-sm font-medium text-text transition hover:bg-[rgb(var(--teal-rgb)/0.08)] active:scale-[0.98]"
-          >
-            Посмотреть
+        <div className="grid grid-cols-2 gap-3">
+          <Link href={`/events/${event.id}`} className="w-full">
+            <Button variant="secondary" className="w-full h-12 rounded-2xl">
+              Посмотреть
+            </Button>
           </Link>
           {event.joined ? (
             <span className="inline-flex h-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.16)] text-sm font-semibold text-text">
@@ -134,7 +134,7 @@ export function EventPosterCard({
               type="button"
               disabled={joining}
               onClick={() => onJoin(event.id)}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[rgb(var(--peach-rgb))] px-4 text-sm font-semibold text-white shadow-[0_10px_22px_rgb(var(--peach-rgb)/0.24)] transition hover:bg-[rgb(var(--peach-pressed-rgb))] disabled:opacity-60 active:scale-[0.98]"
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[image:var(--grad-primary)] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.3)] transition hover:brightness-[1.03] disabled:opacity-60 active:scale-[0.98]"
             >
               {joining ? "..." : "Я иду"}
             </button>
@@ -146,7 +146,7 @@ export function EventPosterCard({
             href={event.external_url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-[rgb(var(--teal-rgb))] transition hover:text-[rgb(var(--teal-hover-rgb))]"
+            className="inline-flex items-center gap-1 text-xs text-[rgb(var(--sky-rgb))] transition hover:text-[rgb(var(--teal-rgb))]"
           >
             Купить билет на источнике
             <ExternalLink className="h-3.5 w-3.5" />

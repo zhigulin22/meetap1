@@ -8,7 +8,7 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
-      "flex h-11 w-full rounded-[var(--radius-md)] border border-[color:var(--border-strong)] bg-[rgb(var(--surface-2-rgb))] px-4 py-2 text-[15px] text-text placeholder:text-text3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--violet-rgb)/0.35)] focus-visible:border-[color:rgb(var(--violet-rgb)/0.7)] transition-colors",
+      "flex h-12 w-full rounded-[20px] border border-[color:var(--border-strong)] bg-[rgb(var(--surface-2-rgb))] px-4 py-2 text-[15px] text-text placeholder:text-text3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--violet-rgb)/0.35)] focus-visible:border-[color:rgb(var(--violet-rgb)/0.7)] transition-colors",
       className,
     )}
     {...props}

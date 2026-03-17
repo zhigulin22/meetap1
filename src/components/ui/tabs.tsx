@@ -32,7 +32,7 @@ export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivEl
   return (
     <div
       className={cn(
-        "inline-flex rounded-[14px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-1 shadow-[0_10px_24px_rgba(6,10,24,0.35)] backdrop-blur",
+        "inline-flex rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-1.5 shadow-[0_12px_26px_rgba(6,10,24,0.38)] backdrop-blur",
         className,
       )}
       {...props}
@@ -55,9 +55,9 @@ export function TabsTrigger({
   return (
     <button
       className={cn(
-        "rounded-[12px] px-4 py-2 text-[14px] font-medium transition-all duration-150 active:scale-[0.98]",
+        "rounded-full px-5 py-2 text-[15px] font-semibold transition-all duration-150 active:scale-[0.98]",
         active
-          ? "bg-[image:var(--grad-primary)] text-white shadow-[0_0_18px_rgba(122,84,255,0.4)]"
+          ? "bg-[image:var(--grad-primary)] text-white shadow-[0_0_20px_rgba(122,84,255,0.45)]"
           : "text-text2 hover:text-text",
         className,
       )}
