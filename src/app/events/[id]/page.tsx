@@ -269,7 +269,7 @@ export default function EventDetailPage() {
               </Button>
 
               {data.is_owner && (event.status === "draft" || event.status === "pending_review") ? (
-                <Button variant="secondary" onClick={() => window.location.assign(`/events/new?draftId=${event.id}`)}>
+                <Button variant="secondary" onClick={() => window.location.assign(`/events/new/create?draftId=${event.id}`)}>
                   Редактировать
                 </Button>
               ) : null}

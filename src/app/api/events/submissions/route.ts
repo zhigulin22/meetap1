@@ -186,7 +186,7 @@ export async function POST(req: Request) {
       await trackEvent({
         eventName: "events.submission_created",
         userId,
-        path: "/events/new",
+        path: "/events/new/create",
         properties: {
           submissionId: ins.data.id,
           mode: resolvedMode,

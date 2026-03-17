@@ -66,10 +66,12 @@ function normalizePhone(value: string) {
 function isValidTelegram(value: string) {
   const raw = value.trim();
   if (!raw) return false;
-  if (/^https?:\/\/t\.me\/[A-Za-z0-9_]{5,32}$/i.test(raw)) return true;
-  if (/^@?[A-Za-z0-9_]{5,32}$/.test(raw)) return true;
+  if (/^https?:\/\/(t\.me|telegram\.me)\/[A-Za-z0-9_]{4,32}\/?$/i.test(raw)) return true;
+  if (/^t\.me\/[A-Za-z0-9_]{4,32}\/?$/i.test(raw)) return true;
+  if (/^@?[A-Za-z0-9_]{4,32}$/i.test(raw)) return true;
   return false;
 }
+
 
 function isValidDateRange(date: string, startTime: string, endTime: string) {
   if (!date || !startTime) return { ok: false, reason: "Дата/время" };
@@ -430,7 +432,8 @@ function CreateEventPageInner() {
             <p className="mt-2 text-xs text-[rgb(var(--warning-rgb))]">Обложка не загружена: {uploadWarning}</p>
           )}
           <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
-            <Button onClick={() => router.push("/events")}>Вернуться к событиям</Button>
+            <Button onClick={() => router.push("/events/new")}>К кабинету организатора</Button>
+            <Button variant="secondary" onClick={() => router.push("/events")}>К афише</Button>
             <Button variant="secondary" onClick={() => router.push("/events/submissions")}>Мои заявки</Button>
           </div>
         </div>
