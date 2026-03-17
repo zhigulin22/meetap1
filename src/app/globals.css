@@ -13,14 +13,11 @@ body {
 
 body {
   @apply bg-bg text-text antialiased;
-  font-family: var(--font-manrope), system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.45;
   position: relative;
-  background-image:
-    radial-gradient(circle at 18% 12%, rgb(var(--sky-rgb) / 0.18), transparent 52%),
-    radial-gradient(circle at 82% 8%, rgb(var(--violet-rgb) / 0.2), transparent 56%),
-    radial-gradient(circle at 70% 88%, rgb(var(--sky-rgb) / 0.1), transparent 62%);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  background-image: var(--grad-hero-1), var(--grad-hero-2), var(--grad-hero-3);
 }
 
 body::after {
@@ -178,7 +175,7 @@ input[type=file]::file-selector-button {
 }
 
 .event-surface {
-  background: linear-gradient(140deg, rgb(var(--event-surface-rgb) / 0.98), rgb(var(--ivory-rgb) / 0.76));
+  background: linear-gradient(140deg, rgb(var(--surface-2-rgb) / 0.98), rgb(var(--surface-1-rgb) / 0.9));
 }
 
 .badge-surface {
@@ -201,10 +198,10 @@ input[type=file]::file-selector-button {
 
 .dual-edge {
   position: relative;
-  border: 1px solid rgb(var(--border-rgb) / 0.5);
+  border: 1px solid rgb(var(--border-rgb) / 0.55);
   box-shadow:
     inset 0 1px 0 rgb(var(--border-strong-rgb) / 0.22),
-    0 14px 28px rgb(22 32 70 / 0.2);
+    0 16px 34px rgb(10 16 32 / 0.4);
 }
 
 .icon-tile {

@@ -1,9 +1,8 @@
 :root {
-  /* Dark-first: Black + Blue + Violet identity */
   --bg: #0a1020;
-  --surface-1: #121a2f;
-  --surface-2: #1a2545;
-  --surface-3: #243056;
+  --surface-1: #101a32;
+  --surface-2: #15203d;
+  --surface-3: #1b294b;
 
   --divider: rgba(120, 132, 178, 0.24);
   --border-soft: rgba(140, 152, 206, 0.28);
@@ -30,16 +29,15 @@
 
   --event-gold: #f0bf63;
   --event-gold-soft: rgba(240, 191, 99, 0.24);
-  --event-night: #0f111a;
-  --event-surface: #1a1d2a;
 
   --badge-violet: #9a7bff;
   --badge-citrus: #ffd43b;
   --badge-aqua: #30cba0;
 
   --grad-primary: linear-gradient(135deg, #4a76ff 0%, #7a54ff 100%);
-  --grad-hero-1: linear-gradient(135deg, rgba(74, 118, 255, 0.3) 0%, rgba(122, 84, 255, 0.34) 100%);
-  --grad-hero-2: linear-gradient(135deg, rgba(111, 179, 255, 0.24) 0%, rgba(136, 106, 255, 0.3) 100%);
+  --grad-hero-1: radial-gradient(circle at 18% 18%, rgba(74, 118, 255, 0.25), transparent 58%);
+  --grad-hero-2: radial-gradient(circle at 82% 12%, rgba(122, 84, 255, 0.28), transparent 62%);
+  --grad-hero-3: radial-gradient(circle at 70% 86%, rgba(111, 179, 255, 0.18), transparent 60%);
   --grad-event: linear-gradient(135deg, #f0bf63 0%, #ffe0a6 100%);
   --grad-badge: linear-gradient(135deg, #9a7bff 0%, #ffd43b 100%);
 
@@ -51,9 +49,9 @@
   --shadow-soft: 0 12px 28px rgba(6, 8, 18, 0.45);
 
   --bg-rgb: 10 16 32;
-  --surface-1-rgb: 18 26 47;
-  --surface-2-rgb: 26 37 69;
-  --surface-3-rgb: 36 48 86;
+  --surface-1-rgb: 16 26 50;
+  --surface-2-rgb: 21 32 61;
+  --surface-3-rgb: 27 41 75;
   --border-rgb: 165 178 230;
   --border-strong-rgb: 196 206 244;
 
@@ -62,7 +60,6 @@
   --text-3-rgb: 143 154 187;
   --disabled-rgb: 95 108 140;
 
-  /* compatibility aliases */
   --peach-rgb: 74 118 255;
   --peach-pressed-rgb: 53 95 230;
   --teal-rgb: 122 84 255;
@@ -71,11 +68,6 @@
   --success-rgb: 45 191 138;
   --amber-rgb: 245 158 11;
   --danger-rgb: 239 68 68;
-
-  --gold-rgb: 240 191 99;
-  --ivory-rgb: 255 240 207;
-  --event-night-rgb: 15 17 26;
-  --event-surface-rgb: 26 29 42;
 
   --violet-rgb: 122 84 255;
   --citrus-rgb: 255 212 59;
@@ -119,7 +111,6 @@
 }
 
 .dark {
-  /* Keep dark class for compatibility */
 }
 
 .event-mode {

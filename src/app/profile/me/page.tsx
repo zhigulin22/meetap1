@@ -122,7 +122,7 @@ export default function MyProfilePage() {
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-3-rgb)/0.75)] p-2 text-center">
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] p-2 text-center shadow-soft">
                 <p className="text-sm font-semibold text-text">{stats.posts}</p>
                 <p className="text-[11px] text-text3">посты</p>
               </div>
@@ -188,7 +188,7 @@ export default function MyProfilePage() {
           </CardContent>
         </Card>
 
-        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.98)] p-2">
+        <div className="rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] p-2 shadow-soft">
           <div className="grid grid-cols-3 gap-2">
             {tabs.map((tab) => (
               <button
@@ -197,8 +197,8 @@ export default function MyProfilePage() {
                 onClick={() => setActiveTab(tab)}
                 className={`h-10 rounded-xl text-xs font-semibold transition ${
                   activeTab === tab
-                    ? "bg-[linear-gradient(90deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] text-white shadow-soft"
-                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] text-text2"
+                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_10px_24px_rgba(122,84,255,0.35)]"
+                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] text-text2"
                 }`}
               >
                 {tab}
