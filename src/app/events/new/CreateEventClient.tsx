@@ -86,6 +86,7 @@ function CreateEventPageInner() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -182,6 +183,7 @@ function CreateEventPageInner() {
     }
     setLoading(true);
     setError(null);
+    setUploadWarning(null);
     setValidationErrors([]);
 
     try {
@@ -208,23 +210,36 @@ function CreateEventPageInner() {
 
       setDraftId(draftRes.id);
 
+      let uploadWarningMessage: string | null = null;
       if (coverFile) {
-        const fd = new FormData();
-        fd.append("file", coverFile);
-        fd.append("makePrimary", "true");
-        const uploadRes = await fetch(`/api/events/${draftRes.id}/media`, {
-          method: "POST",
-          body: fd,
-          credentials: "include",
-        });
-        if (!uploadRes.ok) {
-          const payload = await uploadRes.json().catch(() => ({}));
-          throw new Error(payload?.error || "Не удалось загрузить обложку");
+        try {
+          const fd = new FormData();
+          fd.append("file", coverFile);
+          fd.append("makePrimary", "true");
+          const uploadRes = await fetch(`/api/events/${draftRes.id}/media`, {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+          });
+          if (!uploadRes.ok) {
+            const payload = await uploadRes.json().catch(() => ({}));
+            uploadWarningMessage = payload?.error || "Не удалось загрузить обложку";
+          }
+        } catch (e) {
+          uploadWarningMessage = parseError(e);
         }
       }
 
+      if (uploadWarningMessage) {
+        setUploadWarning(uploadWarningMessage);
+      }
+
       localStorage.removeItem(DRAFT_KEY);
-      toast.success("Черновик сохранён");
+      if (uploadWarningMessage) {
+        toast.warning("Черновик сохранён, обложка не загружена");
+      } else {
+        toast.success("Черновик сохранён");
+      }
       router.push(`/events/${draftRes.id}`);
     } catch (e) {
       setError(parseError(e));
@@ -255,19 +270,28 @@ function CreateEventPageInner() {
       }),
     });
 
+    let uploadWarningMessage: string | null = null;
     if (coverFile) {
-      const fd = new FormData();
-      fd.append("file", coverFile);
-      fd.append("makePrimary", "true");
-      const uploadRes = await fetch(`/api/events/${draftRes.id}/media`, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      if (!uploadRes.ok) {
-        const payload = await uploadRes.json().catch(() => ({}));
-        throw new Error(payload?.error || "Не удалось загрузить обложку");
+      try {
+        const fd = new FormData();
+        fd.append("file", coverFile);
+        fd.append("makePrimary", "true");
+        const uploadRes = await fetch(`/api/events/${draftRes.id}/media`, {
+          method: "POST",
+          body: fd,
+          credentials: "include",
+        });
+        if (!uploadRes.ok) {
+          const payload = await uploadRes.json().catch(() => ({}));
+          uploadWarningMessage = payload?.error || "Не удалось загрузить обложку";
+        }
+      } catch (e) {
+        uploadWarningMessage = parseError(e);
       }
+    }
+
+    if (uploadWarningMessage) {
+      setUploadWarning(uploadWarningMessage);
     }
 
     setDraftId(draftRes.id);
@@ -284,6 +308,7 @@ function CreateEventPageInner() {
 
     setLoading(true);
     setError(null);
+    setUploadWarning(null);
     setValidationErrors([]);
 
     try {
@@ -311,6 +336,9 @@ function CreateEventPageInner() {
           <CheckCircle2 className="mx-auto h-10 w-10 text-[rgb(var(--teal-rgb))]" />
           <h1 className="mt-3 text-2xl font-semibold">Событие отправлено на модерацию</h1>
           <p className="mt-2 text-sm text-text2">Модератор проверит событие и опубликует в разделе “Идём вместе”.</p>
+          {uploadWarning && (
+            <p className="mt-2 text-xs text-[rgb(var(--warning-rgb))]">Обложка не загружена: {uploadWarning}</p>
+          )}
           <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
             <Button onClick={() => router.push("/events")}>Вернуться к событиям</Button>
             <Button variant="secondary" onClick={() => router.push("/events/submissions")}>Мои заявки</Button>
