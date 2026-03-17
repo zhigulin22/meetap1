@@ -18,7 +18,8 @@ const schema = z
     starts_at: z.string().datetime(),
     ends_at: z.string().datetime().nullable().optional(),
     cover_urls: z.array(z.string().url()).min(0).max(8).optional().default([]),
-    mode: z.enum(["organize", "looking_company", "collect_group"]),
+    format: z.enum(["organize", "looking", "group"]).optional(),
+    mode: z.enum(["organize", "looking_company", "collect_group"]).optional(),
     is_paid: z.boolean(),
     price: z.number().min(0).nullable().optional(),
     payment_url: z.string().url().nullable().optional(),
@@ -67,6 +68,12 @@ export async function POST(req: Request) {
     return fail(parsed.error.issues[0]?.message ?? "Invalid payload", 422, { code: "VALIDATION" });
   }
 
+  const resolvedMode = parsed.data.mode ?? (parsed.data.format === "looking" ? "looking_company" : parsed.data.format === "group" ? "collect_group" : parsed.data.format === "organize" ? "organize" : undefined);
+  if (!resolvedMode) {
+    return fail("Укажи формат события", 422, { code: "VALIDATION", fields: ["Формат"] });
+  }
+  const resolvedFormat = resolvedMode === "looking_company" ? "looking" : resolvedMode === "collect_group" ? "group" : "organize";
+
   const tg = normalizeTelegramContact(parsed.data.telegram_contact);
   if (!tg) {
     return fail("Укажи Telegram в формате @username или https://t.me/username", 422, { code: "VALIDATION" });
@@ -90,7 +97,7 @@ export async function POST(req: Request) {
         user_id: userId,
         title: parsed.data.title,
         category: parsed.data.category,
-        format: parsed.data.mode,
+        format: resolvedFormat,
         short_description: parsed.data.short_description,
         full_description: parsed.data.full_description,
         city: parsed.data.city,
@@ -100,7 +107,7 @@ export async function POST(req: Request) {
         ends_at: parsed.data.ends_at ?? null,
         cover_urls: parsed.data.cover_urls ?? [],
         cover_image_url: parsed.data.cover_urls?.[0] ?? null,
-        mode: parsed.data.mode,
+        mode: resolvedMode,
         is_paid: parsed.data.is_paid,
         price: parsed.data.price ?? null,
         price_text: parsed.data.payment_note ?? null,
@@ -137,7 +144,7 @@ export async function POST(req: Request) {
         address: parsed.data.address,
         startsAt: parsed.data.starts_at,
         endsAt: parsed.data.ends_at,
-        mode: parsed.data.mode,
+        mode: resolvedMode,
         isPaid: parsed.data.is_paid,
         price: parsed.data.price,
         paymentUrl: parsed.data.payment_url,
@@ -156,7 +163,7 @@ export async function POST(req: Request) {
         path: "/events/new",
         properties: {
           submissionId: ins.data.id,
-          mode: parsed.data.mode,
+          mode: resolvedMode,
           category: parsed.data.category,
           isPaid: parsed.data.is_paid,
           telegram: tg,

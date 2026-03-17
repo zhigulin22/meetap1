@@ -13,6 +13,7 @@ const serverSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
   TELEGRAM_MODERATION_CHAT_ID: z.string().default(""),
+  TELEGRAM_MODERATION_ADMIN_IDS: z.string().default(""),
   TELEGRAM_MODERATION_MOCK: z.coerce.boolean().default(false),
   FACE_DETECT_MODEL: z.string().min(1).default("gpt-4o-mini"),
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
@@ -96,6 +97,11 @@ export function getServerEnv() {
     TELEGRAM_MODERATION_CHAT_ID: resolveSecret({
       plain: process.env.TELEGRAM_MODERATION_CHAT_ID,
       b64: process.env.TELEGRAM_MODERATION_CHAT_ID_B64,
+      placeholder: "",
+    }),
+    TELEGRAM_MODERATION_ADMIN_IDS: resolveSecret({
+      plain: process.env.TELEGRAM_MODERATION_ADMIN_IDS,
+      b64: process.env.TELEGRAM_MODERATION_ADMIN_IDS_B64,
       placeholder: "",
     }),
     TELEGRAM_MODERATION_MOCK: process.env.TELEGRAM_MODERATION_MOCK ?? "false",

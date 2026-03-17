@@ -30,6 +30,15 @@ async function answerCallbackQuery(id: string, text: string) {
   }).catch(() => null);
 }
 
+function parseIdList(raw: string | null | undefined) {
+  if (!raw) return [] as string[];
+  return raw
+    .split(/[;,
+\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
 async function resolveAdminByTelegram(telegramUserId: string) {
   const { data } = await supabaseAdmin
     .from("users")
@@ -188,6 +197,10 @@ async function handleModerationCallback(payload: any) {
   const action = match[1] as ModerationAction;
   const submissionId = match[2];
 
+  const env = getServerEnv();
+  const allowedIds = parseIdList(env.TELEGRAM_MODERATION_ADMIN_IDS);
+  const allowedByEnv = allowedIds.includes(tgUserId);
+
   const [{ data: submission }, actor] = await Promise.all([
     supabaseAdmin.from("event_submissions").select("*").eq("id", submissionId).maybeSingle(),
     resolveAdminByTelegram(tgUserId),
@@ -199,19 +212,21 @@ async function handleModerationCallback(payload: any) {
     return true;
   }
 
-  if (!actor.canModerate) {
+  if (!actor.canModerate && !allowedByEnv) {
     await answerCallbackQuery(callbackId, "Нет прав");
     await sendTelegramMessage(chatId, "⛔ У тебя нет прав модерации");
     return true;
   }
 
+  const moderatorUserId = actor.adminUserId ?? null;
+
   try {
     if (action === "approve") {
-      const eventId = await publishSubmission(submission, actor.adminUserId);
+      const eventId = await publishSubmission(submission, moderatorUserId);
       await logSubmissionAction({
         submissionId,
         action: "approve",
-        actorUserId: actor.adminUserId,
+        actorUserId: moderatorUserId,
         note: "Approved via Telegram callback",
         payload: { eventId, telegramUserId: tgUserId },
       });
@@ -229,7 +244,7 @@ async function handleModerationCallback(payload: any) {
       .update({
         moderation_status: status,
         moderation_reason: action === "reject" ? "Отклонено модератором" : "Нужны уточнения от автора",
-        moderated_by: actor.adminUserId,
+        moderated_by: moderatorUserId,
         moderated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -242,7 +257,7 @@ async function handleModerationCallback(payload: any) {
     await logSubmissionAction({
       submissionId,
       action,
-      actorUserId: actor.adminUserId,
+      actorUserId: moderatorUserId,
       note: `Set status ${status} via Telegram callback`,
       payload: { telegramUserId: tgUserId },
     });
@@ -262,87 +277,64 @@ async function handleModerationCallback(payload: any) {
   return true;
 }
 
-async function handleVerificationMessage(payload: any) {
-  const message = payload?.message;
-  if (!message) return;
-
-  const telegramUserId = String(message.from?.id ?? "");
-  const chatId = String(message.chat?.id ?? telegramUserId);
-  const text = String(message.text ?? "").trim();
-
-  if (!text.startsWith("/start")) {
-    await sendTelegramMessage(
-      chatId,
-      "Открой регистрацию в Meetap, введи номер и нажми подтверждение. Я пришлю код автоматически.",
-    );
-    return;
-  }
-
-  const token = text.split(" ")[1];
-
-  if (!token) {
-    await sendTelegramMessage(
-      chatId,
-      "Чтобы получить код, сначала введи номер в приложении Meetap и нажми подтверждение.",
-    );
-    return;
-  }
-
-  const { data: verification } = await supabaseAdmin
-    .from("telegram_verifications")
-    .select("id, phone, status, expires_at")
-    .eq("token", token)
-    .maybeSingle();
-
-  if (!verification || verification.status !== "pending") {
-    await sendTelegramMessage(chatId, "Токен не найден или уже использован. Запроси новый код в приложении.");
-    return;
-  }
-
-  if (new Date(verification.expires_at).getTime() < Date.now()) {
-    await supabaseAdmin.from("telegram_verifications").update({ status: "expired" }).eq("id", verification.id);
-
-    await sendTelegramMessage(chatId, "Время кода вышло. Вернись в приложение и запроси код заново.");
-    return;
-  }
-
-  await supabaseAdmin
-    .from("telegram_verifications")
-    .update({
-      status: "verified",
-      telegram_user_id: telegramUserId,
-      verified_phone: verification.phone,
-    })
-    .eq("id", verification.id)
-    .eq("status", "pending");
-
-  const code = buildTelegramCode(token);
-
-  await sendTelegramMessage(
-    chatId,
-    `Код для входа в Meetap: <b>${code}</b>\nДействует 10 минут. Введи его на шаге \"Код\".`,
-  );
-}
-
 export async function POST(req: Request) {
-  try {
-    const env = getServerEnv();
-    if (isPlaceholderEnvValue(env.TELEGRAM_BOT_TOKEN)) {
-      return fail("Telegram webhook is not configured", 500, {
-        code: "MISSING_ENV",
-        hint: "Проверь TELEGRAM_BOT_TOKEN в Vercel",
-        endpoint: "/api/telegram/webhook",
-      });
-    }
-    const payload = await req.json().catch(() => null);
-
-    const handledModeration = await handleModerationCallback(payload);
-    if (!handledModeration) {
-      await handleVerificationMessage(payload);
-    }
-
-    return ok({ received: true });
-  } catch (error) {
-    return fail(error instanceof Error ? error.message : "Webhook error", 500);
+  const env = getServerEnv();
+  if (isPlaceholderEnvValue(env.TELEGRAM_BOT_TOKEN)) {
+    return fail("Missing TELEGRAM_BOT_TOKEN", 500, { code: "MISSING_ENV" });
   }
+
+  const payload = await req.json().catch(() => null);
+  if (!payload) return fail("Invalid payload", 400);
+
+  if (payload.callback_query) {
+    const okHandled = await handleModerationCallback(payload);
+    return ok({ ok: okHandled });
+  }
+
+  const message = payload.message;
+  if (!message) return ok({ ok: true });
+
+  const chatId = String(message.chat?.id ?? "");
+  const text = String(message.text ?? "");
+
+  if (text.startsWith("/start ")) {
+    const token = text.slice(7).trim();
+    const { data: user, error } = await supabaseAdmin
+      .from("users")
+      .select("id,telegram_user_id")
+      .eq("telegram_code", token)
+      .maybeSingle();
+
+    if (error || !user?.id) {
+      await sendTelegramMessage(chatId, "Код не найден. Проверь в приложении.");
+      return ok({ ok: true });
+    }
+
+    await supabaseAdmin.from("users").update({ telegram_user_id: message.from?.id }).eq("id", user.id);
+    await sendTelegramMessage(chatId, "✅ Telegram привязан, теперь ты можешь модерировать события.");
+    return ok({ ok: true });
+  }
+
+  if (text === "/help") {
+    await sendTelegramMessage(chatId, "Доступные команды: /start <код>");
+    return ok({ ok: true });
+  }
+
+  if (text === "/whoami") {
+    const { data: user } = await supabaseAdmin
+      .from("users")
+      .select("id,name,role")
+      .eq("telegram_user_id", message.from?.id)
+      .maybeSingle();
+
+    if (!user) {
+      await sendTelegramMessage(chatId, "Не найдено привязок к пользователю.");
+      return ok({ ok: true });
+    }
+
+    await sendTelegramMessage(chatId, `Ваш профиль: ${user.name ?? "—"} (${user.role ?? "user"})`);
+    return ok({ ok: true });
+  }
+
+  return ok({ ok: true });
 }
