@@ -75,9 +75,13 @@ export function EventSocialCard({
             {event.category || "Комьюнити"}
           </span>
         </div>
+
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
           <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-1 text-white">
             Комьюнити
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
+            Verified
           </span>
           {event.is_today ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
@@ -142,13 +146,13 @@ export function EventSocialCard({
         <div className="mt-4 grid grid-cols-3 gap-2">
           <Link
             href={`/events/${event.id}`}
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb))] text-sm font-medium text-text transition hover:bg-[rgb(var(--teal-rgb)/0.08)] active:scale-[0.98]"
+            className="inline-flex h-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb))] text-sm font-medium text-text transition hover:bg-[rgb(var(--teal-rgb)/0.08)] active:scale-[0.98]"
           >
             Посмотреть
           </Link>
 
           {event.joined ? (
-            <span className="inline-flex h-11 items-center justify-center rounded-xl border border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.16)] px-2 text-center text-xs font-semibold text-text">
+            <span className="inline-flex h-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.16)] px-2 text-center text-xs font-semibold text-text">
               Вы в списке
             </span>
           ) : (
@@ -156,7 +160,7 @@ export function EventSocialCard({
               type="button"
               disabled={joining}
               onClick={() => onJoin(event.id)}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-[rgb(var(--peach-rgb))] px-2 text-center text-xs font-semibold text-white shadow-[0_10px_22px_rgb(var(--peach-rgb)/0.24)] transition hover:bg-[rgb(var(--peach-pressed-rgb))] disabled:opacity-60 active:scale-[0.98]"
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[rgb(var(--peach-rgb))] px-2 text-center text-xs font-semibold text-white shadow-[0_10px_22px_rgb(var(--peach-rgb)/0.24)] transition hover:bg-[rgb(var(--peach-pressed-rgb))] disabled:opacity-60 active:scale-[0.98]"
             >
               {joining ? "..." : "Я иду"}
             </button>
@@ -166,7 +170,7 @@ export function EventSocialCard({
             type="button"
             disabled={companionLoading}
             onClick={() => onToggleCompanion(event.id)}
-            className={`inline-flex h-11 items-center justify-center gap-1 rounded-xl border px-2 text-center text-xs font-semibold transition disabled:opacity-60 active:scale-[0.98] ${
+            className={`inline-flex h-12 items-center justify-center gap-1 rounded-2xl border px-2 text-center text-xs font-semibold transition disabled:opacity-60 active:scale-[0.98] ${
               event.looking_company
                 ? "border-[rgb(var(--teal-rgb)/0.42)] bg-[rgb(var(--teal-rgb)/0.16)] text-text"
                 : "border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb))] text-text hover:bg-[rgb(var(--teal-rgb)/0.08)]"

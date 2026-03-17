@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, MapPin, RefreshCcw, SlidersHorizontal, Users2, Sparkles, Ticket, Users } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCcw, SlidersHorizontal, Users2, Sparkles, Ticket, Users, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { EventPosterCard } from "@/components/events/event-poster-card";
@@ -29,6 +29,37 @@ const categoryTabs = [
   { key: "quests", label: "Квесты" },
   { key: "other", label: "Другое" },
 ];
+
+
+function ProgressArc({ value = 60, label, color = "rgb(var(--sky-rgb))" }) {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-4 py-3">
+      <div className="relative h-12 w-12">
+        <svg viewBox="0 0 36 36" className="h-12 w-12">
+          <path
+            d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31"
+            fill="none"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="3"
+          />
+          <path
+            d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31"
+            fill="none"
+            stroke={color}
+            strokeWidth="3"
+            strokeDasharray={`${pct},100`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-text">{pct}%</div>
+      </div>
+      <div>
+        <p className="text-xs text-text3">{label}</p>
+        <p className="text-sm text-text">Активность</p>
+      </div>
+    </div>
+  );
+}
 
 const dateTabs = [
   { key: "all", label: "Любая дата" },
@@ -281,12 +312,19 @@ export default function EventsHub() {
             <p className="text-sm text-text2">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
-            <Button className="h-11 rounded-2xl px-6">+ Добавить</Button>
+            <Button className="h-12 rounded-2xl px-7">+ Добавить</Button>
           </Link>
         </div>
 
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ProgressArc value={72} label="Рекомендации" color="rgb(var(--violet-rgb))" />
+          <ProgressArc value={64} label="Доверие" color="rgb(var(--sky-rgb))" />
+          <ProgressArc value={58} label="Совпадения" color="rgb(var(--teal-rgb))" />
+        </div>
+
+
           <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -330,7 +368,7 @@ export default function EventsHub() {
                 key={tab.key}
                 type="button"
                 onClick={() => setFeed(tab.key)}
-                className={`rounded-2xl px-5 py-3 text-sm font-semibold transition active:scale-[0.98] ${
+                className={`rounded-2xl px-6 py-3.5 text-sm font-semibold transition active:scale-[0.98] ${
                   feed === tab.key
                     ? "bg-[image:var(--grad-primary)] text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)]"
                     : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] text-text"
@@ -351,7 +389,7 @@ export default function EventsHub() {
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-6 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-6 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
@@ -359,7 +397,7 @@ export default function EventsHub() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-5 text-sm font-semibold text-text transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-5 text-sm font-semibold text-text transition active:scale-[0.98]"
               >
                 <RefreshCcw className="h-4 w-4" /> Сбросить
               </button>
