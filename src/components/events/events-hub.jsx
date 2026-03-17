@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, MapPin, RefreshCcw, Search, SlidersHorizontal, Users2 } from "lucide-react";
+import { CalendarDays, RefreshCcw, SlidersHorizontal, Users2 } from "lucide-react";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { EventPosterCard } from "@/components/events/event-poster-card";
@@ -10,10 +10,10 @@ import { EventSocialCard } from "@/components/events/event-social-card";
 import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ApiClientError, api } from "@/lib/api-client";
 
 const SNAPSHOT_KEY = "events_snapshot_v2";
+const DEFAULT_CITY = "Москва";
 
 const feedTabs = [
   { key: "all", label: "Все" },
@@ -47,16 +47,13 @@ export default function EventsHub() {
   const [feed, setFeed] = useState("all");
   const [category, setCategory] = useState("popular");
   const [dateFilter, setDateFilter] = useState("all");
-  const [city, setCity] = useState("");
-  const [search, setSearch] = useState("");
+  const city = DEFAULT_CITY;
   const [freeOnly, setFreeOnly] = useState(false);
   const [lookingOnly, setLookingOnly] = useState(false);
   const [draftFilters, setDraftFilters] = useState({
     feed: "all",
     category: "popular",
     dateFilter: "all",
-    city: "",
-    search: "",
     freeOnly: false,
     lookingOnly: false,
   });
@@ -67,16 +64,12 @@ export default function EventsHub() {
     const feedParam = params.get("feed");
     const categoryParam = params.get("category");
     const dateParam = params.get("date");
-    const cityParam = params.get("city");
-    const qParam = params.get("q");
     const freeParam = params.get("free");
     const lookingParam = params.get("looking");
 
     if (feedParam && feedTabs.some((t) => t.key === feedParam)) setFeed(feedParam);
     if (categoryParam && [...categoryTabs.map((t) => t.key), "all"].includes(categoryParam)) setCategory(categoryParam);
     if (dateParam && dateTabs.some((t) => t.key === dateParam)) setDateFilter(dateParam);
-    if (cityParam) setCity(cityParam);
-    if (qParam) setSearch(qParam);
     if (freeParam === "1") setFreeOnly(true);
     if (lookingParam === "1") setLookingOnly(true);
   }, []);
@@ -87,16 +80,14 @@ export default function EventsHub() {
     if (feed !== "all") params.set("feed", feed);
     if (category !== "popular") params.set("category", category);
     if (dateFilter !== "all") params.set("date", dateFilter);
-    if (city.trim()) params.set("city", city.trim());
-    if (search.trim()) params.set("q", search.trim());
     if (freeOnly) params.set("free", "1");
     if (lookingOnly) params.set("looking", "1");
     const query = params.toString();
     const url = query ? `?${query}` : "";
     window.history.replaceState(null, "", url);
-  }, [feed, category, dateFilter, city, search, freeOnly, lookingOnly]);
+  }, [feed, category, dateFilter, freeOnly, lookingOnly]);
 
-  const queryKey = ["events", { feed, category, dateFilter, city, search, freeOnly, lookingOnly }];
+  const queryKey = ["events", { feed, category, dateFilter, freeOnly, lookingOnly }];
 
   const eventsQuery = useInfiniteQuery({
     queryKey,
@@ -105,8 +96,7 @@ export default function EventsHub() {
       if (feed !== "all") params.set("feed", feed);
       if (category !== "popular") params.set("category", category);
       if (dateFilter !== "all") params.set("date", dateFilter);
-      if (city.trim()) params.set("city", city.trim());
-      if (search.trim()) params.set("q", search.trim());
+      params.set("city", DEFAULT_CITY);
       if (freeOnly) params.set("free", "1");
       if (lookingOnly) params.set("looking", "1");
       params.set("limit", "20");
@@ -218,8 +208,6 @@ export default function EventsHub() {
     setFeed("all");
     setCategory("popular");
     setDateFilter("all");
-    setCity("");
-    setSearch("");
     setFreeOnly(false);
     setLookingOnly(false);
   }
@@ -229,8 +217,6 @@ export default function EventsHub() {
       feed: "all",
       category: "popular",
       dateFilter: "all",
-      city: "",
-      search: "",
       freeOnly: false,
       lookingOnly: false,
     });
@@ -240,8 +226,6 @@ export default function EventsHub() {
     setFeed(draftFilters.feed);
     setCategory(draftFilters.category);
     setDateFilter(draftFilters.dateFilter);
-    setCity(draftFilters.city);
-    setSearch(draftFilters.search);
     setFreeOnly(draftFilters.freeOnly);
     setLookingOnly(draftFilters.lookingOnly);
     setFiltersOpen(false);
@@ -253,12 +237,10 @@ export default function EventsHub() {
       feed,
       category,
       dateFilter,
-      city,
-      search,
       freeOnly,
       lookingOnly,
     });
-  }, [filtersOpen, feed, category, dateFilter, city, search, freeOnly, lookingOnly]);
+  }, [filtersOpen, feed, category, dateFilter, freeOnly, lookingOnly]);
 
   const activeFilters = useMemo(() => {
     const chips = [];
@@ -274,12 +256,10 @@ export default function EventsHub() {
     if (dateFilter !== "all") {
       chips.push({ label: "Дата: " + (dateFilter === "today" ? "Сегодня" : "Выходные"), onRemove: () => setDateFilter("all") });
     }
-    if (city.trim()) chips.push({ label: "Город: " + city.trim(), onRemove: () => setCity("") });
-    if (search.trim()) chips.push({ label: "Поиск: " + search.trim(), onRemove: () => setSearch("") });
     if (freeOnly) chips.push({ label: "Бесплатно", onRemove: () => setFreeOnly(false) });
     if (lookingOnly) chips.push({ label: "Ищу компанию", onRemove: () => setLookingOnly(false) });
     return chips;
-  }, [feed, category, dateFilter, city, search, freeOnly, lookingOnly]);
+  }, [feed, category, dateFilter, freeOnly, lookingOnly]);
 
   const cacheInfo = eventsQuery.data?.pages?.[0]?.cache;
   const staleInfo = cacheInfo?.mode === "stale" ? cacheInfo : null;
@@ -291,7 +271,7 @@ export default function EventsHub() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">События</h1>
-            <p className="text-sm text-text2">Афиша и социальный слой знакомств</p>
+            <p className="text-sm text-text2">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
             <Button>+ Добавить</Button>
@@ -320,25 +300,10 @@ export default function EventsHub() {
           </div>
 
           <div className="grid gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3">
-            <div className="grid gap-2 md:grid-cols-[1.2fr_0.8fr_auto]">
-              <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
-                <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="название, место..."
-                  className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-                />
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
-                <MapPin className="h-4 w-4 text-[rgb(var(--violet-rgb))]" />
-                <Input
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Город"
-                  className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-                />
-              </label>
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+              <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-3 text-sm text-text">
+                Город: Москва
+              </div>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
@@ -349,7 +314,7 @@ export default function EventsHub() {
               </button>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="text-text3">Фильтры внутри: категории, дата, бесплатные, поиск компании</span>
+              <span className="text-text3">Фильтры: категории, дата, бесплатно, поиск компании</span>
               <button
                 type="button"
                 onClick={resetFilters}
@@ -464,32 +429,6 @@ export default function EventsHub() {
         </DialogHeader>
 
         <div className="space-y-5 px-4 pb-6 pt-2">
-          <div>
-            <p className="text-xs text-text3">Поиск</p>
-            <label className="mt-2 flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-3 py-2 text-sm text-text2">
-              <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
-              <Input
-                value={draftFilters.search}
-                onChange={(e) => setDraftFilters((prev) => ({ ...prev, search: e.target.value }))}
-                placeholder="название, место..."
-                className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-              />
-            </label>
-          </div>
-
-          <div>
-            <p className="text-xs text-text3">Город</p>
-            <label className="mt-2 flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-3 py-2 text-sm text-text2">
-              <MapPin className="h-4 w-4 text-[rgb(var(--violet-rgb))]" />
-              <Input
-                value={draftFilters.city}
-                onChange={(e) => setDraftFilters((prev) => ({ ...prev, city: e.target.value }))}
-                placeholder="Город"
-                className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
-              />
-            </label>
-          </div>
-
           <div>
             <p className="text-xs text-text3">Дата</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
