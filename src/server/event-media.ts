@@ -10,6 +10,20 @@ function extByType(contentType: string) {
   return "jpg";
 }
 
+async function ensureEventMediaBucket() {
+  const { data, error } = await supabaseAdmin.storage.listBuckets();
+  if (error) {
+    throw new Error("Не удалось проверить хранилище медиа");
+  }
+  const exists = (data ?? []).some((bucket) => bucket.name === "event-media");
+  if (!exists) {
+    const { error: createError } = await supabaseAdmin.storage.createBucket("event-media", { public: true });
+    if (createError && !/exists/i.test(createError.message)) {
+      throw new Error("Bucket event-media не найден. Создай bucket в Supabase Storage");
+    }
+  }
+}
+
 export async function uploadEventImage(params: {
   eventId: string;
   file: File;
@@ -31,6 +45,8 @@ export async function uploadEventImage(params: {
   if (params.file.size > 8 * 1024 * 1024) {
     throw new Error("Максимальный размер файла 8MB");
   }
+
+  await ensureEventMediaBucket();
 
   const buffer = Buffer.from(await params.file.arrayBuffer());
   const ext = extByType(params.file.type);
