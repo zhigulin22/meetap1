@@ -267,63 +267,61 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-4 flex flex-col gap-4 rounded-3xl border border-[color:var(--border-strong)] bg-[linear-gradient(140deg,rgb(var(--surface-1-rgb)/0.96),rgb(var(--surface-2-rgb)/0.92))] p-4 shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(18,26,50,0.98),rgba(18,26,50,0.7))] p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">События</h1>
             <p className="text-sm text-text2">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
-            <Button>+ Добавить</Button>
+            <Button className="rounded-full px-5">+ Добавить</Button>
           </Link>
         </div>
 
-        <div className="grid gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-text3">Режим</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {feedTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setFeed(tab.key)}
-                  className={`rounded-full px-5 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
-                    feed === tab.key
-                      ? "bg-[image:var(--grad-primary)] text-white shadow-[0_10px_24px_rgba(122,84,255,0.4)]"
-                      : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text3">Режим</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {feedTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFeed(tab.key)}
+                className={`rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
+                  feed === tab.key
+                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_10px_24px_rgba(122,84,255,0.4)]"
+                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
+        </div>
 
-          <div className="grid gap-3 rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)] p-4 shadow-soft">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 py-3 text-sm font-medium text-text">
-                Город: Москва
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFiltersOpen(true)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-5 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 text-sm font-semibold text-text transition active:scale-[0.98]"
-                >
-                  <RefreshCcw className="h-4 w-4" /> Сбросить
-                </button>
-              </div>
+        <div className="mt-4 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-4 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 py-3 text-sm font-medium text-text">
+              Город: Москва
             </div>
-            <p className="text-xs text-text3">Фильтры: категории, дата, бесплатно, поиск компании</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[image:var(--grad-primary)] px-5 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
+              </button>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 text-sm font-semibold text-text transition active:scale-[0.98]"
+              >
+                <RefreshCcw className="h-4 w-4" /> Сбросить
+              </button>
+            </div>
           </div>
+          <p className="mt-3 text-xs text-text3">Фильтры: категории, дата, бесплатно, поиск компании</p>
         </div>
       </div>
 
