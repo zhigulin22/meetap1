@@ -139,8 +139,15 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.16)] px-3 py-1 text-xs text-[rgb(var(--text-rgb))]">
-            Статус: {data.status}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.16)] px-3 py-1 text-xs text-[rgb(var(--text-rgb))]">
+              Статус: {data.status}
+            </div>
+            {p.student_verified ? (
+              <div className="rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.2)] px-3 py-1 text-xs text-text">
+                Студент подтверждён
+              </div>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
