@@ -30,7 +30,6 @@ const categoryTabs = [
   { key: "other", label: "Другое" },
 ];
 
-
 const dateTabs = [
   { key: "all", label: "Любая дата" },
   { key: "today", label: "Сегодня" },
@@ -48,7 +47,6 @@ export default function EventsHub() {
   const [feed, setFeed] = useState("all");
   const [category, setCategory] = useState("popular");
   const [dateFilter, setDateFilter] = useState("all");
-  const city = DEFAULT_CITY;
   const [freeOnly, setFreeOnly] = useState(false);
   const [lookingOnly, setLookingOnly] = useState(false);
   const [draftFilters, setDraftFilters] = useState({
@@ -132,13 +130,6 @@ export default function EventsHub() {
   }, [eventsQuery.isError]);
 
   const items = eventsQuery.data?.pages.flatMap((p) => p.items ?? []) ?? [];
-
-  const stats = useMemo(() => {
-    const total = items.length;
-    const free = items.filter((i) => !i.is_paid || i.price <= 0).length;
-    const community = items.filter((i) => i.source_kind === "community").length;
-    return { total, free, community };
-  }, [items]);
 
   async function join(eventId) {
     const target = items.find((item) => item.id === eventId);
@@ -275,34 +266,21 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-6 rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(18,26,50,0.98),rgba(18,26,50,0.7))] p-6 shadow-card">
+      <div className="mb-6 rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(180deg,rgba(16,22,48,0.98),rgba(12,18,36,0.94))] p-6 shadow-[0_24px_60px_rgba(10,16,36,0.55)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">События</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-text">События</h1>
             <p className="text-sm text-text2">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
-            <Button className="h-12 rounded-full px-7">+ Добавить</Button>
+            <Button className="h-12 rounded-full px-6 text-sm font-semibold shadow-[0_12px_24px_rgba(122,84,255,0.35)]">
+              + Добавить
+            </Button>
           </Link>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
-            <p className="text-xs text-text3">Всего событий</p>
-            <p className="mt-2 text-2xl font-semibold text-text">{stats.total}</p>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
-            <p className="text-xs text-text3">Бесплатно</p>
-            <p className="mt-2 text-2xl font-semibold text-text">{stats.free}</p>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
-            <p className="text-xs text-text3">Комьюнити</p>
-            <p className="mt-2 text-2xl font-semibold text-text">{stats.community}</p>
-          </div>
-        </div>
-
         <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text3">Режим</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text3">Режим</p>
           <div className="mt-3 flex flex-wrap gap-3">
             {feedTabs.map((tab) => (
               <button
@@ -311,8 +289,8 @@ export default function EventsHub() {
                 onClick={() => setFeed(tab.key)}
                 className={`h-12 rounded-full px-6 text-sm font-semibold transition active:scale-[0.98] ${
                   feed === tab.key
-                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)]"
-                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] text-text"
+                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_14px_28px_rgba(122,84,255,0.4)]"
+                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
                 }`}
               >
                 {tab.label}
@@ -321,14 +299,14 @@ export default function EventsHub() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-5 shadow-soft">
+        <div className="mt-5 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-5 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-text2">Фильтры: категории, дата, бесплатно, поиск компании</div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-6 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-6 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(122,84,255,0.38)] transition active:scale-[0.98]"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
@@ -336,7 +314,7 @@ export default function EventsHub() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-12 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-5 text-sm font-semibold text-text transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-6 text-sm font-semibold text-text transition active:scale-[0.98]"
               >
                 <RefreshCcw className="h-4 w-4" /> Сбросить
               </button>
@@ -345,7 +323,7 @@ export default function EventsHub() {
         </div>
       </div>
 
-{activeFilters.length > 0 && (
+      {activeFilters.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-text3">Активные фильтры:</span>
           {activeFilters.map((chip) => (
