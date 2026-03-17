@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, ExternalLink, MapPin, Ticket } from "lucide-react";
+import { CalendarDays, ExternalLink, MapPin, Ticket, Users, Sparkles } from "lucide-react";
 import type { EventListItem } from "@/components/events/types";
 
 function formatDateTimeRange(startsAt: string, endsAt?: string | null) {
@@ -76,6 +76,24 @@ export function EventPosterCard({
 
       <div className="space-y-3 p-4">
         <div className="signature-line" />
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          {event.is_today ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-1 text-white">
+              <Sparkles className="h-3.5 w-3.5" /> Сегодня
+            </span>
+          ) : null}
+          {!event.is_paid || event.price <= 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
+              <Ticket className="h-3.5 w-3.5" /> Бесплатно
+            </span>
+          ) : null}
+          {event.going_count > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.16)] px-2 py-1 text-text">
+              <Users className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> {event.going_count} идут
+            </span>
+          ) : null}
+        </div>
 
         <p className="line-clamp-2 text-sm text-text2">{event.short_description || event.full_description || "Описание скоро появится."}</p>
 

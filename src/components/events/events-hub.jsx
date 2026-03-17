@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, MapPin, RefreshCcw, SlidersHorizontal, Users2 } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCcw, SlidersHorizontal, Users2, Sparkles, Ticket, Users } from "lucide-react";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { EventPosterCard } from "@/components/events/event-poster-card";
@@ -131,6 +131,13 @@ export default function EventsHub() {
   }, [eventsQuery.isError]);
 
   const items = eventsQuery.data?.pages.flatMap((p) => p.items ?? []) ?? [];
+
+  const stats = useMemo(() => {
+    const total = items.length;
+    const free = items.filter((i) => !i.is_paid || i.price <= 0).length;
+    const community = items.filter((i) => i.source_kind === "community").length;
+    return { total, free, community };
+  }, [items]);
 
   async function join(eventId) {
     const target = items.find((item) => item.id === eventId);
@@ -276,6 +283,43 @@ export default function EventsHub() {
           <Link href="/events/new" className="inline-flex">
             <Button className="h-11 rounded-2xl px-6">+ Добавить</Button>
           </Link>
+        </div>
+
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-text3">Всего событий</p>
+                <p className="text-xl font-semibold text-text">{stats.total}</p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--violet-rgb)/0.18)]">
+                <Sparkles className="h-5 w-5 text-[rgb(var(--violet-rgb))]" />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-text3">Бесплатно</p>
+                <p className="text-xl font-semibold text-text">{stats.free}</p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--sky-rgb)/0.18)]">
+                <Ticket className="h-5 w-5 text-[rgb(var(--sky-rgb))]" />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-text3">Комьюнити</p>
+                <p className="text-xl font-semibold text-text">{stats.community}</p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--teal-rgb)/0.18)]">
+                <Users className="h-5 w-5 text-[rgb(var(--teal-rgb))]" />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="mt-5">

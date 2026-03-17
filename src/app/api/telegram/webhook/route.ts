@@ -33,8 +33,7 @@ async function answerCallbackQuery(id: string, text: string) {
 function parseIdList(raw: string | null | undefined) {
   if (!raw) return [] as string[];
   return raw
-    .split(/[;,
-\s]+/)
+    .split(/[;,\s]+/)
     .map((x) => x.trim())
     .filter(Boolean);
 }

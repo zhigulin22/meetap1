@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarClock, MapPin, MessageCircleHeart, Users } from "lucide-react";
+import { CalendarClock, MapPin, MessageCircleHeart, Users, Sparkles } from "lucide-react";
 import type { EventListItem } from "@/components/events/types";
 
 function formatDateTimeRange(startsAt: string, endsAt?: string | null) {
@@ -74,6 +74,21 @@ export function EventSocialCard({
           <span className="shrink-0 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.88)] px-2.5 py-1 text-xs text-text2">
             {event.category || "Комьюнити"}
           </span>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-1 text-white">
+            Комьюнити
+          </span>
+          {event.is_today ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--sky-rgb)/0.45)] bg-[rgb(var(--sky-rgb)/0.18)] px-2 py-1 text-white">
+              <Sparkles className="h-3.5 w-3.5" /> Сегодня
+            </span>
+          ) : null}
+          {event.going_count > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.16)] px-2 py-1 text-text">
+              <Users className="h-3.5 w-3.5 text-[rgb(var(--teal-rgb))]" /> {event.going_count} идут
+            </span>
+          ) : null}
         </div>
 
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text2">
