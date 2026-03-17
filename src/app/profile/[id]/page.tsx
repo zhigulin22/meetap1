@@ -19,6 +19,12 @@ type PostItem = {
   photos: Array<{ kind: string; url: string }>;
 };
 
+type Compatibility = {
+  score: number;
+  reasons: string[];
+  common: string[];
+} | null;
+
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
   const [tab, setTab] = useState<"all" | "videos" | "photos">("all");
@@ -32,6 +38,8 @@ export default function ProfilePage() {
         status: string;
         positiveFact: string;
         content: { all: PostItem[]; videos: PostItem[]; photos: PostItem[] };
+        privacy_settings?: Record<string, any>;
+        compatibility?: Compatibility;
       }>(`/api/profile/${params.id}`),
   });
 
@@ -61,6 +69,10 @@ export default function ProfilePage() {
   }
 
   const p = data.profile;
+  const privacy = data.privacy_settings ?? {};
+  const compat = data.compatibility ?? null;
+  const facts = Array.isArray(p.facts) ? p.facts : [];
+  const interests = Array.isArray(p.interests) ? p.interests : [];
 
   return (
     <PageShell>
@@ -112,7 +124,69 @@ export default function ProfilePage() {
             Плюс системы: {data.positiveFact}
           </div>
 
-          <p className="text-sm text-text2">Интересы: {(p.interests || []).join(", ") || "Не заполнено"}</p>
+          {compat ? (
+            <div className="rounded-2xl border border-[rgb(var(--violet-rgb)/0.35)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] text-text3">Совместимость</p>
+                  <p className="text-2xl font-semibold text-text">{compat.score}%</p>
+                </div>
+                <div className="rounded-full border border-[rgb(var(--violet-rgb)/0.4)] bg-[rgb(var(--violet-rgb)/0.18)] px-3 py-1 text-xs text-text">
+                  AI match
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {compat.reasons.map((reason: string) => (
+                  <span
+                    key={reason}
+                    className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.8)] px-2 py-0.5 text-[11px] text-text2"
+                  >
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+            <p className="text-xs text-text3">Факты</p>
+            {privacy.show_facts === false ? (
+              <p className="mt-1 text-sm text-text2">Скрыто пользователем</p>
+            ) : facts.length ? (
+              <ul className="mt-1 space-y-1 text-sm text-text2">
+                {facts.map((fact: string, idx: number) => (
+                  <li
+                    key={`${idx}-${fact}`}
+                    className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] px-2 py-1"
+                  >
+                    {fact}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 text-sm text-text2">Пока нет фактов</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+            <p className="text-xs text-text3">Интересы</p>
+            {privacy.show_interests === false ? (
+              <p className="mt-1 text-sm text-text2">Скрыто пользователем</p>
+            ) : interests.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {interests.map((tag: string) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.8)] px-2 py-0.5 text-[11px] text-text2"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-text2">Интересы не заполнены</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
