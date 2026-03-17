@@ -96,6 +96,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       organizer_name: (event as any).organizer_name ?? body?.organizer_name ?? "",
     };
 
+    const format = (event as any).social_mode === "looking_company"
+      ? "looking"
+      : (event as any).social_mode === "collect_group"
+        ? "group"
+        : "organize";
+
     const missing: string[] = [];
     if (!merged.title) missing.push(REQUIRED_FIELD_LABELS.title);
     if (!merged.category) missing.push(REQUIRED_FIELD_LABELS.category);
@@ -167,6 +173,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         user_id: userId,
         event_id: params.id,
         title: merged.title,
+        format: format,
+        mode: format,
         category: merged.category,
         city: merged.city,
         venue: merged.venue_name || null,
