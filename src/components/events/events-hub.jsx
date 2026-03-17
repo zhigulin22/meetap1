@@ -319,19 +319,45 @@ export default function EventsHub() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] p-3">
-            <div>
-              <p className="text-xs text-text3">Фильтры</p>
-              <p className="text-xs text-text2">Категория, город, дата, стоимость</p>
+          <div className="grid gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3">
+            <div className="grid gap-2 md:grid-cols-[1.2fr_0.8fr_auto]">
+              <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
+                <Search className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="название, место..."
+                  className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+                />
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-sm text-text2">
+                <MapPin className="h-4 w-4 text-[rgb(var(--violet-rgb))]" />
+                <Input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Город"
+                  className="h-8 border-0 bg-transparent px-0 text-sm text-text focus-visible:ring-0"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))] px-4 text-xs font-semibold text-white shadow-[0_10px_22px_rgb(var(--violet-rgb)/0.28)] transition active:scale-[0.98]"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Фильтры{activeFilters.length ? ` · ${activeFilters.length}` : ""}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-4 py-2 text-xs font-semibold text-text transition active:scale-[0.98]"
-            >
-              <SlidersHorizontal className="h-4 w-4 text-[rgb(var(--violet-rgb))]" />
-              Фильтры{activeFilters.length ? ` · ${activeFilters.length}` : ""}
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-text3">Фильтры внутри: категории, дата, бесплатные, поиск компании</span>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-1.5 text-xs font-semibold text-text2 transition active:scale-[0.98]"
+              >
+                <RefreshCcw className="h-3.5 w-3.5" /> Сбросить
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -454,7 +480,7 @@ export default function EventsHub() {
           <div>
             <p className="text-xs text-text3">Город</p>
             <label className="mt-2 flex items-center gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] px-3 py-2 text-sm text-text2">
-              <MapPin className="h-4 w-4 text-[rgb(var(--teal-rgb))]" />
+              <MapPin className="h-4 w-4 text-[rgb(var(--violet-rgb))]" />
               <Input
                 value={draftFilters.city}
                 onChange={(e) => setDraftFilters((prev) => ({ ...prev, city: e.target.value }))}
