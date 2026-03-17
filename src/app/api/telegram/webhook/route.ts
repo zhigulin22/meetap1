@@ -392,6 +392,40 @@ async function handleStudentVerificationCallback(payload: any) {
   return true;
 }
 
+
+async function handleAdminCommand(message: any) {
+  const text = String(message.text ?? "").trim();
+  if (!text.startsWith("/makeadmin")) return false;
+
+  const tgUserId = String(message.from?.id ?? "");
+  const env = getServerEnv();
+  const allowedIds = parseIdList(env.TELEGRAM_MODERATION_ADMIN_IDS);
+  if (!allowedIds.includes(tgUserId)) {
+    await sendTelegramMessage(String(message.chat?.id ?? ""), "⛔ У тебя нет прав выдавать админку");
+    return true;
+  }
+
+  const { data: user } = await supabaseAdmin
+    .from("users")
+    .select("id,role,telegram_user_id,name")
+    .eq("telegram_user_id", message.from?.id)
+    .maybeSingle();
+
+  if (!user?.id) {
+    await sendTelegramMessage(String(message.chat?.id ?? ""), "Сначала привяжи Telegram через /start <код> в приложении.");
+    return true;
+  }
+
+  if (user.role === "admin" || user.role === "super_admin") {
+    await sendTelegramMessage(String(message.chat?.id ?? ""), "Ты уже админ.");
+    return true;
+  }
+
+  await supabaseAdmin.from("users").update({ role: "admin" }).eq("id", user.id);
+  await sendTelegramMessage(String(message.chat?.id ?? ""), "✅ Твоя роль обновлена: admin. Перезайди в приложение и открой /admin.");
+  return true;
+}
+
 export async function POST(req: Request) {
   const env = getServerEnv();
   if (isPlaceholderEnvValue(env.TELEGRAM_BOT_TOKEN)) {
@@ -431,7 +465,11 @@ export async function POST(req: Request) {
   }
 
   if (text === "/help") {
-    await sendTelegramMessage(chatId, "Доступные команды: /start <код>");
+    await sendTelegramMessage(chatId, "Доступные команды: /start <код>, /whoami, /makeadmin");
+    return ok({ ok: true });
+  }
+
+  if (await handleAdminCommand(message)) {
     return ok({ ok: true });
   }
 
