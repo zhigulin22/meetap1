@@ -118,7 +118,7 @@ export async function POST(req: Request) {
     const answers = (body?.answers ?? []) as Answer[];
     const openAnswers = (body?.openAnswers ?? {}) as OpenAnswers;
 
-    if (!Array.isArray(answers) || answers.length < 10) {
+    if (!Array.isArray(answers) || answers.length < 16) {
       return fail("Недостаточно ответов для психотеста", 422);
     }
 

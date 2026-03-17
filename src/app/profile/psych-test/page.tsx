@@ -23,18 +23,30 @@ type Question = {
 };
 
 const QUESTIONS: Question[] = [
-  { id: "q1", trait: "extraversion", text: "Мне проще знакомиться в живой обстановке (ивенты, прогулки)", group: "Социальный стиль" },
-  { id: "q2", trait: "extraversion", reverse: true, text: "Мне легче сначала переписаться, чем сразу идти в офлайн", group: "Социальный стиль" },
-  { id: "q3", trait: "openness", text: "Мне интересно пробовать нестандартные форматы знакомств", group: "Социальный стиль" },
-  { id: "q4", trait: "agreeableness", text: "Мне важно быть тактичным и учитывать эмоции другого", group: "Коммуникация" },
-  { id: "q5", trait: "agreeableness", reverse: true, text: "В споре я чаще давлю, чтобы быть убедительным", group: "Коммуникация" },
-  { id: "q6", trait: "openness", text: "Мне интересно обсуждать смыслы, ценности, идеи", group: "Коммуникация" },
-  { id: "q7", trait: "conscientiousness", text: "Мне важна пунктуальность и выполнение договорённостей", group: "Темп" },
-  { id: "q8", trait: "conscientiousness", reverse: true, text: "Я легко меняю планы и часто импровизирую", group: "Темп" },
-  { id: "q9", trait: "extraversion", text: "Я быстро включаюсь в диалог и люблю активное общение", group: "Темп" },
-  { id: "q10", trait: "neuroticism", text: "Я могу переживать из-за неопределённости", group: "Баланс" },
-  { id: "q11", trait: "neuroticism", reverse: true, text: "В стрессовых ситуациях я сохраняю спокойствие", group: "Баланс" },
-  { id: "q12", trait: "agreeableness", text: "Мне важно строить контакт через доверие и уважение", group: "Баланс" },
+  { id: "q1", trait: "extraversion", text: "Мне комфортно знакомиться первым и начинать разговор", group: "Социальная энергия" },
+  { id: "q2", trait: "extraversion", reverse: true, text: "После общения с людьми мне нужно долго восстанавливаться в одиночестве", group: "Социальная энергия" },
+  { id: "q3", trait: "extraversion", text: "Я легко поддерживаю разговор даже с незнакомыми", group: "Коммуникация" },
+  { id: "q4", trait: "extraversion", reverse: true, text: "Я предпочитаю общение тет-а-тет, а не в группе", group: "Коммуникация" },
+
+  { id: "q5", trait: "openness", text: "Мне интересно пробовать новые форматы встреч и знакомств", group: "Открытость" },
+  { id: "q6", trait: "openness", text: "Мне нравится узнавать людей из разных сфер и культур", group: "Открытость" },
+  { id: "q7", trait: "openness", reverse: true, text: "Я предпочитаю проверенные сценарии и редко меняю привычный формат", group: "Открытость" },
+  { id: "q8", trait: "openness", text: "Мне комфортно обсуждать идеи, смыслы и ценности", group: "Глубина" },
+
+  { id: "q9", trait: "conscientiousness", text: "Я стараюсь выполнять договорённости и не опаздывать", group: "Надёжность" },
+  { id: "q10", trait: "conscientiousness", reverse: true, text: "Мне нравится спонтанность, и я часто меняю планы в последний момент", group: "Темп" },
+  { id: "q11", trait: "conscientiousness", text: "Мне важно заранее понимать планы и ожидания от встречи", group: "Темп" },
+  { id: "q12", trait: "conscientiousness", reverse: true, text: "Я могу забыть о договорённости, если настроение изменилось", group: "Надёжность" },
+
+  { id: "q13", trait: "agreeableness", text: "Мне важно уважать границы другого и быть тактичным", group: "Эмпатия" },
+  { id: "q14", trait: "agreeableness", text: "Я стараюсь слушать, прежде чем спорить", group: "Эмпатия" },
+  { id: "q15", trait: "agreeableness", reverse: true, text: "В споре для меня важнее победить, чем сохранить контакт", group: "Коммуникация" },
+  { id: "q16", trait: "agreeableness", reverse: true, text: "Мне сложно проявлять мягкость и поддержку", group: "Эмпатия" },
+
+  { id: "q17", trait: "neuroticism", text: "Я переживаю, если долго нет ответа или план меняется", group: "Эмоциональный баланс" },
+  { id: "q18", trait: "neuroticism", reverse: true, text: "В стрессовой ситуации я обычно сохраняю спокойствие", group: "Эмоциональный баланс" },
+  { id: "q19", trait: "neuroticism", text: "Мне важно чувствовать ясность и определённость в общении", group: "Эмоциональный баланс" },
+  { id: "q20", trait: "neuroticism", reverse: true, text: "Даже при неопределённости я сохраняю уверенность", group: "Эмоциональный баланс" },
 ];
 
 const OPTIONS = [
