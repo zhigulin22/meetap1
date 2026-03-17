@@ -36,7 +36,7 @@ const initialState: WizardState = {
   title: "",
   category: "concerts",
   format: "organize",
-  city: "",
+  city: "Москва",
   venue: "",
   date: "",
   start_time: "",
@@ -65,7 +65,6 @@ function missingFields(state: WizardState) {
   const missing: string[] = [];
   if (!state.title.trim()) missing.push("Название");
   if (!state.category.trim()) missing.push("Категория");
-  if (!state.city.trim()) missing.push("Город");
   if (!state.venue.trim()) missing.push("Место");
   if (!state.date) missing.push("Дата");
   if (!state.start_time) missing.push("Время начала");
@@ -104,7 +103,7 @@ function CreateEventPageInner() {
             title: ev.title ?? "",
             category: ev.category ?? "concerts",
             format: ev.social_mode === "looking_company" ? "looking" : ev.social_mode === "collect_group" ? "group" : "organize",
-            city: ev.city ?? "",
+            city: ev.city ?? "Москва",
             venue: ev.venue_name ?? ev.venue_address ?? "",
             date: ev.starts_at ? String(ev.starts_at).slice(0, 10) : "",
             start_time: ev.starts_at ? String(ev.starts_at).slice(11, 16) : "",
@@ -155,7 +154,7 @@ function CreateEventPageInner() {
 
   const progress = useMemo(() => (step / 5) * 100, [step]);
 
-  const requiredBase = state.title.trim() && state.category.trim() && state.format && state.city.trim();
+  const requiredBase = state.title.trim() && state.category.trim() && state.format;
   const requiredWhenWhere = state.date && state.start_time && state.venue.trim();
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
   const requiredContacts = state.organizer_name.trim() && state.organizer_telegram.trim();
@@ -406,7 +405,8 @@ function CreateEventPageInner() {
                   </select>
                 </label>
               </div>
-              <Input placeholder="Город" value={state.city} onChange={(e) => setState((s) => ({ ...s, city: e.target.value }))} />
+              <Input placeholder="Город" value={state.city} readOnly disabled />
+              <p className="text-xs text-text3">Пока доступна только Москва</p>
             </div>
           ) : null}
 
