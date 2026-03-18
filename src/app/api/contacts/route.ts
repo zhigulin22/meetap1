@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
         : true,
     );
 
-    const people = filteredPeople.map((u) => {
+    const people = filteredPeople.map((u: any) => {
       const interests = u.interests ?? [];
-      const common = interests.filter((x) => myInterests.includes(x));
+      const common = interests.filter((x: any) => myInterests.includes(x));
       const compatibility = Math.min(95, 35 + common.length * 18 + (u.level ?? 1) * 2);
 
       return {
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     );
 
     const hotMatches = [...people]
-      .sort((a, b) => b.compatibility - a.compatibility)
+      .sort((a: any, b: any) => b.compatibility - a.compatibility)
       .slice(0, 6);
 
     return ok({ people, groups, hotMatches });

@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const { data: users, error } = await query;
     if (error) return fail(error.message, 500);
 
-    const userIds = (users ?? []).map((u) => u.id);
+    const userIds = (users ?? []).map((u: any) => u.id);
     let flagsMap = new Map<string, number>();
 
     if (userIds.length) {
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     }
 
     return ok({
-      items: (users ?? []).map((u) => ({
+      items: (users ?? []).map((u: any) => ({
         ...u,
         open_flags: flagsMap.get(u.id) ?? 0,
       })),

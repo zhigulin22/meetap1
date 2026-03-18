@@ -26,22 +26,24 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     }
 
     const [{ data: event }, { data: user }] = await Promise.all([
-      supabaseAdmin.from("events").select("title,event_date").eq("id", params.id).maybeSingle(),
+      supabaseAdmin.from("events").select("title,starts_at,event_date").eq("id", params.id).maybeSingle(),
       supabaseAdmin.from("users").select("name,telegram_user_id").eq("id", userId).single(),
     ]);
 
     if (event && user?.telegram_user_id) {
-      const dateText = new Date(event.event_date).toLocaleString("ru-RU");
+      const rawDate = event.starts_at || event.event_date;
+      const dateText = rawDate ? new Date(rawDate).toLocaleString("ru-RU") : "Дата уточняется";
       await sendTelegramMessage(
         String(user.telegram_user_id),
-        `Ты зарегистрирован(а) на мероприятие "${event.title}".\nДата: ${dateText}\nМы напомним ближе к началу.`,
+        `Ты зарегистрирован(а) на событие "${event.title}".\nДата: ${dateText}\nМы напомним ближе к началу.`,
       );
     }
 
-    await trackEvent({ eventName: "event_join_clicked", userId, path: "/events", properties: { eventId: params.id } });
+    await trackEvent({ eventName: "events.joined", userId, path: "/events", properties: { eventId: params.id } });
 
     return ok({ success: true });
   } catch {
     return fail("Unauthorized", 401);
   }
 }
+

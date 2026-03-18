@@ -1,39 +1,29 @@
 import type { Metadata } from "next";
-import { Manrope, Rubik } from "next/font/google";
+import { Manrope } from "next/font/google";
+
+import "../styles/theme.css";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const rubik = Rubik({
-  subsets: ["latin", "latin-ext", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-rubik",
-});
-
 const manrope = Manrope({
-  subsets: ["latin", "latin-ext", "cyrillic"],
-  weight: ["500", "600", "700", "800"],
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-manrope",
 });
 
 export const metadata: Metadata = {
   title: "Meetap MVP",
-  description: "Соцсеть для офлайн-знакомств",
+  description: "Meetap social app",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body className={`${rubik.variable} ${manrope.variable} font-sans`}>
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}",
-          }}
-        />
+    <html lang="ru" className={manrope.variable}>
+      <body className="bg-app text-foreground">
         <Providers>{children}</Providers>
       </body>
     </html>

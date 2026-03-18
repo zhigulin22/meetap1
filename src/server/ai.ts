@@ -73,7 +73,7 @@ async function detectFacesOnce(
           },
         },
       } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
+      new Promise<null>((resolve: any) => setTimeout(() => resolve(null), 10_000)),
     ]).catch(() => null);
 
     if (attempt) {
@@ -110,7 +110,7 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
     const client = getClient();
 
     const results = await Promise.all(
-      FACE_PROMPTS.map((prompt) =>
+      FACE_PROMPTS.map((prompt: any) =>
         detectFacesOnce(client, input, prompt, models, minConfidence).catch(() => ({
           faces_count: 0,
           confidence: 0,
@@ -120,9 +120,9 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
       ),
     );
 
-    const validCount = results.filter((r) => r.faces_count > 0).length;
-    const maxFaces = Math.max(...results.map((r) => r.faces_count), 0);
-    const maxConf = Math.max(...results.map((r) => r.confidence), 0);
+    const validCount = results.filter((r: any) => r.faces_count > 0).length;
+    const maxFaces = Math.max(...results.map((r: any) => r.faces_count), 0);
+    const maxConf = Math.max(...results.map((r: any) => r.confidence), 0);
 
     const ok = validCount >= 1 && maxFaces > 0 && (maxConf >= minConfidence || validCount >= 2);
 
@@ -130,7 +130,7 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
       faces_count: maxFaces,
       confidence: maxConf,
       ok,
-      reason: ok ? undefined : results.find((r) => r.reason)?.reason || "Face not confirmed",
+      reason: ok ? undefined : results.find((r: any) => r.reason)?.reason || "Face not confirmed",
     };
   } catch {
     return fallback;

@@ -256,20 +256,20 @@ export function DailyDuoDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-[#03070f] text-white">
+    <div className="fixed inset-0 z-[60] bg-bg text-text">
       {phase !== "edit" ? (
         <>
           <div className="relative h-full w-full overflow-hidden">
             <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
             <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
-              <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">Закрыть</button>
-              <div className="rounded-full bg-black/45 px-3 py-1 text-xs">
+              <button onClick={() => onOpenChange(false)} className="rounded-full bg-surface2/75 px-3 py-1 text-sm">Закрыть</button>
+              <div className="rounded-full bg-surface2/75 px-3 py-1 text-xs">
                 {phase === "capture_front" ? "Сделай первый кадр" : "Сделай второй кадр"}
               </div>
               <button
                 onClick={() => setFacing((x) => (x === "user" ? "environment" : "user"))}
-                className="grid h-10 w-10 place-items-center rounded-full bg-black/45"
+                className="grid h-10 w-10 place-items-center rounded-full bg-surface2/75"
                 aria-label="Сменить камеру"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -277,24 +277,24 @@ export function DailyDuoDialog({
             </div>
 
             <div className="absolute bottom-5 left-0 right-0 px-4 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
-              <div className="mx-auto flex max-w-sm items-center justify-between rounded-3xl border border-white/20 bg-black/40 px-4 py-3 backdrop-blur-xl">
+              <div className="mx-auto flex max-w-sm items-center justify-between rounded-3xl border border-borderStrong bg-surface2/70 px-4 py-3 backdrop-blur-xl">
                 <button
                   onClick={() => galleryInputRef.current?.click()}
-                  className="grid h-12 w-12 place-items-center rounded-full border border-white/35 bg-white/10"
+                  className="grid h-12 w-12 place-items-center rounded-full border border-borderStrong bg-surface2/72"
                 >
                   <Paperclip className="h-5 w-5" />
                 </button>
 
                 <button
                   onClick={capturePhoto}
-                  className="grid h-20 w-20 place-items-center rounded-full border-4 border-white/75 bg-[#52CC83] text-[#051810] shadow-[0_16px_40px_rgba(82,204,131,0.45)]"
+                  className="grid h-20 w-20 place-items-center rounded-full border-4 bg-mint text-bg border-borderStrong bg-mint text-bg shadow-card"
                 >
                   <Camera className="h-8 w-8" />
                 </button>
 
                 <button
                   onClick={() => resetTo("front")}
-                  className="grid h-12 w-12 place-items-center rounded-full border border-white/35 bg-white/10"
+                  className="grid h-12 w-12 place-items-center rounded-full border border-borderStrong bg-surface2/72"
                 >
                   <RefreshCw className="h-5 w-5" />
                 </button>
@@ -313,31 +313,31 @@ export function DailyDuoDialog({
       ) : (
         <div className="mx-auto h-full w-full max-w-md overflow-y-auto px-4 pb-28 pt-6">
           <div className="mb-3 flex items-center justify-between">
-            <button onClick={() => resetTo("front")} className="rounded-full border border-white/20 px-3 py-1 text-sm">
+            <button onClick={() => resetTo("front")} className="rounded-full border border-borderStrong px-3 py-1 text-sm">
               Переснять
             </button>
-            <p className="text-sm text-white/90">DUO Editor</p>
-            <button onClick={() => onOpenChange(false)} className="rounded-full border border-white/20 px-3 py-1 text-sm">
+            <p className="text-sm text-text2">DUO Editor</p>
+            <button onClick={() => onOpenChange(false)} className="rounded-full border border-borderStrong px-3 py-1 text-sm">
               Закрыть
             </button>
           </div>
 
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
+              <div className="overflow-hidden rounded-2xl border border-borderStrong bg-surface2/62">
                 {frontPreview ? (
                   <Image src={frontPreview} alt="front" width={600} height={900} className="h-60 w-full object-cover" style={{ filter: activeFilter.css }} unoptimized />
                 ) : null}
               </div>
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/30">
+              <div className="overflow-hidden rounded-2xl border border-borderStrong bg-surface2/62">
                 {backPreview ? (
                   <Image src={backPreview} alt="back" width={600} height={900} className="h-60 w-full object-cover" style={{ filter: activeFilter.css }} unoptimized />
                 ) : null}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/15 bg-white/5 p-3">
-              <div className="mb-2 flex items-center gap-2 text-sm text-white/90">
+            <div className="rounded-2xl border border-border bg-surface2/56 p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm text-text2">
                 <WandSparkles className="h-4 w-4" /> Фильтры
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -347,8 +347,8 @@ export function DailyDuoDialog({
                     onClick={() => setSelectedFilter(f.id)}
                     className={`rounded-full border px-3 py-1.5 text-xs ${
                       f.id === selectedFilter
-                        ? "border-[#52CC83]/75 bg-[#52CC83]/20 text-[#bdf5d0]"
-                        : "border-white/20 bg-white/5 text-white/80"
+                        ? "border-mint/75 bg-mint/20 text-mint/90"
+                        : "border-borderStrong bg-surface2/56 text-text2"
                     }`}
                   >
                     {f.label}
@@ -361,13 +361,13 @@ export function DailyDuoDialog({
               placeholder="Расскажи коротко, что за момент, можешь отметить человека через @"
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              className="border-white/20 bg-white/5 text-white placeholder:text-white/55"
+              className="border-borderStrong bg-surface2/56 text-text placeholder:text-text3"
             />
           </div>
 
-          <div className="fixed inset-x-0 bottom-0 z-[65] mx-auto w-full max-w-md border-t border-white/15 bg-[#040812]/95 p-3 backdrop-blur-xl">
+          <div className="fixed inset-x-0 bottom-0 z-[65] mx-auto w-full max-w-md border-t border-border bg-surface/95 p-3 backdrop-blur-xl">
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => resetTo("back")} className="border-white/25 bg-white/10 text-white">
+              <Button variant="secondary" onClick={() => resetTo("back")} className="border-borderStrong bg-surface2/72 text-text">
                 Переснять 2-й кадр
               </Button>
               <Button onClick={publish} disabled={loading || !front || !back}>
