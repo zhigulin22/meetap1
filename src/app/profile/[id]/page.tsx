@@ -111,6 +111,10 @@ export default function ProfilePage() {
   const goal = humanGoal(p);
   const psych = p.personality_profile ?? null;
   const traits = psych?.traits ?? null;
+  const quote = p.preferences?.quote ?? "";
+  const showQuote = privacy.show_quote !== false;
+  const showPsychotype = privacy.show_psychotype !== false;
+  const university = p.student_verified ? (p.student_university || p.university) : null;
 
   return (
     <PageShell>
@@ -134,8 +138,9 @@ export default function ProfilePage() {
 
             <div>
               <h1 className="text-2xl font-semibold text-text">{p.name}</h1>
+              {p.username ? <p className="text-xs text-text3">@{p.username}</p> : null}
               {p.work ? <p className="text-sm text-text2">{p.work}</p> : null}
-              {p.university ? <p className="text-xs text-text3">{p.university}</p> : null}
+              {privacy.show_university === false || !university ? null : <p className="text-xs text-text3">{university}</p>}
             </div>
           </div>
 
@@ -180,6 +185,13 @@ export default function ProfilePage() {
             Плюс системы: {data.positiveFact}
           </div>
 
+          {showQuote ? (
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] p-3">
+              <p className="text-xs text-text3">Цитата</p>
+              <p className="mt-1 text-sm text-text">{quote || "Пользователь не добавил цитату"}</p>
+            </div>
+          ) : null}
+
           {compat ? (
             <div className="rounded-2xl border border-[rgb(var(--violet-rgb)/0.35)] bg-[rgb(var(--surface-1-rgb)/0.85)] p-3">
               <div className="flex items-center justify-between">
@@ -206,7 +218,7 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          {psych ? (
+          {showPsychotype && psych ? (
             <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
               <p className="text-xs text-text3">Психопрофиль</p>
               <p className="mt-1 text-sm text-text">{psych.style}</p>
@@ -226,11 +238,11 @@ export default function ProfilePage() {
                 </ul>
               ) : null}
             </div>
-          ) : (
+          ) : showPsychotype ? (
             <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3 text-sm text-text2">
               Психопрофиль не заполнен
             </div>
-          )}
+          ) : null}
 
           <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
             <p className="text-xs text-text3">Факты</p>

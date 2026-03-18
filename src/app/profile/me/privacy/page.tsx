@@ -20,6 +20,8 @@ type PrivacySettings = {
   show_work: boolean;
   show_university: boolean;
   show_last_active: boolean;
+  show_quote: boolean;
+  show_psychotype: boolean;
   who_can_message: "everyone" | "shared_events" | "connections";
   blocked_user_ids: string[];
   show_badges: boolean;
@@ -64,6 +66,8 @@ export default function ProfilePrivacyPage() {
     show_work: true,
     show_university: true,
     show_last_active: true,
+    show_quote: true,
+    show_psychotype: true,
     who_can_message: "shared_events",
     blocked_user_ids: [],
     show_badges: true,
@@ -160,6 +164,8 @@ export default function ProfilePrivacyPage() {
           <ToggleRow label="Город" hint="Показывать город в публичном профиле" checked={privacy.show_city} onChange={(v) => setPrivacy((p) => ({ ...p, show_city: v }))} />
           <ToggleRow label="Работа / деятельность" hint="Показывать профессиональный контекст" checked={privacy.show_work} onChange={(v) => setPrivacy((p) => ({ ...p, show_work: v }))} />
           <ToggleRow label="ВУЗ" hint="Показывать университет" checked={privacy.show_university} onChange={(v) => setPrivacy((p) => ({ ...p, show_university: v }))} />
+          <ToggleRow label="Цитата" hint="Показывать цитату в профиле" checked={privacy.show_quote} onChange={(v) => setPrivacy((p) => ({ ...p, show_quote: v }))} />
+          <ToggleRow label="Психотип" hint="Показывать краткий психотип" checked={privacy.show_psychotype} onChange={(v) => setPrivacy((p) => ({ ...p, show_psychotype: v }))} />
           <ToggleRow label="Последняя активность" hint="Показывать статус 'был(а) недавно'" checked={privacy.show_last_active} onChange={(v) => setPrivacy((p) => ({ ...p, show_last_active: v }))} />
           <ToggleRow label="Бейджи" hint="Показывать полученные достижения" checked={privacy.show_badges} onChange={(v) => setPrivacy((p) => ({ ...p, show_badges: v }))} />
         </CardContent>

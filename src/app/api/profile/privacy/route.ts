@@ -13,6 +13,8 @@ const privacySchema = z
     show_work: z.boolean().default(true),
     show_university: z.boolean().default(true),
     show_last_active: z.boolean().default(true),
+    show_quote: z.boolean().default(true),
+    show_psychotype: z.boolean().default(true),
     who_can_message: z.enum(["everyone", "shared_events", "connections"]).default("shared_events"),
     blocked_user_ids: z.array(z.string().uuid()).default([]),
     show_badges: z.boolean().default(true),
@@ -31,6 +33,8 @@ const defaults = {
   show_work: true,
   show_university: true,
   show_last_active: true,
+  show_quote: true,
+  show_psychotype: true,
   who_can_message: "shared_events" as const,
   blocked_user_ids: [] as string[],
   show_badges: true,
@@ -57,6 +61,8 @@ function mergeSettings(row: Record<string, any> | null, privacyJson: Record<stri
     show_work: row?.show_work ?? defaults.show_work,
     show_university: row?.show_university ?? defaults.show_university,
     show_last_active: row?.show_last_active ?? defaults.show_last_active,
+    show_quote: privacyJson.showQuote ?? defaults.show_quote,
+    show_psychotype: privacyJson.showPsychotype ?? defaults.show_psychotype,
     who_can_message:
       row?.who_can_message === "everyone" || row?.who_can_message === "connections" || row?.who_can_message === "shared_events"
         ? row.who_can_message
@@ -149,6 +155,8 @@ export async function PUT(req: Request) {
       showUniversity: incoming.show_university,
       hideLastSeen: !incoming.show_last_active,
       showBadges: incoming.show_badges,
+      showQuote: incoming.show_quote,
+      showPsychotype: incoming.show_psychotype,
     };
 
     const { error: userError } = await supabaseAdmin

@@ -204,6 +204,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         show_last_active: privacyRowRes.data?.show_last_active ?? true,
         show_badges: privacyRowRes.data?.show_badges ?? true,
         show_interests: privacyRowRes.data?.show_interests ?? true,
+        show_quote: privacyJson.showQuote ?? true,
+        show_psychotype: privacyJson.showPsychotype ?? true,
       },
     });
   } catch {

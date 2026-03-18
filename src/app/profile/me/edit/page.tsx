@@ -41,6 +41,7 @@ const schema = z.object({
   work: z.string().trim().max(120).optional(),
   activity: z.string().trim().max(120).optional(),
   specialty: z.string().trim().max(120).optional(),
+  quote: z.string().trim().max(240, "Слишком длинная цитата").optional(),
   facts: z.array(z.string().trim().min(2, "Факт слишком короткий").max(120)).min(2).max(3),
   interests: z.array(z.string().trim().min(2).max(40)).min(3, "Минимум 3 интереса").max(20),
   hobbies: z.array(z.string().trim().max(40)).max(20),
@@ -57,6 +58,7 @@ export default function ProfileEditPage() {
   const [work, setWork] = useState("");
   const [activity, setActivity] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [quote, setQuote] = useState("");
   const [facts, setFacts] = useState<string[]>(["", "", ""]);
   const [interests, setInterests] = useState<string[]>([]);
   const [hobbies, setHobbies] = useState<string[]>([]);
@@ -89,6 +91,7 @@ export default function ProfileEditPage() {
     setWork(p.work ?? "");
     setActivity(p.preferences?.activity ?? "");
     setSpecialty(p.preferences?.specialty ?? "");
+    setQuote(p.preferences?.quote ?? "");
 
     const nextFacts = (Array.isArray(p.facts) ? p.facts : []).slice(0, 3);
     while (nextFacts.length < 3) nextFacts.push("");
@@ -184,6 +187,7 @@ export default function ProfileEditPage() {
             ...(meQuery.data?.profile?.preferences ?? {}),
             activity: parsed.data.activity,
             specialty: parsed.data.specialty,
+            quote: parsed.data.quote,
           },
         }),
       });
@@ -229,6 +233,13 @@ export default function ProfileEditPage() {
 
       <div className="space-y-2">
         <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Коротко о себе: чем живешь и что ищешь" />
+
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.86)]">
+          <CardContent className="space-y-2 p-3">
+            <p className="text-xs text-text2">Цитата для профиля (по желанию)</p>
+            <Input value={quote} onChange={(e) => setQuote(e.target.value)} placeholder="Например: «Лучшие встречи — те, что происходят случайно»" />
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-2 gap-2">
           <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Страна" />

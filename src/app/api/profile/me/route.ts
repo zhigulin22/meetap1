@@ -21,6 +21,7 @@ const updateSchema = z.object({
     .object({
       activity: z.string().trim().max(120).optional().nullable(),
       specialty: z.string().trim().max(120).optional().nullable(),
+      quote: z.string().trim().max(240).optional().nullable(),
     })
     .partial()
     .optional()
