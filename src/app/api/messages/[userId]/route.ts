@@ -10,6 +10,14 @@ const sendSchema = z.object({
 });
 const userIdParamSchema = z.string().uuid("Invalid target user");
 
+type MessageRow = {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  content: string;
+  created_at: string;
+};
+
 function buildThreadFilter(userId: string, targetUserId: string) {
   return `and(from_user_id.eq.${userId},to_user_id.eq.${targetUserId}),and(from_user_id.eq.${targetUserId},to_user_id.eq.${userId})`;
 }
@@ -47,7 +55,7 @@ export async function GET(_req: Request, { params }: { params: { userId: string 
 
     return ok({
       target,
-      items: (rows ?? []).map((row) => ({
+      items: ((rows ?? []) as MessageRow[]).map((row) => ({
         ...row,
         is_mine: row.from_user_id === userId,
       })),

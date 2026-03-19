@@ -77,6 +77,7 @@ function demoFeed(): FeedPost[] {
         ? "Короткий демо-видео пост для проверки ритма карточек."
         : "Фото-пост с аккуратной подписью и CTA.",
       created_at: new Date(Date.now() - idx * 90 * 60 * 1000).toISOString(),
+      is_mine: false,
       user: {
         id: `demo-user-${idx}`,
         name: `Demo User ${String(idx + 1).padStart(2, "0")}`,
@@ -84,8 +85,7 @@ function demoFeed(): FeedPost[] {
       },
       photos: duo
         ? {
-            front: `https://placehold.co/700x900?text=DUO+${idx + 1}A`,
-            back: `https://placehold.co/700x900?text=DUO+${idx + 1}B`,
+            front: `https://placehold.co/1200x1600?text=DUO+${idx + 1}`,
           }
         : {
             cover: even
@@ -222,7 +222,7 @@ export default function FeedPage() {
     <PageShell>
       <TopBar
         title="Лента"
-        subtitle="Живые моменты, DUO и тёплые знакомства"
+        subtitle="Живые моменты, фото и тёплые знакомства"
         right={
           <div className="flex items-center gap-2">
             <Pill tone="violet">DUO</Pill>
@@ -250,12 +250,12 @@ export default function FeedPage() {
       <div className="mb-3 grid gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3 sm:grid-cols-2">
         <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
           <p className="text-xs text-text3">DUO — фирменный формат MeetAp</p>
-          <p className="mt-1 text-sm text-text">Два фото, живой момент и доверие. Отмечай людей и контекст встречи.</p>
-          <Button size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>Сделать DUO</Button>
+          <p className="mt-1 text-sm text-text">Одно фото, живой момент и доверие. Отмечай людей и контекст встречи.</p>
+          <Button size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>Сделать фото</Button>
         </div>
         <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
           <p className="text-xs text-text3">Почему это работает</p>
-          <p className="mt-1 text-sm text-text">DUO увеличивает совместимость, потому что фиксирует реальные встречи.</p>
+          <p className="mt-1 text-sm text-text">Фото повышает совместимость, потому что фиксирует реальные встречи.</p>
           <Button size="sm" variant="secondary" className="mt-2" onClick={() => setWhyOpen(true)}>Подробнее</Button>
         </div>
       </div>
@@ -272,7 +272,7 @@ export default function FeedPage() {
         </DialogHeader>
         <div className="space-y-2 text-sm text-text2">
           <p>Лента временно закрывается, если давно не было публикаций.</p>
-          <p>DUO с двумя фото лица помогает алгоритму точнее рекомендовать людей и события.</p>
+          <p>Если на фото два человека, алгоритм точнее рекомендует людей и события.</p>
           <p className="text-xs text-text3">Это не штраф, а мягкий чеклист для качества рекомендаций.</p>
         </div>
       </Dialog>
@@ -346,9 +346,9 @@ export default function FeedPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <EmptyState
             title="Лента закрыта"
-            description="Разблокируй ленту, сделав DUO: 2 фото с лицами."
+            description="Разблокируй ленту, сделав фото. Бонус будет, если на фото два человека."
             hint="Чеклист без давления: это улучшает рекомендации и качество знакомств."
-            cta={{ label: "Сделать DUO", onClick: () => setCreateOpen(true) }}
+            cta={{ label: "Сделать фото", onClick: () => setCreateOpen(true) }}
             secondary={{ label: "Почему так?", onClick: () => setWhyOpen(true) }}
           />
         </motion.div>
@@ -371,7 +371,7 @@ export default function FeedPage() {
               title="Пустой фильтр"
               description="По выбранному режиму пока нет постов."
               hint="Смени вкладку или добавь новый контент."
-              cta={{ label: "Создать DUO", onClick: () => setCreateOpen(true) }}
+              cta={{ label: "Создать фото", onClick: () => setCreateOpen(true) }}
             />
           ) : null}
         </div>

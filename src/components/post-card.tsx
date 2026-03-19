@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Heart, Handshake, MessageCircle, Play, Send, Star, Volume2, VolumeX } from "lucide-react";
 import { Pill } from "@/components/ui/pill";
@@ -116,11 +116,6 @@ export function PostCard({
     return () => observer.disconnect();
   }, [mediaUrl]);
 
-  const duoImages = useMemo(
-    () => [post.photos.front, post.photos.back].filter(Boolean) as string[],
-    [post.photos.front, post.photos.back],
-  );
-
   return (
     <motion.article
       initial={{ opacity: 0, y: 14 }}
@@ -156,22 +151,14 @@ export function PostCard({
 
         <div className="px-3 pb-3 pt-2">
           {post.type === "daily_duo" ? (
-            <div className="overflow-hidden rounded-2xl border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--mint-rgb)/0.08)] p-2">
-              <div className="mb-2 h-[2px] w-full rounded-full bg-[image:var(--grad-primary)]" />
-              <div className="grid grid-cols-2 gap-2">
-                {duoImages.map((src, idx) => (
-                  <Image
-                    key={`${src}-${idx}`}
-                    src={src}
-                    alt={`duo-${idx + 1}`}
-                    width={800}
-                    height={1000}
-                    className="h-[40vh] w-full rounded-xl object-cover"
-                    unoptimized
-                  />
-                ))}
-              </div>
-            </div>
+            <Image
+              src={mediaUrl || "https://placehold.co/1200x1600"}
+              alt="duo"
+              width={1200}
+              height={1600}
+              className="h-[48vh] w-full rounded-2xl object-cover"
+              unoptimized
+            />
           ) : isVideo(mediaUrl) ? (
             <div className="relative">
               <video
