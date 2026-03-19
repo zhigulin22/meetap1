@@ -119,7 +119,11 @@ export default function ContactsPage() {
           <CardContent className="space-y-2 p-3">
             <h2 className="text-sm font-semibold">Группы и события</h2>
             {(data?.groups ?? []).map((group) => (
-              <Link key={group.id} href={`/events/${group.id}`} className="flex items-center justify-between rounded-xl border border-border/70 p-2 text-sm hover:bg-white/5">
+              <Link
+                key={group.id}
+                href={`/events/${group.id}`}
+                className="flex items-center justify-between rounded-xl border border-border/70 p-2 text-sm hover:bg-white/5"
+              >
                 <div>
                   <p>{group.title}</p>
                   <p className="text-xs text-muted">

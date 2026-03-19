@@ -356,6 +356,7 @@ export async function GET(req: NextRequest) {
     );
 
     const hotMatches = peopleWithFallback.slice(0, Math.max(1, seedCount));
+    const hotMatches = peopleWithFallback.slice(0, Math.max(1, seedCount));
 
     return ok({ people: peopleWithFallback, groups, hotMatches });
   } catch {

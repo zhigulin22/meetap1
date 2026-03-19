@@ -142,8 +142,8 @@ export default function RegisterPage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-md px-4 py-6">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <Card className="overflow-hidden border-white/20 bg-surface/90 backdrop-blur-2xl">
-          <div className="h-24 bg-[radial-gradient(circle_at_15%_15%,rgba(82,204,131,0.35),transparent_45%),radial-gradient(circle_at_85%_15%,rgba(78,117,255,0.35),transparent_40%)]" />
+        <Card className="overflow-hidden border-borderStrong bg-surface/90 backdrop-blur-2xl">
+          <div className="h-24 bg-[radial-gradient(circle_at_15%_15%,rgb(var(--mint-rgb) / 0.35),transparent_45%),radial-gradient(circle_at_85%_15%,rgb(var(--blue-rgb) / 0.35),transparent_40%)]" />
           <CardContent className="space-y-4 p-5">
             <div>
               <h1 className="text-2xl font-semibold">Вход в Meetap</h1>
@@ -174,7 +174,7 @@ export default function RegisterPage() {
                   <a
                     href={telegramDeepLink}
                     target="_blank"
-                    className="inline-flex rounded-lg border border-border bg-white/5 px-3 py-2 text-sm text-action hover:bg-white/10"
+                    className="inline-flex rounded-lg border border-border bg-surface2/56 px-3 py-2 text-sm text-action hover:bg-surface2/72"
                   >
                     Открыть Telegram-бота
                   </a>

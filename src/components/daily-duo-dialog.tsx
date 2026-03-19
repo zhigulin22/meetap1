@@ -227,7 +227,9 @@ export function DailyDuoDialog({
             <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
             <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
-              <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">Закрыть</button>
+              <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">
+                Закрыть
+              </button>
               <div className="rounded-full bg-black/45 px-3 py-1 text-xs">Сделай кадр</div>
               <button
                 onClick={() => setFacing((x) => (x === "user" ? "environment" : "user"))}

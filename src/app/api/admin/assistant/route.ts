@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       users_total: usersCount.count ?? 0,
       open_flags: openFlagsCount.count ?? 0,
       blocked_users: blockedCount.count ?? 0,
-      top_events: [...eventMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
+      top_events: [...eventMap.entries()].sort((a: any, b: any) => b[1] - a[1]).slice(0, 10),
       recent_flags: recentFlags.data ?? [],
       recent_comments: recentComments.data ?? [],
     };

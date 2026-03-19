@@ -1,11 +1,15 @@
+import { z } from "zod";
 import { fail, ok } from "@/lib/http";
-import { createDailyDuoSchema } from "@/lib/schemas";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getServerEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { validateFaces } from "@/server/ai";
 import { trackEvent } from "@/server/analytics";
+
+const captionSchema = z.object({
+  caption: z.string().max(220).optional(),
+});
 
 function levelFromXp(xp: number) {
   return Math.max(1, Math.floor(xp / 100) + 1);
@@ -28,7 +32,7 @@ export async function POST(req: Request) {
       return fail("photo is required", 422);
     }
 
-    const captionCheck = createDailyDuoSchema.safeParse({ caption: captionRaw });
+    const captionCheck = captionSchema.safeParse({ caption: captionRaw });
     if (!captionCheck.success) {
       return fail(captionCheck.error.message, 422);
     }
@@ -57,7 +61,13 @@ export async function POST(req: Request) {
 
     const { data: post, error: postErr } = await supabaseAdmin
       .from("posts")
-      .insert({ user_id: userId, type: "daily_duo", caption: captionCheck.data.caption ?? null })
+      .insert({
+        user_id: userId,
+        type: "daily_duo",
+        caption: captionCheck.data.caption ?? null,
+        risk_score: 0,
+        moderation_status: "clean",
+      })
       .select("id")
       .single();
 
