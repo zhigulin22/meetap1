@@ -56,14 +56,17 @@ const initialState: WizardState = {
 function normalizePhone(value: string) {
   const raw = value.trim();
   if (!raw) return null;
-  const digits = raw.replace(/[^0-9+]/g, "");
-  let normalized = digits.startsWith("+") ? digits : digits.replace(/^8/, "+7").replace(/^7/, "+7");
-  if (normalized.startsWith("+8")) {
-    normalized = "+7" + normalized.slice(2);
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (digits.length < 10 || digits.length > 15) return null;
+  let num = digits;
+  if (num.length === 10) {
+    num = "7" + num;
   }
-  const onlyDigits = normalized.replace(/[^0-9]/g, "");
-  if (onlyDigits.length < 10 || onlyDigits.length > 15) return null;
-  return normalized;
+  if (num.startsWith("8") && num.length >= 11) {
+    num = "7" + num.slice(1);
+  }
+  if (!num.startsWith("7")) return null;
+  return `+${num}`;
 }
 
 function isValidTelegram(value: string) {
@@ -85,6 +88,9 @@ function isValidDateRange(date: string, startTime: string, endTime: string) {
   if (endTime) {
     const end = new Date(`${date}T${endTime}:00`);
     if (Number.isNaN(end.getTime())) return { ok: false, reason: "Дата окончания" };
+    if (endTime === "00:00" && end.getTime() <= start.getTime()) {
+      end.setDate(end.getDate() + 1);
+    }
     if (end.getTime() <= start.getTime()) return { ok: false, reason: "Конец раньше начала" };
   }
   return { ok: true };
@@ -99,6 +105,17 @@ function parseError(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Не удалось отправить заявку";
 }
+
+function endIso(date: string, startTime: string, endTime: string) {
+  if (!endTime) return null;
+  const start = new Date(`${date}T${startTime || "00:00"}:00`);
+  const end = new Date(`${date}T${endTime}:00`);
+  if (endTime === "00:00" && end.getTime() <= start.getTime()) {
+    end.setDate(end.getDate() + 1);
+  }
+  return end.toISOString();
+}
+
 
 function missingFields(state: WizardState) {
   const missing: string[] = [];
@@ -251,7 +268,7 @@ function CreateEventPageInner() {
           venue_name: state.venue.trim(),
           venue_address: state.venue.trim(),
           starts_at: toIso(state.date, state.start_time),
-          ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
+          ends_at: state.end_time ? endIso(state.date, state.start_time, state.end_time) : null,
           short_description: state.short_description.trim() || "Черновик: описание будет добавлено позже",
           full_description: state.full_description.trim() || state.short_description.trim() || "Черновик: описание будет добавлено позже",
           is_free: !state.is_paid,
@@ -322,7 +339,7 @@ function CreateEventPageInner() {
         venue_name: state.venue.trim(),
         venue_address: state.venue.trim(),
         starts_at: toIso(state.date, state.start_time),
-        ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
+        ends_at: state.end_time ? endIso(state.date, state.start_time, state.end_time) : null,
         short_description: state.short_description.trim(),
         full_description: state.full_description.trim(),
         is_free: !state.is_paid,
@@ -370,7 +387,7 @@ function CreateEventPageInner() {
       missing.push("Telegram организатора (неверный формат)");
     }
     if (!normalizePhone(state.organizer_phone)) {
-      missing.push("Контактный телефон (неверный формат)");
+      missing.push("Контактный телефон (формат 8XXXXXXXXXX или +7XXXXXXXXXX)");
     }
     const dateCheck = isValidDateRange(state.date, state.start_time, state.end_time);
     if (!dateCheck.ok) {
@@ -403,7 +420,7 @@ function CreateEventPageInner() {
           venue_name: state.venue.trim(),
           venue_address: state.venue.trim(),
           starts_at: toIso(state.date, state.start_time),
-          ends_at: state.end_time ? toIso(state.date, state.end_time) : null,
+          ends_at: state.end_time ? endIso(state.date, state.start_time, state.end_time) : null,
           short_description: state.short_description.trim(),
           full_description: state.full_description.trim(),
           organizer_name: state.organizer_name.trim(),

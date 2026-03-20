@@ -10,8 +10,8 @@
   --border-strong: rgba(160, 180, 245, 0.7);
 
   --text: #f7f9ff;
-  --text-2: #d1dcff;
-  --text-3: #9fb0d8;
+  --text-2: #e3ecff;
+  --text-3: #c6d4f5;
   --disabled: #6c7aa5;
 
   --primary-blue: #577bff;
@@ -56,8 +56,8 @@
   --border-strong-rgb: 160 180 245;
 
   --text-rgb: 247 249 255;
-  --text-2-rgb: 209 220 255;
-  --text-3-rgb: 159 176 216;
+  --text-2-rgb: 227 236 255;
+  --text-3-rgb: 198 212 245;
   --disabled-rgb: 108 122 165;
 
   --peach-rgb: 87 123 255;

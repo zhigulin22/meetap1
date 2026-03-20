@@ -50,11 +50,11 @@ const QUESTIONS: Question[] = [
 ];
 
 const OPTIONS = [
-  { value: 1, label: "Совсем не про меня" },
-  { value: 2, label: "Скорее нет" },
-  { value: 3, label: "Частично" },
-  { value: 4, label: "Скорее да" },
-  { value: 5, label: "Очень похоже" },
+  { value: 1, short: "1", label: "Совсем не про меня" },
+  { value: 2, short: "2", label: "Скорее нет" },
+  { value: 3, short: "3", label: "Нейтрально" },
+  { value: 4, short: "4", label: "Скорее да" },
+  { value: 5, short: "5", label: "Полностью про меня" },
 ];
 
 const PER_STEP = 2;
@@ -195,7 +195,7 @@ export default function PsychTestPage() {
               <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] p-2"><Brain className="h-5 w-5" /></div>
               <h1 className="text-xl font-semibold">Психологический профиль</h1>
             </div>
-            <p className="text-sm text-muted">По 2 вопроса за шаг, без перегруза.</p>
+            <p className="text-sm text-muted">Шкала 1–5: 1 — не про меня, 5 — полностью про меня.</p>
             <div className="mt-2 h-2 w-full rounded-full bg-[rgb(var(--surface-3-rgb)/0.6)]">
               <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))]" style={{ width: `${progress}%` }} />
             </div>
@@ -217,23 +217,28 @@ export default function PsychTestPage() {
                 {currentChunk.map((q) => (
                   <div key={q.id} className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] p-3">
                     <p className="text-sm font-medium">{q.text}</p>
-                    <div className="mt-2 grid grid-cols-1 gap-2">
+                    <div className="mt-3 grid grid-cols-5 gap-2">
                       {OPTIONS.map((option) => {
                         const active = answers[q.id] === option.value;
                         return (
                           <button
                             key={`${q.id}-${option.value}`}
                             onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
-                            className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                            className={`rounded-xl border px-0 py-2 text-center text-sm transition ${
                               active
-                                ? "border-[rgb(var(--violet-rgb)/0.6)] bg-[rgb(var(--violet-rgb)/0.2)] text-white"
-                                : "border-border bg-[rgb(var(--surface-1-rgb)/0.6)] text-muted hover:bg-surface2/56"
+                                ? "border-[rgb(var(--violet-rgb)/0.7)] bg-[rgb(var(--violet-rgb)/0.3)] text-white"
+                                : "border-border bg-[rgb(var(--surface-1-rgb)/0.7)] text-text2 hover:bg-[rgb(var(--surface-2-rgb)/0.8)]"
                             }`}
                           >
-                            {option.label}
+                            {option.short}
                           </button>
                         );
                       })}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-text3">
+                      <span>1 — не про меня</span>
+                      <span>3 — нейтрально</span>
+                      <span>5 — полностью про меня</span>
                     </div>
                   </div>
                 ))}
