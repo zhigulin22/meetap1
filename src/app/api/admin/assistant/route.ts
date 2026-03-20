@@ -49,50 +49,28 @@ export async function POST(req: Request) {
     };
 
     const env = getServerEnv();
-    const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+    const client = new OpenAI({
+      apiKey: env.DEEPSEEK_API_KEY,
+      baseURL: env.DEEPSEEK_BASE_URL,
+    });
 
-    const system = `
-Ты AI-ассистент админ-панели социальной сети офлайн-знакомств.
+    const system = `Ты AI-ассистент админ-панели социальной сети офлайн-знакомств.
 Твоя задача: помогать с метриками, конверсиями, рисками безопасности и приоритетами продукта.
 Нельзя раскрывать лишние персональные данные.
-Формат ответа строго JSON: {
-  "summary": string,
-  "risks": string[],
-  "actions": string[],
-  "queries": string[]
-}
-`;
+Ответ строго в JSON: { "summary": string, "risks": string[], "actions": string[], "queries": string[] }`;
 
-    const user = `
-Вопрос админа: ${parsed.data.question}
-Данные снапшота: ${JSON.stringify(snapshot).slice(0, 12000)}
-`;
+    const userMsg = `Вопрос: ${parsed.data.question}\nДанные: ${JSON.stringify(snapshot).slice(0, 12000)}`;
 
     const response = await Promise.race([
-      client.responses.create({
-        model: "gpt-4o-mini",
-        input: [
+      client.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
           { role: "system", content: system },
-          { role: "user", content: user },
+          { role: "user", content: userMsg },
         ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "admin_assistant",
-            schema: {
-              type: "object",
-              properties: {
-                summary: { type: "string" },
-                risks: { type: "array", items: { type: "string" } },
-                actions: { type: "array", items: { type: "string" } },
-                queries: { type: "array", items: { type: "string" } },
-              },
-              required: ["summary", "risks", "actions", "queries"],
-              additionalProperties: false,
-            },
-          },
-        },
-      } as any),
+        response_format: { type: "json_object" },
+        max_tokens: 1000,
+      }),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
     ]);
 
@@ -105,7 +83,7 @@ export async function POST(req: Request) {
       });
     }
 
-    return ok(JSON.parse(response.output_text));
+    return ok(JSON.parse(response.choices[0]?.message?.content ?? "{}"));
   } catch {
     return fail("Forbidden", 403);
   }

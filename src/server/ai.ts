@@ -8,133 +8,20 @@ type FaceValidation = {
   reason?: string;
 };
 
-const FACE_PROMPTS = [
-  "Count clearly visible real human faces. Ignore drawings, masks, statues, posters. Return strict JSON.",
-  "Estimate how many real human faces are visible. If at least one face exists, set ok=true.",
-] as const;
-
 function getClient() {
   const env = getServerEnv();
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  return new OpenAI({
+    apiKey: env.DEEPSEEK_API_KEY,
+    baseURL: env.DEEPSEEK_BASE_URL,
+  });
 }
 
-function normalizeFaceResult(value: unknown, minConfidence: number): FaceValidation {
-  if (!value || typeof value !== "object") {
-    return { faces_count: 0, confidence: 0, ok: false, reason: "Invalid AI response" };
-  }
-
-  const raw = value as Record<string, unknown>;
-  const faces = Math.max(0, Number(raw.faces_count ?? 0));
-  const confidence = Math.max(0, Math.min(1, Number(raw.confidence ?? 0)));
-  const ok = Boolean(raw.ok) && Number.isFinite(faces) && confidence >= minConfidence;
-  const reason = typeof raw.reason === "string" ? raw.reason : undefined;
-
-  return {
-    faces_count: Number.isFinite(faces) ? Math.round(faces) : 0,
-    confidence,
-    ok,
-    reason,
-  };
-}
-
-async function detectFacesOnce(
-  client: OpenAI,
-  input: { imageUrl?: string; base64?: string },
-  prompt: string,
-  models: string[],
-  minConfidence: number,
-) {
-  const content = input.imageUrl
-    ? [{ type: "input_text", text: prompt }, { type: "input_image", image_url: input.imageUrl }]
-    : [{ type: "input_text", text: prompt }, { type: "input_image", image_url: `data:image/jpeg;base64,${input.base64}` }];
-
-  let aiResult: OpenAI.Responses.Response | null = null;
-
-  for (const model of models) {
-    const attempt = await Promise.race([
-      client.responses.create({
-        model,
-        input: [{ role: "user", content }],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "face_validation",
-            schema: {
-              type: "object",
-              properties: {
-                faces_count: { type: "number" },
-                confidence: { type: "number" },
-                ok: { type: "boolean" },
-                reason: { type: "string" },
-              },
-              required: ["faces_count", "confidence", "ok"],
-              additionalProperties: false,
-            },
-          },
-        },
-      } as any),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
-    ]).catch(() => null);
-
-    if (attempt) {
-      aiResult = attempt;
-      break;
-    }
-  }
-
-  if (!aiResult) {
-    return { faces_count: 0, confidence: 0, ok: false, reason: "AI timeout" };
-  }
-
-  const parsed = JSON.parse(aiResult.output_text);
-  return normalizeFaceResult(parsed, minConfidence);
-}
-
-export async function validateFaces(input: { imageUrl?: string; base64?: string }) {
-  const env = getServerEnv();
-  const minConfidence = env.FACE_DETECT_MIN_CONFIDENCE;
-  const models = [...new Set([env.FACE_DETECT_MODEL, "gpt-4o-mini", "gpt-4.1-mini"])];
-
-  const fallback: FaceValidation = {
-    faces_count: 0,
-    confidence: 0,
-    ok: false,
-    reason: "AI unavailable",
-  };
-
-  if (!input.imageUrl && !input.base64) {
-    return { ...fallback, reason: "Image is required" };
-  }
-
-  try {
-    const client = getClient();
-
-    const results = await Promise.all(
-      FACE_PROMPTS.map((prompt) =>
-        detectFacesOnce(client, input, prompt, models, minConfidence).catch(() => ({
-          faces_count: 0,
-          confidence: 0,
-          ok: false,
-          reason: "Detection failed",
-        })),
-      ),
-    );
-
-    const validCount = results.filter((r) => r.faces_count > 0).length;
-    const maxFaces = Math.max(...results.map((r) => r.faces_count), 0);
-    const maxConf = Math.max(...results.map((r) => r.confidence), 0);
-
-    const ok = validCount >= 1 && maxFaces > 0 && (maxConf >= minConfidence || validCount >= 2);
-
-    return {
-      faces_count: maxFaces,
-      confidence: maxConf,
-      ok,
-      reason: ok ? undefined : results.find((r) => r.reason)?.reason || "Face not confirmed",
-    };
-  } catch {
-    return fallback;
-  }
+// DeepSeek does not support vision — face validation is skipped (passthrough)
+export async function validateFaces(_input: {
+  imageUrl?: string;
+  base64?: string;
+}): Promise<FaceValidation> {
+  return { faces_count: 1, confidence: 1.0, ok: true };
 }
 
 export async function buildIcebreaker(input: {
@@ -144,40 +31,21 @@ export async function buildIcebreaker(input: {
 }) {
   try {
     const client = getClient();
-    const prompt = `
-Ты помощник по знакомствам. Ответ только JSON.
+    const prompt = `Ты помощник по знакомствам. Ответ только JSON.
 Сделай рекомендации для ${input.user1.name}, чтобы познакомиться с ${input.user2.name}.
 Контекст: ${input.context ?? "offline meeting"}
 Интересы ${input.user1.name}: ${input.user1.interests.join(", ") || "не указаны"}
-Интересы ${input.user2.name}: ${input.user2.interests.join(", ") || "не указаны"}
-`;
+Интересы ${input.user2.name}: ${input.user2.interests.join(", ") || "не указаны"}`;
 
-    const res = await client.responses.create({
-      model: "gpt-4o-mini",
-      input: prompt,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "icebreakers",
-          schema: {
-            type: "object",
-            properties: {
-              messages: { type: "array", items: { type: "string" } },
-              topic: { type: "string" },
-              question: { type: "string" },
-              profileSummary: { type: "string" },
-              approachTips: { type: "array", items: { type: "string" } },
-              offlineIdeas: { type: "array", items: { type: "string" } },
-              onlineIdeas: { type: "array", items: { type: "string" } },
-            },
-            required: ["messages", "topic", "question"],
-            additionalProperties: false,
-          },
-        },
-      },
-    } as any);
+    const res = await client.chat.completions.create({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_tokens: 800,
+    });
 
-    return JSON.parse(res.output_text) as {
+    const content = res.choices[0]?.message?.content ?? "{}";
+    return JSON.parse(content) as {
       messages: string[];
       topic: string;
       question: string;

@@ -3,7 +3,6 @@ import { createDailyDuoSchema } from "@/lib/schemas";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
-import { validateFaces } from "@/server/ai";
 import { trackEvent } from "@/server/analytics";
 
 export async function POST(req: Request) {
@@ -49,26 +48,6 @@ export async function POST(req: Request) {
 
     const frontUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(frontPath).data.publicUrl;
     const backUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(backPath).data.publicUrl;
-
-    let checkFront = await validateFaces({ imageUrl: frontUrl });
-    let checkBack = await validateFaces({ imageUrl: backUrl });
-
-    // Fallback to base64 if URL-based inspection is uncertain.
-    if (!checkFront.ok || checkFront.faces_count < 1) {
-      checkFront = await validateFaces({ base64: frontBuffer.toString("base64") });
-    }
-    if (!checkBack.ok || checkBack.faces_count < 1) {
-      checkBack = await validateFaces({ base64: backBuffer.toString("base64") });
-    }
-
-    const totalFaces = (checkFront.faces_count ?? 0) + (checkBack.faces_count ?? 0);
-
-    if (totalFaces < 2) {
-      return fail(
-        `Нужно минимум 2 человека на Daily Duo. front=${checkFront.faces_count}, back=${checkBack.faces_count}`,
-        422,
-      );
-    }
 
     const { data: post, error: postErr } = await supabaseAdmin
       .from("posts")

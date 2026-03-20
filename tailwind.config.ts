@@ -16,11 +16,11 @@ const config: Config = {
         border: "var(--border)",
         text: "var(--text)",
         muted: "var(--muted)",
-        accent: "#000229",
-        action: "#52CC83",
+        accent: "#0a0818",
+        action: "#7c3aed",
       },
       boxShadow: {
-        soft: "0 22px 64px rgba(0, 2, 41, 0.4)",
+        soft: "0 22px 64px rgba(109, 40, 217, 0.3)",
       },
       fontFamily: {
         sans: ["var(--font-rubik)", "system-ui", "sans-serif"],

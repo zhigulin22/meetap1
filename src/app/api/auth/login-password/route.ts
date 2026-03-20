@@ -7,16 +7,10 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { trackEvent } from "@/server/analytics";
 
 const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+const usernameRegex = /^[a-z0-9_]{3,30}$/;
 
 const schema = z.object({
-  phone: z
-    .string()
-    .trim()
-    .transform((v) => {
-      const cleaned = v.replace(/[\s()-]/g, "");
-      return cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
-    })
-    .refine((v) => phoneRegex.test(v), "Неверный номер"),
+  login: z.string().trim().min(1),
   password: z.string().min(8).max(72),
 });
 
@@ -28,13 +22,35 @@ export async function POST(req: Request) {
     return fail(parsed.error.issues[0]?.message ?? "Неверные данные", 422);
   }
 
-  const { phone, password } = parsed.data;
+  const { login, password } = parsed.data;
 
-  const { data: user } = await supabaseAdmin
-    .from("users")
-    .select("id,password_hash")
-    .eq("phone", phone)
-    .maybeSingle();
+  // Determine if login is a phone number or username
+  const cleaned = login.replace(/[\s()-]/g, "");
+  const isPhone = phoneRegex.test(cleaned.startsWith("+") ? cleaned : `+${cleaned}`);
+  const isUsername = usernameRegex.test(login.toLowerCase());
+
+  if (!isPhone && !isUsername) {
+    return fail("Введи номер телефона или имя пользователя", 422);
+  }
+
+  let user: { id: string; password_hash: string | null } | null = null;
+
+  if (isPhone) {
+    const phone = cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
+    const { data } = await supabaseAdmin
+      .from("users")
+      .select("id,password_hash")
+      .eq("phone", phone)
+      .maybeSingle();
+    user = data;
+  } else {
+    const { data } = await supabaseAdmin
+      .from("users")
+      .select("id,password_hash")
+      .eq("username", login.toLowerCase())
+      .maybeSingle();
+    user = data;
+  }
 
   if (!user?.id || !user.password_hash) {
     return fail("Пользователь не найден или пароль не настроен", 404);

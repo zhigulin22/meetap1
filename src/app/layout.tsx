@@ -1,23 +1,23 @@
-import type { Metadata } from "next";
-import { Manrope, Rubik } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const rubik = Rubik({
-  subsets: ["latin", "latin-ext", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-rubik",
-});
-
-const manrope = Manrope({
-  subsets: ["latin", "latin-ext", "cyrillic"],
-  weight: ["500", "600", "700", "800"],
-  variable: "--font-manrope",
-});
+export const viewport: Viewport = {
+  themeColor: "#07070e",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
-  title: "Meetap MVP",
+  title: "Meetap",
   description: "Соцсеть для офлайн-знакомств",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Meetap",
+  },
 };
 
 export default function RootLayout({
@@ -26,14 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body className={`${rubik.variable} ${manrope.variable} font-sans`}>
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}",
-          }}
-        />
+    <html lang="ru" className="dark" suppressHydrationWarning>
+      <body className="font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

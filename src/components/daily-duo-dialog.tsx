@@ -76,9 +76,13 @@ export function DailyDuoDialog({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const pinchDistRef = useRef<number | null>(null);
+  const pinchZoomStartRef = useRef<number>(1);
+
   const [captureStep, setCaptureStep] = useState<CaptureStep>("front");
   const [phase, setPhase] = useState<Phase>("capture_front");
   const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [zoom, setZoom] = useState(1);
 
   const [front, setFront] = useState<File | null>(null);
   const [back, setBack] = useState<File | null>(null);
@@ -111,6 +115,7 @@ export function DailyDuoDialog({
     setBack(null);
     setCaption("");
     setSelectedFilter("none");
+    setZoom(1);
   }, [open]);
 
   useEffect(() => {
@@ -133,11 +138,7 @@ export function DailyDuoDialog({
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: facing },
-            width: { ideal: 1080 },
-            height: { ideal: 1920 },
-          },
+          video: { facingMode: { ideal: facing } },
           audio: false,
         });
 
@@ -167,13 +168,47 @@ export function DailyDuoDialog({
     const video = videoRef.current;
     if (!video) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 720;
-    canvas.height = video.videoHeight || 1280;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const vw = video.videoWidth || 720;
+    const vh = video.videoHeight || 1280;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const canvas = document.createElement("canvas");
+
+    if (zoom > 1) {
+      const cropW = vw / zoom;
+      const cropH = vh / zoom;
+      const cropX = (vw - cropW) / 2;
+      const cropY = (vh - cropH) / 2;
+
+      canvas.width = Math.round(cropW);
+      canvas.height = Math.round(cropH);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      if (facing === "user") {
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+      }
+    } else {
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      if (facing === "user") {
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
+    }
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92),
@@ -186,6 +221,7 @@ export function DailyDuoDialog({
       setCaptureStep("back");
       setPhase("capture_back");
       setFacing("environment");
+      setZoom(1);
       return;
     }
 
@@ -200,6 +236,7 @@ export function DailyDuoDialog({
       setCaptureStep("back");
       setPhase("capture_back");
       setFacing("environment");
+      setZoom(1);
       return;
     }
 
@@ -214,6 +251,7 @@ export function DailyDuoDialog({
       setCaptureStep("front");
       setPhase("capture_front");
       setFacing("user");
+      setZoom(1);
       return;
     }
 
@@ -221,6 +259,38 @@ export function DailyDuoDialog({
     setCaptureStep("back");
     setPhase("capture_back");
     setFacing("environment");
+    setZoom(1);
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      pinchDistRef.current = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY,
+      );
+      pinchZoomStartRef.current = zoom;
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && pinchDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY,
+      );
+      const newZoom = Math.min(5, Math.max(1, pinchZoomStartRef.current * (dist / pinchDistRef.current)));
+      setZoom(newZoom);
+
+      // Try hardware zoom if supported, silently ignore if not
+      const track = streamRef.current?.getVideoTracks()[0];
+      if (track) {
+        track.applyConstraints({ advanced: [{ zoom: newZoom }] } as any).catch(() => null);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    pinchDistRef.current = null;
   }
 
   async function publish() {
@@ -260,24 +330,85 @@ export function DailyDuoDialog({
       {phase !== "edit" ? (
         <>
           <div className="relative h-full w-full overflow-hidden">
-            <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+            {/* Video wrapper — clips zoom overflow, handles pinch gestures */}
+            <div
+              className="absolute inset-0 overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{ touchAction: "none" }}
+            >
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                className="h-full w-full object-cover"
+                style={{
+                  transform: `${facing === "user" ? "scaleX(-1) " : ""}scale(${zoom})`,
+                  transformOrigin: "center center",
+                }}
+              />
+            </div>
+
+            {/* Top gradient */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
-            <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
-              <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">Закрыть</button>
-              <div className="rounded-full bg-black/45 px-3 py-1 text-xs">
-                {phase === "capture_front" ? "Сделай первый кадр" : "Сделай второй кадр"}
+            {/* Bottom gradient */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/75 to-transparent" />
+
+            {/* Front photo thumbnail — shown only in step 2 */}
+            {phase === "capture_back" && frontPreview && (
+              <div className="absolute left-4 top-20 z-10">
+                <div className="relative h-20 w-[52px] overflow-hidden rounded-xl border-2 border-white/40 shadow-lg">
+                  <img src={frontPreview} alt="front" className="h-full w-full object-cover" />
+                  <div className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#52CC83] text-[9px] font-bold text-[#04120a]">
+                    1
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* Top controls */}
+            <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
               <button
-                onClick={() => setFacing((x) => (x === "user" ? "environment" : "user"))}
-                className="grid h-10 w-10 place-items-center rounded-full bg-black/45"
+                onClick={() => onOpenChange(false)}
+                className="rounded-full bg-black/50 px-3 py-1.5 text-sm backdrop-blur-sm"
+              >
+                Закрыть
+              </button>
+
+              <div className="flex flex-col items-center rounded-2xl bg-black/50 px-4 py-1.5 text-center backdrop-blur-sm">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-white/55">
+                  {phase === "capture_front" ? "1 / 2" : "2 / 2"}
+                </span>
+                <span className="text-sm font-semibold leading-tight">
+                  {phase === "capture_front" ? "Селфи" : "Окружение"}
+                </span>
+              </div>
+
+              <button
+                onClick={() => {
+                  setFacing((x) => (x === "user" ? "environment" : "user"));
+                  setZoom(1);
+                }}
+                className="grid h-10 w-10 place-items-center rounded-full bg-black/50 backdrop-blur-sm"
                 aria-label="Сменить камеру"
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>
 
+            {/* Bottom controls */}
             <div className="absolute bottom-5 left-0 right-0 px-4 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
-              <div className="mx-auto flex max-w-sm items-center justify-between rounded-3xl border border-white/20 bg-black/40 px-4 py-3 backdrop-blur-xl">
+              {/* Zoom level indicator */}
+              {zoom > 1.05 && (
+                <div className="mb-3 flex justify-center">
+                  <div className="rounded-full bg-black/60 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                    {zoom.toFixed(1)}×
+                  </div>
+                </div>
+              )}
+
+              <div className="mx-auto flex max-w-sm items-center justify-between rounded-3xl border border-white/20 bg-black/40 px-5 py-4 backdrop-blur-xl">
                 <button
                   onClick={() => galleryInputRef.current?.click()}
                   className="grid h-12 w-12 place-items-center rounded-full border border-white/35 bg-white/10"
@@ -285,12 +416,16 @@ export function DailyDuoDialog({
                   <Paperclip className="h-5 w-5" />
                 </button>
 
-                <button
-                  onClick={capturePhoto}
-                  className="grid h-20 w-20 place-items-center rounded-full border-4 border-white/75 bg-[#52CC83] text-[#051810] shadow-[0_16px_40px_rgba(82,204,131,0.45)]"
-                >
-                  <Camera className="h-8 w-8" />
-                </button>
+                {/* Capture button with pulsing outer ring */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute h-[88px] w-[88px] animate-pulse rounded-full border-2 border-white/30" />
+                  <button
+                    onClick={capturePhoto}
+                    className="relative z-10 grid h-20 w-20 place-items-center rounded-full border-4 border-white bg-[#52CC83] text-[#051810] shadow-[0_16px_40px_rgba(82,204,131,0.45)]"
+                  >
+                    <Camera className="h-8 w-8" />
+                  </button>
+                </div>
 
                 <button
                   onClick={() => resetTo("front")}
