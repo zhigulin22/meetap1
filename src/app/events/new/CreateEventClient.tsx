@@ -203,7 +203,13 @@ function CreateEventPageInner() {
   const requiredBase = state.title.trim() && state.category.trim() && state.format;
   const requiredWhenWhere = state.date && state.start_time && state.venue.trim();
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
-  const requiredContacts = state.organizer_name.trim() && state.organizer_telegram.trim() && state.organizer_phone.trim() && isValidTelegram(state.organizer_telegram);
+  const telegramValue = state.organizer_telegram.trim();
+  const telegramHasAt = telegramValue.startsWith("@") || telegramValue.startsWith("http") || telegramValue.startsWith("t.me/") || telegramValue.startsWith("telegram.me/");
+  const requiredContacts =
+    state.organizer_name.trim() &&
+    telegramHasAt &&
+    isValidTelegram(telegramValue) &&
+    state.organizer_phone.trim();
 
   const draftReady = requiredBase && requiredWhenWhere;
 
@@ -555,7 +561,25 @@ function CreateEventPageInner() {
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">4. Контакты и оплата</h2>
               <Input placeholder="Имя организатора" value={state.organizer_name} onChange={(e) => setState((s) => ({ ...s, organizer_name: e.target.value }))} />
-              <Input placeholder="Telegram (@username или t.me/...)" value={state.organizer_telegram} onChange={(e) => setState((s) => ({ ...s, organizer_telegram: e.target.value }))} />
+              <div className="space-y-1">
+                <Input
+                  placeholder="Telegram (обязательно, формат @username)"
+                  value={state.organizer_telegram}
+                  onChange={(e) => setState((s) => ({ ...s, organizer_telegram: e.target.value }))}
+                />
+                <p className="text-[11px] text-text3">Важно: укажи @username. Это обязательное поле.</p>
+              </div>
+              <div className="space-y-1">
+                <Input
+                  placeholder="Контактный телефон (обязательно)"
+                  value={state.organizer_phone}
+                  onChange={(e) => setState((s) => ({ ...s, organizer_phone: e.target.value }))}
+                />
+                <p className="text-[11px] text-text3">Телефон нужен для связи организатора. Будет скрыт в профиле.</p>
+              </div>
+              {!telegramHasAt && telegramValue ? (
+                <p className="text-xs text-[rgb(var(--warning-rgb))]">Telegram должен начинаться с @username.</p>
+              ) : null}
               <label className="flex items-center gap-2 text-sm text-text2">
                 <input type="checkbox" checked={state.is_paid} onChange={(e) => setState((s) => ({ ...s, is_paid: e.target.checked }))} />
                 Платное событие

@@ -217,7 +217,7 @@ export default function ProfilePage() {
                     )}
                     {privacy.show_university === false || !university ? null : (
                       <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.4)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-text">
-                        {university}
+                        🎓 {university} · подтверждено
                       </span>
                     )}
                   </div>
@@ -298,6 +298,15 @@ export default function ProfilePage() {
               {compat.common?.length ? (
                 <p className="text-xs text-text2">Общие интересы: {compat.common.slice(0, 4).join(", ")}</p>
               ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {compat?.common?.length ? (
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-text">Повод написать</p>
+              <p className="mt-1 text-sm text-text2">Можно начать с темы: {compat.common.slice(0, 3).join(", ")}</p>
             </CardContent>
           </Card>
         ) : null}
@@ -417,6 +426,8 @@ export default function ProfilePage() {
                   const cover = postCover(post);
                   const isVideo = post.photos?.some((ph) => isVideoUrl(ph.url));
                   const count = post.photos?.length ?? 0;
+                  const isDuo = post.type === "daily_duo";
+                  const duoShots = post.photos?.slice(0, 2) ?? [];
                   return (
                     <button
                       key={post.id}
@@ -424,7 +435,14 @@ export default function ProfilePage() {
                       onClick={() => openPost(post, 0)}
                       className="relative overflow-hidden rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)]"
                     >
-                      <Image src={cover} alt="media" width={480} height={640} className="h-48 w-full object-cover" unoptimized />
+                      {isDuo && duoShots.length >= 2 ? (
+                        <div className="grid h-48 w-full grid-cols-2">
+                          <Image src={duoShots[0].url} alt="duo-1" width={240} height={320} className="h-full w-full object-cover" unoptimized />
+                          <Image src={duoShots[1].url} alt="duo-2" width={240} height={320} className="h-full w-full object-cover" unoptimized />
+                        </div>
+                      ) : (
+                        <Image src={cover} alt="media" width={480} height={640} className="h-48 w-full object-cover" unoptimized />
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                       <div className="absolute left-2 top-2 flex gap-1">
                         {post.type === "daily_duo" ? (
