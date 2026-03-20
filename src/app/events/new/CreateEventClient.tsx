@@ -57,7 +57,10 @@ function normalizePhone(value: string) {
   const raw = value.trim();
   if (!raw) return null;
   const digits = raw.replace(/[^0-9+]/g, "");
-  const normalized = digits.startsWith("+") ? digits : digits.replace(/^8/, "+7");
+  let normalized = digits.startsWith("+") ? digits : digits.replace(/^8/, "+7").replace(/^7/, "+7");
+  if (normalized.startsWith("+8")) {
+    normalized = "+7" + normalized.slice(2);
+  }
   const onlyDigits = normalized.replace(/[^0-9]/g, "");
   if (onlyDigits.length < 10 || onlyDigits.length > 15) return null;
   return normalized;
