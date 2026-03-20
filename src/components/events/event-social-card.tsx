@@ -123,15 +123,16 @@ export function EventSocialCard({
 
         <div className="mt-3 flex -space-x-2">
           {event.participants.slice(0, 6).map((person) => (
-            <Image
-              key={person.id}
-              src={person.avatar_url || "https://placehold.co/100/0c1326/8b9bd6?text=U"}
-              alt={person.name || "Участник"}
-              width={64}
-              height={64}
-              className="h-9 w-9 rounded-full border border-[rgb(var(--teal-rgb)/0.35)] object-cover"
-              unoptimized
-            />
+            <Link key={person.id} href={`/profile/${person.id}`} className="block">
+              <Image
+                src={person.avatar_url || "https://placehold.co/100/0c1326/8b9bd6?text=U"}
+                alt={person.name || "Участник"}
+                width={64}
+                height={64}
+                className="h-9 w-9 rounded-full border border-[rgb(var(--teal-rgb)/0.35)] object-cover"
+                unoptimized
+              />
+            </Link>
           ))}
           {event.going_count > 6 ? <span className="ml-3 inline-flex items-center text-xs text-text3">+{event.going_count - 6}</span> : null}
         </div>

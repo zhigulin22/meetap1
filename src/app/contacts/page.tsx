@@ -80,7 +80,16 @@ export default function ContactsPage() {
             </div>
 
             {(data?.hotMatches ?? []).map((person) => (
-              <div key={person.id} className="rounded-2xl border border-border/80 bg-black/10 p-3">
+              <div
+                key={person.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/profile/${person.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") router.push(`/profile/${person.id}`);
+                }}
+                className="rounded-2xl border border-border/80 bg-black/10 p-3 transition hover:bg-white/5"
+              >
                 <div className="flex items-center gap-2">
                   <Image
                     src={person.avatar_url || "https://placehold.co/100"}
@@ -105,7 +114,7 @@ export default function ContactsPage() {
                   <p className="line-clamp-1 text-xs text-muted">
                     {person.common.join(", ") || "Подходите по стилю знакомства"}
                   </p>
-                  <Button size="sm" onClick={() => connect(person)}>
+                  <Button size="sm" onClick={(e) => { e.stopPropagation(); connect(person); }}>
                     <HeartHandshake className="mr-1 h-4 w-4" />
                     Хочу познакомиться
                   </Button>
