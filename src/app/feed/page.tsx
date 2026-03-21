@@ -5,17 +5,14 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Plus, Sparkles, Users2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { DailyDuoDialog } from "@/components/daily-duo-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageShell } from "@/components/page-shell";
 import { PostCard } from "@/components/post-card";
-import { TopBar } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Pill } from "@/components/ui/pill";
-import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api-client";
 
@@ -220,43 +217,50 @@ export default function FeedPage() {
 
   return (
     <PageShell>
-      <TopBar
-        title="Лента"
-        subtitle="Живые моменты, фото и тёплые знакомства"
-        right={
-          <div className="flex items-center gap-2">
-            <Pill tone="violet">DUO</Pill>
-            <Button size="icon" onClick={() => setCreateOpen(true)} aria-label="Создать пост">
-              <Plus className="h-4 w-4" />
-            </Button>
+      <div className="mb-4 rounded-[36px] bg-[linear-gradient(180deg,rgba(18,24,50,0.96),rgba(10,14,30,0.98))] p-6 shadow-[0_30px_70px_rgba(7,10,26,0.7)]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[32px] font-semibold tracking-tight text-text">Лента</h1>
+            <p className="text-[15px] text-text2">Живые моменты и реальные знакомства</p>
           </div>
-        }
-      />
+          <Button size="lg" onClick={() => setCreateOpen(true)} className="rounded-full px-7 text-[15px] shadow-[0_18px_34px_rgba(122,84,255,0.55)]">
+            <Plus className="mr-1 h-4 w-4" /> Создать DUO
+          </Button>
+        </div>
 
-      <div className="mb-3 rounded-[14px] bg-[rgb(var(--surface-2-rgb)/0.88)] p-1">
-        <SegmentedTabs
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: "all", label: "All" },
-            { value: "video", label: "Video" },
-            { value: "single", label: "Single" },
-            { value: "duo", label: "Duo" },
-          ]}
-          className="w-full"
-        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[
+            { value: "all", label: "Все" },
+            { value: "duo", label: "DUO" },
+            { value: "video", label: "Видео" },
+            { value: "single", label: "Фото" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setMode(tab.value as any)}
+              className={`h-11 rounded-full px-6 text-[14px] font-semibold transition active:scale-[0.98] ${
+                mode === tab.value
+                  ? "bg-[image:var(--grad-primary)] text-white shadow-[0_14px_30px_rgba(122,84,255,0.5)]"
+                  : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.85)] text-text"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="mb-3 grid gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
+      <div className="mb-4 grid gap-3 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] p-4">
           <p className="text-xs text-text3">DUO — фирменный формат MeetAp</p>
-          <p className="mt-1 text-sm text-text">Одно фото, живой момент и доверие. Отмечай людей и контекст встречи.</p>
-          <Button size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>Сделать фото</Button>
+          <p className="mt-1 text-sm text-text">Фото с живым контекстом повышает доверие и совместимость.</p>
+          <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>Сделать фото</Button>
         </div>
-        <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-3">
-          <p className="text-xs text-text3">Почему это работает</p>
-          <p className="mt-1 text-sm text-text">Фото повышает совместимость, потому что фиксирует реальные встречи.</p>
-          <Button size="sm" variant="secondary" className="mt-2" onClick={() => setWhyOpen(true)}>Подробнее</Button>
+        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] p-4">
+          <p className="text-xs text-text3">Почему это важно</p>
+          <p className="mt-1 text-sm text-text">Лента фиксирует реальные встречи и помогает понять человека.</p>
+          <Button size="sm" variant="secondary" className="mt-3" onClick={() => setWhyOpen(true)}>Подробнее</Button>
         </div>
       </div>
 
