@@ -58,8 +58,12 @@ const schema = z
 
     const phone = data.organizer_phone.replace(/[^0-9+]/g, "");
     const digits = phone.replace(/[^0-9]/g, "");
-    if (digits.length < 10 || digits.length > 15) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Некорректный телефон", path: ["organizer_phone"] });
+    let phoneNum = digits;
+    if (phoneNum.length === 10) phoneNum = `7${phoneNum}`;
+    if (phoneNum.length === 11 && phoneNum.startsWith("8")) phoneNum = `7${phoneNum.slice(1)}`;
+    const phoneValid = phoneNum.length === 11 && phoneNum.startsWith("7");
+    if (!phoneValid) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Телефон: формат 7/8/+7/+8", path: ["organizer_phone"] });
     }
     if (data.is_paid) {
       const hasPrice = Number(data.price ?? 0) > 0 || Boolean(data.payment_note?.trim());

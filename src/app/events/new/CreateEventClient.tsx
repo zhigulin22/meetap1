@@ -57,14 +57,15 @@ function normalizePhone(value: string) {
   const raw = value.trim();
   if (!raw) return null;
   const digits = raw.replace(/[^0-9]/g, "");
-  if (digits.length < 10 || digits.length > 15) return null;
+  if (digits.length < 10) return null;
   let num = digits;
-  if (num.length === 10) {
+  if (num.length == 10) {
     num = "7" + num;
   }
-  if (num.startsWith("8") && num.length >= 11) {
+  if (num.length == 11 && num.startsWith("8")) {
     num = "7" + num.slice(1);
   }
+  if (num.length != 11) return null;
   if (!num.startsWith("7")) return null;
   return `+${num}`;
 }
@@ -224,12 +225,11 @@ function CreateEventPageInner() {
   const requiredWhenWhere = state.date && state.start_time && state.venue.trim();
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
   const telegramValue = state.organizer_telegram.trim();
-  const telegramHasAt = telegramValue.startsWith("@") || telegramValue.startsWith("http") || telegramValue.startsWith("t.me/") || telegramValue.startsWith("telegram.me/");
+  const normalizedPhone = normalizePhone(state.organizer_phone);
   const requiredContacts =
     state.organizer_name.trim() &&
-    telegramHasAt &&
     isValidTelegram(telegramValue) &&
-    state.organizer_phone.trim();
+    normalizedPhone;
 
   const draftReady = requiredBase && requiredWhenWhere;
 
@@ -275,7 +275,7 @@ function CreateEventPageInner() {
           price_text: state.price_text.trim(),
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
-          organizer_phone: state.organizer_phone.trim(),
+          organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
           social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
         }),
       });
@@ -386,8 +386,9 @@ function CreateEventPageInner() {
     if (!isValidTelegram(state.organizer_telegram)) {
       missing.push("Telegram организатора (неверный формат)");
     }
-    if (!normalizePhone(state.organizer_phone)) {
-      missing.push("Контактный телефон (формат 8XXXXXXXXXX или +7XXXXXXXXXX)");
+    const normalizedPhone = normalizePhone(state.organizer_phone);
+    if (!normalizedPhone) {
+      missing.push("Контактный телефон (формат 7/8/+7/+8)");
     }
     const dateCheck = isValidDateRange(state.date, state.start_time, state.end_time);
     if (!dateCheck.ok) {
@@ -425,7 +426,7 @@ function CreateEventPageInner() {
           full_description: state.full_description.trim(),
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
-          organizer_phone: state.organizer_phone.trim(),
+          organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
         }),
       });
 
@@ -595,11 +596,8 @@ function CreateEventPageInner() {
                   value={state.organizer_phone}
                   onChange={(e) => setState((s) => ({ ...s, organizer_phone: e.target.value }))}
                 />
-                <p className="text-[11px] text-text3">Телефон нужен для связи организатора. Будет скрыт в профиле.</p>
+                <p className="text-[11px] text-text3">Формат: 8XXXXXXXXXX, +7XXXXXXXXXX или +8XXXXXXXXXX. Телефон скрыт в профиле.</p>
               </div>
-              {!telegramHasAt && telegramValue ? (
-                <p className="text-xs text-[rgb(var(--warning-rgb))]">Telegram должен начинаться с @username.</p>
-              ) : null}
               <label className="flex items-center gap-2 text-sm text-text2">
                 <input type="checkbox" checked={state.is_paid} onChange={(e) => setState((s) => ({ ...s, is_paid: e.target.checked }))} />
                 Платное событие

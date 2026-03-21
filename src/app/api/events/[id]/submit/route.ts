@@ -127,8 +127,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const normalizedTelegram = normalizeTelegramContact(merged.organizer_telegram);
 
     const phoneDigits = String(merged.organizer_phone || "").replace(/[^0-9]/g, "");
-    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
-      return fail("Укажи корректный телефон организатора", 422, {
+    let phoneNum = phoneDigits;
+    if (phoneNum.length === 10) phoneNum = `7${phoneNum}`;
+    if (phoneNum.length === 11 && phoneNum.startsWith("8")) phoneNum = `7${phoneNum.slice(1)}`;
+    const phoneValid = phoneNum.length === 11 && phoneNum.startsWith("7");
+    if (!phoneValid) {
+      return fail("Телефон организатора: формат 7/8/+7/+8", 422, {
         code: "VALIDATION",
         fields: [REQUIRED_FIELD_LABELS.organizer_phone],
       });

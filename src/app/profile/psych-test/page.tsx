@@ -23,30 +23,35 @@ type Question = {
 };
 
 const QUESTIONS: Question[] = [
-  { id: "q1", trait: "extraversion", text: "Мне комфортно знакомиться первым и начинать разговор", group: "Социальная энергия" },
-  { id: "q2", trait: "extraversion", reverse: true, text: "После общения с людьми мне нужно долго восстанавливаться в одиночестве", group: "Социальная энергия" },
-  { id: "q3", trait: "extraversion", text: "Я легко поддерживаю разговор даже с незнакомыми", group: "Коммуникация" },
-  { id: "q4", trait: "extraversion", reverse: true, text: "Я предпочитаю общение тет-а-тет, а не в группе", group: "Коммуникация" },
+  { id: "q1", trait: "openness", text: "Мне интересно пробовать новые форматы: прогулки, воркшопы, камерные встречи", group: "Интересы" },
+  { id: "q2", trait: "openness", reverse: true, text: "Я предпочитаю знакомиться в привычных и проверенных местах", group: "Интересы" },
 
-  { id: "q5", trait: "openness", text: "Мне интересно пробовать новые форматы встреч и знакомств", group: "Открытость" },
-  { id: "q6", trait: "openness", text: "Мне нравится узнавать людей из разных сфер и культур", group: "Открытость" },
-  { id: "q7", trait: "openness", reverse: true, text: "Я предпочитаю проверенные сценарии и редко меняю привычный формат", group: "Открытость" },
-  { id: "q8", trait: "openness", text: "Мне комфортно обсуждать идеи, смыслы и ценности", group: "Глубина" },
+  { id: "q3", trait: "extraversion", text: "Я легко завожу разговор с новыми людьми вживую", group: "Социальная энергия" },
+  { id: "q4", trait: "extraversion", reverse: true, text: "Мне комфортнее общаться один на один, чем в группе", group: "Социальная энергия" },
 
-  { id: "q9", trait: "conscientiousness", text: "Я стараюсь выполнять договорённости и не опаздывать", group: "Надёжность" },
-  { id: "q10", trait: "conscientiousness", reverse: true, text: "Мне нравится спонтанность, и я часто меняю планы в последний момент", group: "Темп" },
-  { id: "q11", trait: "conscientiousness", text: "Мне важно заранее понимать планы и ожидания от встречи", group: "Темп" },
-  { id: "q12", trait: "conscientiousness", reverse: true, text: "Я могу забыть о договорённости, если настроение изменилось", group: "Надёжность" },
+  { id: "q5", trait: "conscientiousness", text: "Если договорились о встрече, я придерживаюсь плана", group: "Надёжность" },
+  { id: "q6", trait: "conscientiousness", reverse: true, text: "Я часто меняю планы в последний момент", group: "Надёжность" },
 
-  { id: "q13", trait: "agreeableness", text: "Мне важно уважать границы другого и быть тактичным", group: "Эмпатия" },
-  { id: "q14", trait: "agreeableness", text: "Я стараюсь слушать, прежде чем спорить", group: "Эмпатия" },
-  { id: "q15", trait: "agreeableness", reverse: true, text: "В споре для меня важнее победить, чем сохранить контакт", group: "Коммуникация" },
-  { id: "q16", trait: "agreeableness", reverse: true, text: "Мне сложно проявлять мягкость и поддержку", group: "Эмпатия" },
+  { id: "q7", trait: "openness", text: "Мне интереснее люди с нестандартными хобби и опытом", group: "Интересы" },
+  { id: "q8", trait: "openness", reverse: true, text: "Я быстрее сближаюсь с людьми, похожими на меня", group: "Интересы" },
 
-  { id: "q17", trait: "neuroticism", text: "Я переживаю, если долго нет ответа или план меняется", group: "Эмоциональный баланс" },
-  { id: "q18", trait: "neuroticism", reverse: true, text: "В стрессовой ситуации я обычно сохраняю спокойствие", group: "Эмоциональный баланс" },
-  { id: "q19", trait: "neuroticism", text: "Мне важно чувствовать ясность и определённость в общении", group: "Эмоциональный баланс" },
-  { id: "q20", trait: "neuroticism", reverse: true, text: "Даже при неопределённости я сохраняю уверенность", group: "Эмоциональный баланс" },
+  { id: "q9", trait: "extraversion", text: "Мне нравится знакомиться через события и активные активности", group: "Активность" },
+  { id: "q10", trait: "extraversion", reverse: true, text: "Мне ближе спокойные форматы без шума и людей", group: "Активность" },
+
+  { id: "q11", trait: "conscientiousness", text: "Я люблю заранее понимать план встречи: где, когда, сколько", group: "Темп" },
+  { id: "q12", trait: "conscientiousness", reverse: true, text: "Спонтанные встречи мне обычно даются легче", group: "Темп" },
+
+  { id: "q13", trait: "agreeableness", text: "В общении мне важны уважение и мягкая подача", group: "Стиль общения" },
+  { id: "q14", trait: "agreeableness", reverse: true, text: "Я предпочитаю прямой и жёсткий стиль общения", group: "Стиль общения" },
+
+  { id: "q15", trait: "neuroticism", text: "Если человек долго не отвечает, я начинаю тревожиться", group: "Комфорт" },
+  { id: "q16", trait: "neuroticism", reverse: true, text: "Я спокойно отношусь к паузам в переписке", group: "Комфорт" },
+
+  { id: "q17", trait: "openness", text: "Мне нравится, когда у встречи есть общий смысл: тема, проект, событие", group: "Контекст" },
+  { id: "q18", trait: "openness", reverse: true, text: "Мне легче общаться без заранее заданной темы", group: "Контекст" },
+
+  { id: "q19", trait: "extraversion", text: "После общения мне обычно хочется продолжить контакт", group: "Связь" },
+  { id: "q20", trait: "extraversion", reverse: true, text: "Часто я не хочу продолжать общение после первого знакомства", group: "Связь" },
 ];
 
 const OPTIONS = [
