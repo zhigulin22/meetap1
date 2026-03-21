@@ -95,9 +95,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ends_at: (event as any).ends_at ?? body?.ends_at ?? null,
       short_description: (event as any).short_description ?? body?.short_description ?? "",
       full_description: (event as any).full_description ?? body?.full_description ?? "",
-      organizer_telegram: (event as any).organizer_telegram ?? body?.organizer_telegram ?? "",
-      organizer_phone: (event as any).organizer_phone ?? body?.organizer_phone ?? "",
-      organizer_name: (event as any).organizer_name ?? body?.organizer_name ?? "",
+      organizer_telegram: (event as any).organizer_telegram || body?.organizer_telegram || "",
+      organizer_phone: (event as any).organizer_phone || body?.organizer_phone || "",
+      organizer_name: (event as any).organizer_name || body?.organizer_name || "",
     };
 
     const format = (event as any).social_mode === "looking_company"
