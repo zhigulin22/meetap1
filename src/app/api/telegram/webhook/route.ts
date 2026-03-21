@@ -4,7 +4,7 @@ import { buildTelegramCode } from "@/lib/telegram-code";
 import { getServerEnv, isPlaceholderEnvValue } from "@/lib/env";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 
-type ModerationAction = "approve" | "reject" | "need_info";
+type ModerationAction = "take" | "approve" | "reject" | "need_info";
 
 async function sendTelegramMessage(chatId: string, text: string, options?: { reply_markup?: unknown }) {
   const env = getServerEnv();
@@ -41,13 +41,13 @@ function parseIdList(raw: string | null | undefined) {
 async function resolveAdminByTelegram(telegramUserId: string) {
   const { data } = await supabaseAdmin
     .from("users")
-    .select("id,role")
+    .select("id,role,name")
     .eq("telegram_user_id", telegramUserId)
     .maybeSingle();
 
-  if (!data?.id) return { adminUserId: null as string | null, canModerate: false };
+  if (!data?.id) return { adminUserId: null as string | null, adminName: null as string | null, canModerate: false };
   const role = String(data.role ?? "user");
-  return { adminUserId: data.id as string, canModerate: role === "admin" || role === "super_admin" || role === "moderator" };
+  return { adminUserId: data.id as string, adminName: data.name ?? null, canModerate: role === "admin" || role === "super_admin" || role === "moderator" };
 }
 
 async function logSubmissionAction(input: {
@@ -73,7 +73,11 @@ async function logSubmissionAction(input: {
     cols,
   );
 
-  await supabaseAdmin.from("event_submission_moderation_log").insert(insertPayload).catch(() => null);
+  try {
+    await supabaseAdmin.from("event_submission_moderation_log").insert(insertPayload);
+  } catch {
+    // ignore log errors
+  }
 }
 
 async function publishSubmission(submission: any, moderatorUserId: string | null) {
@@ -187,7 +191,7 @@ async function handleModerationCallback(payload: any) {
   const callbackId = String(callback.id ?? "");
   const tgUserId = String(callback.from?.id ?? "");
 
-  const match = data.match(/^eventmod:(approve|reject|need_info):([0-9a-fA-F-]{36})$/);
+  const match = data.match(/^eventmod:(take|approve|reject|need_info):([0-9a-fA-F-]{36})$/);
   if (!match) {
     await answerCallbackQuery(callbackId, "Неизвестная команда");
     return true;
@@ -218,6 +222,59 @@ async function handleModerationCallback(payload: any) {
   }
 
   const moderatorUserId = actor.adminUserId ?? null;
+  if ((["approved","rejected"].includes(submission.moderation_status))) {
+    await answerCallbackQuery(callbackId, "Уже обработано");
+    await sendTelegramMessage(chatId, `ℹ️ Заявка <code>${submissionId}</code> уже обработана.`);
+    return true;
+  }
+  if ((submission.moderation_status === "in_review" && submission.moderated_by && String(submission.moderated_by) !== String(moderatorUserId))) {
+    await answerCallbackQuery(callbackId, "Уже в работе");
+    await sendTelegramMessage(chatId, "⏳ Заявка уже в работе у другого модератора.");
+    return true;
+  }
+
+  if (action === "take") {
+    if (submission.moderation_status && submission.moderation_status !== "pending") {
+      await answerCallbackQuery(callbackId, "Уже в работе");
+      await sendTelegramMessage(chatId, "⏳ Заявка уже взята в работу другим модератором.");
+      return true;
+    }
+    let updateRes = await supabaseAdmin
+      .from("event_submissions")
+      .update({ moderation_status: "in_review", moderated_by: moderatorUserId, moderated_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", submissionId)
+      .eq("moderation_status", "pending")
+      .select("id")
+      .maybeSingle();
+
+    if (updateRes.error) {
+      updateRes = await supabaseAdmin
+        .from("event_submissions")
+        .update({ moderation_status: "in_review", updated_at: new Date().toISOString() })
+        .eq("id", submissionId)
+        .eq("moderation_status", "pending")
+        .select("id")
+        .maybeSingle();
+    }
+
+    if (!updateRes.data?.id) {
+      await answerCallbackQuery(callbackId, "Уже в работе");
+      await sendTelegramMessage(chatId, "⏳ Заявка уже в работе.");
+      return true;
+    }
+
+    await logSubmissionAction({
+      submissionId,
+      action: "take",
+      actorUserId: moderatorUserId,
+      note: "Taken in review via Telegram",
+      payload: { telegramUserId: tgUserId },
+    });
+
+    await answerCallbackQuery(callbackId, "Взято в работу");
+    await sendTelegramMessage(chatId, `🧷 Заявка <code>${submissionId}</code> взята в работу${actor.adminName ? ` (${actor.adminName})` : ""}.`);
+    return true;
+  }
 
   try {
     if (action === "approve") {
@@ -238,16 +295,24 @@ async function handleModerationCallback(payload: any) {
     const status = action === "reject" ? "rejected" : "flagged";
     const nextEventStatus = action === "reject" ? "hidden" : "pending_review";
 
-    await supabaseAdmin
+    const updatePayload = {
+      moderation_status: status,
+      moderation_reason: action === "reject" ? "Отклонено модератором" : "Нужны уточнения от автора",
+      moderated_by: moderatorUserId,
+      moderated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const resUpdate = await supabaseAdmin
       .from("event_submissions")
-      .update({
-        moderation_status: status,
-        moderation_reason: action === "reject" ? "Отклонено модератором" : "Нужны уточнения от автора",
-        moderated_by: moderatorUserId,
-        moderated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", submissionId);
+
+    if (resUpdate.error) {
+      await supabaseAdmin
+        .from("event_submissions")
+        .update({ moderation_status: status, moderation_reason: updatePayload.moderation_reason, updated_at: updatePayload.updated_at })
+        .eq("id", submissionId);
+    }
 
     if (submission.event_id) {
       await supabaseAdmin.from("events").update({ moderation_status: status, status: nextEventStatus, updated_at: new Date().toISOString() }).eq("id", submission.event_id);

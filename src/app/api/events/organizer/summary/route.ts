@@ -1,4 +1,5 @@
 import { ok, fail } from "@/lib/http";
+import { asSet, getSchemaSnapshot } from "@/server/schema-introspect";
 import { requireUserId } from "@/server/auth";
 import { supabaseAdmin } from "@/supabase/admin";
 
@@ -6,20 +7,37 @@ export async function GET() {
   try {
     const userId = requireUserId();
 
-    const [subs, events] = await Promise.all([
-      supabaseAdmin
-        .from("event_submissions")
-        .select("id,title,category,moderation_status,created_at,event_id")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(12),
-      supabaseAdmin
-        .from("events")
-        .select("id,category,going_count,created_by_user_id")
-        .eq("created_by_user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(200),
-    ]);
+    const schema = await getSchemaSnapshot(["event_submissions", "events"]);
+    const subCols = asSet(schema, "event_submissions");
+    const eventCols = asSet(schema, "events");
+
+    let subsQuery = supabaseAdmin
+      .from("event_submissions")
+      .select("id,title,category,moderation_status,created_at,event_id,user_id,creator_user_id")
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    if (subCols.has("creator_user_id") && subCols.has("user_id")) {
+      subsQuery = subsQuery.or(`creator_user_id.eq.${userId},user_id.eq.${userId}`);
+    } else if (subCols.has("creator_user_id")) {
+      subsQuery = subsQuery.eq("creator_user_id", userId);
+    } else if (subCols.has("user_id")) {
+      subsQuery = subsQuery.eq("user_id", userId);
+    }
+
+    let eventsQuery = supabaseAdmin
+      .from("events")
+      .select("id,category,going_count,created_by_user_id,creator_user_id")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (eventCols.has("created_by_user_id")) {
+      eventsQuery = eventsQuery.eq("created_by_user_id", userId);
+    } else if (eventCols.has("creator_user_id")) {
+      eventsQuery = eventsQuery.eq("creator_user_id", userId);
+    }
+
+    const [subs, events] = await Promise.all([subsQuery, eventsQuery]);
 
     if (subs.error) return fail(subs.error.message, 500);
     if (events.error) return fail(events.error.message, 500);
@@ -29,7 +47,7 @@ export async function GET() {
 
     const totals = {
       submissions: submissions.length,
-      pending: submissions.filter((s: any) => (s as any).moderation_status === "pending").length,
+      pending: submissions.filter((s: any) => ["pending","in_review"].includes((s as any).moderation_status)).length,
       approved: submissions.filter((s: any) => (s as any).moderation_status === "approved").length,
       rejected: submissions.filter((s: any) => (s as any).moderation_status === "rejected").length,
     };

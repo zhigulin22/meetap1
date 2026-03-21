@@ -32,6 +32,7 @@ const schema = z
     trust_confirmed: z.boolean(),
     organizer_name: z.string().trim().min(2).max(120).optional(),
     organizer_phone: z.string().trim().min(6).max(30),
+    organizer_fee_confirmed: z.boolean().optional().default(false),
   })
   .superRefine((data, ctx) => {
     if (!data.trust_confirmed) {
@@ -64,6 +65,10 @@ const schema = z
     const phoneValid = phoneNum.length === 11 && phoneNum.startsWith("7");
     if (!phoneValid) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Телефон: формат 7/8/+7/+8", path: ["organizer_phone"] });
+    }
+
+    if (!data.organizer_fee_confirmed) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Подтверди оплату оргвзноса 100 ₽", path: ["organizer_fee_confirmed"] });
     }
     if (data.is_paid) {
       const hasPrice = Number(data.price ?? 0) > 0 || Boolean(data.payment_note?.trim());
@@ -151,7 +156,7 @@ export async function POST(req: Request) {
         trust_confirmed: parsed.data.trust_confirmed,
         moderation_status: "pending",
         status: "pending_review",
-        metadata: { source: "app", version: "events-v3" },
+        metadata: { source: "app", version: "events-v3", organizer_fee_confirmed: Boolean(parsed.data.organizer_fee_confirmed) },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

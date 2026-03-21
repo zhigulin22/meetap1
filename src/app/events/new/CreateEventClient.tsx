@@ -28,6 +28,7 @@ type WizardState = {
   organizer_name: string;
   organizer_telegram: string;
   organizer_phone: string;
+  organizer_fee_confirmed: boolean;
   is_paid: boolean;
   price_text: string;
   payment_url: string;
@@ -47,6 +48,7 @@ const initialState: WizardState = {
   organizer_name: "",
   organizer_telegram: "",
   organizer_phone: "",
+  organizer_fee_confirmed: false,
   is_paid: false,
   price_text: "",
   payment_url: "",
@@ -130,6 +132,7 @@ function missingFields(state: WizardState) {
   if (!state.organizer_name.trim()) missing.push("Имя организатора");
   if (!state.organizer_telegram.trim()) missing.push("Telegram организатора");
   if (!state.organizer_phone.trim()) missing.push("Контактный телефон");
+  if (!state.organizer_fee_confirmed) missing.push("Оргвзнос 100 ₽");
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) missing.push("Оплата/цена");
   return missing;
 }
@@ -138,7 +141,7 @@ function firstMissingStep(state: WizardState): Step {
   if (!state.title.trim() || !state.category.trim() || !state.format) return 1;
   if (!state.date || !state.start_time || !state.venue.trim()) return 2;
   if (state.short_description.trim().length < 10 || state.full_description.trim().length < 20) return 3;
-  if (!state.organizer_name.trim() || !state.organizer_telegram.trim() || !state.organizer_phone.trim()) return 4;
+  if (!state.organizer_name.trim() || !state.organizer_telegram.trim() || !state.organizer_phone.trim() || !state.organizer_fee_confirmed) return 4;
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) return 4;
   return 5;
 }
@@ -229,7 +232,8 @@ function CreateEventPageInner() {
   const requiredContacts =
     state.organizer_name.trim() &&
     isValidTelegram(telegramValue) &&
-    normalizedPhone;
+    normalizedPhone &&
+    state.organizer_fee_confirmed;
 
   const draftReady = requiredBase && requiredWhenWhere;
 
@@ -276,6 +280,7 @@ function CreateEventPageInner() {
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
+          organizer_fee_confirmed: state.organizer_fee_confirmed,
           social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
         }),
       });
@@ -427,6 +432,7 @@ function CreateEventPageInner() {
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
+          organizer_fee_confirmed: state.organizer_fee_confirmed,
         }),
       });
 
@@ -598,6 +604,17 @@ function CreateEventPageInner() {
                 />
                 <p className="text-[11px] text-text3">Формат: 8XXXXXXXXXX, +7XXXXXXXXXX или +8XXXXXXXXXX. Телефон скрыт в профиле.</p>
               </div>
+              <label className="mt-2 flex items-start gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3 text-xs text-text2">
+                <input
+                  type="checkbox"
+                  checked={state.organizer_fee_confirmed}
+                  onChange={(e) => setState((s) => ({ ...s, organizer_fee_confirmed: e.target.checked }))}
+                />
+                <span>
+                  Я подтверждаю оплату организационного взноса <strong className="text-text">100 ₽</strong>.
+                  Это защищает от спама и повышает качество событий.
+                </span>
+              </label>
               <label className="flex items-center gap-2 text-sm text-text2">
                 <input type="checkbox" checked={state.is_paid} onChange={(e) => setState((s) => ({ ...s, is_paid: e.target.checked }))} />
                 Платное событие

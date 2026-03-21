@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/supabase/admin";
 import { asSet, getSchemaSnapshot, pickExistingColumns } from "@/server/schema-introspect";
 import { updateEvent } from "@/server/events-service";
 import { normalizeTelegramContact, sendEventSubmissionToTelegramModerationBot } from "@/server/telegram-moderation";
+import { checkRateLimit, clientKeyFromRequest } from "@/server/runtime-guard";
 
 const REQUIRED_FIELD_LABELS: Record<string, string> = {
   title: "Название",
@@ -16,6 +17,9 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   organizer_phone: "Телефон организатора",
   venue: "Место",
 };
+
+const REQUIRE_ORGANIZER_FEE = true;
+const ORGANIZER_FEE_RUB = 100;
 
 type SubmitBody = {
   title?: string;
@@ -30,11 +34,19 @@ type SubmitBody = {
   organizer_telegram?: string;
   organizer_phone?: string;
   organizer_name?: string;
+  organizer_fee_confirmed?: boolean;
 };
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const userId = requireUserId();
+    const rate = checkRateLimit(`event-submit:${clientKeyFromRequest(req, userId)}`, 4, 60 * 60 * 1000);
+    if (!rate.ok) {
+      return fail("Слишком много заявок. Попробуй позже.", 429, {
+        code: "RATE_LIMIT",
+        hint: `Повтори через ${rate.retryAfterSec} сек`,
+      });
+    }
     const body = (await req.json().catch(() => null)) as SubmitBody | null;
 
     const snapshot = await getSchemaSnapshot(["events", "event_submissions"]);
@@ -168,6 +180,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       });
     }
 
+    if (REQUIRE_ORGANIZER_FEE && !body?.organizer_fee_confirmed) {
+      return fail(`Нужно подтвердить оплату оргвзноса ${ORGANIZER_FEE_RUB} ₽`, 422, {
+        code: "VALIDATION",
+        fields: ["Оргвзнос"],
+      });
+    }
+
     const existing = await supabaseAdmin
       .from("event_submissions")
       .select("id,status")
@@ -235,7 +254,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         status: "pending_review",
         moderation_status: "pending",
         trust_confirmed: true,
-        metadata: { source: "event-submit", event_id: params.id },
+        metadata: { source: "event-submit", event_id: params.id, organizer_fee_confirmed: Boolean(body?.organizer_fee_confirmed) },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },

@@ -41,6 +41,8 @@ function statusLabel(status?: string) {
     case "clarification_needed":
     case "flagged":
       return "Нужно уточнение";
+    case "in_review":
+      return "В работе";
     case "pending":
     default:
       return "На модерации";
@@ -56,6 +58,8 @@ function statusClass(status?: string) {
     case "clarification_needed":
     case "flagged":
       return "border-[rgb(var(--warning-rgb)/0.35)] bg-[rgb(var(--warning-rgb)/0.12)] text-[rgb(var(--warning-rgb))]";
+    case "in_review":
+      return "border-[rgb(var(--violet-rgb)/0.35)] bg-[rgb(var(--violet-rgb)/0.12)] text-text";
     case "pending":
     default:
       return "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] text-text2";
