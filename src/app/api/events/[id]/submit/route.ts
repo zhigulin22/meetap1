@@ -35,6 +35,7 @@ type SubmitBody = {
   organizer_phone?: string;
   organizer_name?: string;
   organizer_fee_confirmed?: boolean;
+  organizer_fee_payment_id?: string;
 };
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -254,7 +255,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         status: "pending_review",
         moderation_status: "pending",
         trust_confirmed: true,
-        metadata: { source: "event-submit", event_id: params.id, organizer_fee_confirmed: Boolean(body?.organizer_fee_confirmed) },
+        metadata: { source: "event-submit", event_id: params.id, organizer_fee_confirmed: Boolean(body?.organizer_fee_confirmed), organizer_fee_payment_id: body?.organizer_fee_payment_id ?? null },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },

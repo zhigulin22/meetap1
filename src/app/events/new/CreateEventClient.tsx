@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, ChevronLeft, ChevronRight, ImagePlus } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ type WizardState = {
   organizer_telegram: string;
   organizer_phone: string;
   organizer_fee_confirmed: boolean;
+  organizer_fee_payment_id: string;
   is_paid: boolean;
   price_text: string;
   payment_url: string;
@@ -49,6 +51,7 @@ const initialState: WizardState = {
   organizer_telegram: "",
   organizer_phone: "",
   organizer_fee_confirmed: false,
+  organizer_fee_payment_id: "",
   is_paid: false,
   price_text: "",
   payment_url: "",
@@ -121,7 +124,7 @@ function endIso(date: string, startTime: string, endTime: string) {
 }
 
 
-function missingFields(state: WizardState) {
+function missingFields(state: WizardState, includeFee = true) {
   const missing: string[] = [];
   if (!state.title.trim()) missing.push("Название");
   if (!state.category.trim()) missing.push("Категория");
@@ -133,7 +136,7 @@ function missingFields(state: WizardState) {
   if (!state.organizer_name.trim()) missing.push("Имя организатора");
   if (!state.organizer_telegram.trim()) missing.push("Telegram организатора");
   if (!state.organizer_phone.trim()) missing.push("Контактный телефон");
-  if (!state.organizer_fee_confirmed) missing.push("Оргвзнос 100 ₽");
+  if (includeFee && !state.organizer_fee_confirmed) missing.push("Оргвзнос 100 ₽");
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) missing.push("Оплата/цена");
   return missing;
 }
@@ -142,7 +145,7 @@ function firstMissingStep(state: WizardState): Step {
   if (!state.title.trim() || !state.category.trim() || !state.format) return 1;
   if (!state.date || !state.start_time || !state.venue.trim()) return 2;
   if (state.short_description.trim().length < 10 || state.full_description.trim().length < 20) return 3;
-  if (!state.organizer_name.trim() || !state.organizer_telegram.trim() || !state.organizer_phone.trim() || !state.organizer_fee_confirmed) return 4;
+  if (!state.organizer_name.trim() || !state.organizer_telegram.trim() || !state.organizer_phone.trim()) return 4;
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) return 4;
   return 5;
 }
@@ -161,6 +164,8 @@ function CreateEventPageInner() {
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "paid" | "failed">("idle");
 
   useEffect(() => {
     const draftParam = searchParams.get("draftId");
@@ -234,8 +239,7 @@ function CreateEventPageInner() {
   const requiredContacts =
     state.organizer_name.trim() &&
     Boolean(normalizedTelegram) &&
-    normalizedPhone &&
-    state.organizer_fee_confirmed;
+    normalizedPhone;
 
   const draftReady = requiredBase && requiredWhenWhere;
 
@@ -258,6 +262,7 @@ function CreateEventPageInner() {
       setValidationErrors([]);
       return;
     }
+
     setLoading(true);
     setError(null);
     setUploadWarning(null);
@@ -282,7 +287,6 @@ function CreateEventPageInner() {
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: normalizedTelegram ?? state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
-          organizer_fee_confirmed: state.organizer_fee_confirmed,
           social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
         }),
       });
@@ -386,8 +390,8 @@ function CreateEventPageInner() {
     return draftRes.id;
   }
 
-  async function onSubmitForModeration() {
-    const missing = missingFields(state);
+  async function onSubmitForModeration(opts?: { skipPayment?: boolean; forcePaid?: boolean }) {
+    const missing = missingFields(state, false);
     if (state.city.trim() !== "Москва") {
       missing.push("Город (доступна Москва)");
     }
@@ -413,6 +417,7 @@ function CreateEventPageInner() {
       return;
     }
 
+
     setLoading(true);
     setError(null);
     setUploadWarning(null);
@@ -437,7 +442,6 @@ function CreateEventPageInner() {
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: normalizedTelegram ?? state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
-          organizer_fee_confirmed: state.organizer_fee_confirmed,
         }),
       });
 
@@ -615,17 +619,9 @@ function CreateEventPageInner() {
                 />
                 <p className="text-[11px] text-text3">Формат: 8XXXXXXXXXX, +7XXXXXXXXXX или +8XXXXXXXXXX. Телефон скрыт в профиле.</p>
               </div>
-              <label className="mt-2 flex items-start gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3 text-xs text-text2">
-                <input
-                  type="checkbox"
-                  checked={state.organizer_fee_confirmed}
-                  onChange={(e) => setState((s) => ({ ...s, organizer_fee_confirmed: e.target.checked }))}
-                />
-                <span>
-                  Я подтверждаю оплату организационного взноса <strong className="text-text">100 ₽</strong>.
-                  Это защищает от спама и повышает качество событий.
-                </span>
-              </label>
+              <div className="mt-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3 text-xs text-text2">
+                Организационный взнос <strong className="text-text">100 ₽</strong> оплачивается на финальном шаге перед отправкой на модерацию.
+              </div>
               <label className="flex items-center gap-2 text-sm text-text2">
                 <input type="checkbox" checked={state.is_paid} onChange={(e) => setState((s) => ({ ...s, is_paid: e.target.checked }))} />
                 Платное событие
@@ -647,6 +643,20 @@ function CreateEventPageInner() {
                 <p className="mt-1">{state.category} · {state.city}</p>
                 <p className="mt-2 text-xs text-text3">{state.short_description || "Описание не заполнено"}</p>
               </div>
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-4 text-sm text-text2">
+                <p className="text-sm font-semibold text-text">Оргвзнос 100 ₽</p>
+                <p className="mt-1 text-xs text-text3">Оплата идёт на счёт MeetAp. Сейчас тестовый платёж без списаний.</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {state.organizer_fee_confirmed ? (
+                    <span className="rounded-full border border-[rgb(var(--teal-rgb)/0.4)] bg-[rgb(var(--teal-rgb)/0.16)] px-3 py-1 text-xs text-text">Оплата подтверждена</span>
+                  ) : (
+                    <Button variant="secondary" onClick={() => setPaymentOpen(true)} className="h-11">Оплатить 100 ₽</Button>
+                  )}
+                  {state.organizer_fee_payment_id ? (
+                    <span className="text-[11px] text-text3">ID: {state.organizer_fee_payment_id}</span>
+                  ) : null}
+                </div>
+              </div>
               <p className="text-xs text-text3">После отправки событие попадёт на модерацию.</p>
             </div>
           ) : null}
@@ -665,7 +675,7 @@ function CreateEventPageInner() {
                 Далее <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={onSubmitForModeration} disabled={!canSubmit || loading}>
+              <Button onClick={() => onSubmitForModeration()} disabled={!canSubmit || loading}>
                 {loading ? "Отправляем..." : "Отправить на модерацию"}
               </Button>
             )}
