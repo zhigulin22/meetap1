@@ -62,22 +62,25 @@ function normalizePhone(value: string) {
   const raw = value.trim();
   if (!raw) return null;
   const digits = raw.replace(/[^0-9]/g, "");
-  if (digits.length < 10) return null;
+  if (!digits) return null;
+
   let num = digits;
   if (num.length === 10) num = `7${num}`;
   if (num.length === 11 && num.startsWith("8")) num = `7${num.slice(1)}`;
+  if (num.length === 12 && (num.startsWith("7") || num.startsWith("8"))) num = num.slice(1);
   if (num.length !== 11) return null;
-  if (!num.startsWith("7") && !num.startsWith("8")) return null;
+  if (!num.startsWith("7")) return null;
   return `+${num}`;
 }
 
 function normalizeTelegram(value: string) {
   const raw = value.trim();
   if (!raw) return null;
-  if (/^https?:\/\/(t\.me|telegram\.me)\//i.test(raw)) return raw;
-  if (/^t\.me\//i.test(raw)) return `https://${raw}`;
-  if (raw.startsWith("@") && raw.length >= 3) return raw;
-  if (!raw.startsWith("@") && raw.length >= 3) return `@${raw}`;
+  const urlMatch = raw.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([A-Za-z0-9_]{3,32})/i);
+  if (urlMatch?.[1]) return `https://t.me/${urlMatch[1]}`;
+  const atMatch = raw.match(/@([A-Za-z0-9_]{3,32})/);
+  if (atMatch?.[1]) return `@${atMatch[1]}`;
+  if (/^[A-Za-z0-9_]{3,32}$/.test(raw)) return `@${raw}`;
   return null;
 }
 
@@ -126,6 +129,9 @@ function endIso(date: string, startTime: string, endTime: string) {
 
 function missingFields(state: WizardState, includeFee = true) {
   const missing: string[] = [];
+  const tg = normalizeTelegram(state.organizer_telegram);
+  const phone = normalizePhone(state.organizer_phone);
+  const tgValid = Boolean(tg);
   if (!state.title.trim()) missing.push("Название");
   if (!state.category.trim()) missing.push("Категория");
   if (!state.venue.trim()) missing.push("Место");
@@ -134,18 +140,21 @@ function missingFields(state: WizardState, includeFee = true) {
   if (state.short_description.trim().length < 10) missing.push("Короткое описание");
   if (state.full_description.trim().length < 20) missing.push("Полное описание");
   if (!state.organizer_name.trim()) missing.push("Имя организатора");
-  if (!state.organizer_telegram.trim()) missing.push("Telegram организатора");
-  if (!state.organizer_phone.trim()) missing.push("Контактный телефон");
+  if (!tgValid) missing.push("Telegram организатора (@username)");
+  if (!phone) missing.push("Контактный телефон (7/8/+7/+8)");
   if (includeFee && !state.organizer_fee_confirmed) missing.push("Оргвзнос 100 ₽");
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) missing.push("Оплата/цена");
   return missing;
 }
 
 function firstMissingStep(state: WizardState): Step {
+  const tg = normalizeTelegram(state.organizer_telegram);
+  const phone = normalizePhone(state.organizer_phone);
+  const tgValid = Boolean(tg);
   if (!state.title.trim() || !state.category.trim() || !state.format) return 1;
   if (!state.date || !state.start_time || !state.venue.trim()) return 2;
   if (state.short_description.trim().length < 10 || state.full_description.trim().length < 20) return 3;
-  if (!state.organizer_name.trim() || !state.organizer_telegram.trim() || !state.organizer_phone.trim()) return 4;
+  if (!state.organizer_name.trim() || !tg || !phone) return 4;
   if (state.is_paid && !state.price_text.trim() && !state.payment_url.trim()) return 4;
   return 5;
 }
@@ -235,11 +244,14 @@ function CreateEventPageInner() {
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
   const telegramValue = state.organizer_telegram.trim();
   const normalizedTelegram = normalizeTelegram(telegramValue);
+  const telegramValid = isValidTelegram(state.organizer_telegram);
   const normalizedPhone = normalizePhone(state.organizer_phone);
+  const telegramInvalid = Boolean(state.organizer_telegram.trim()) && !telegramValid;
+  const phoneInvalid = Boolean(state.organizer_phone.trim()) && !normalizedPhone;
   const requiredContacts =
     state.organizer_name.trim() &&
-    Boolean(normalizedTelegram) &&
-    normalizedPhone;
+    telegramValid &&
+    Boolean(normalizedPhone);
 
   const draftReady = requiredBase && requiredWhenWhere;
 
@@ -397,7 +409,7 @@ function CreateEventPageInner() {
     }
     if (!state.organizer_telegram.trim()) {
       missing.push("Telegram организатора");
-    } else if (!normalizedTelegram) {
+    } else if (!telegramValid) {
       missing.push("Telegram организатора (формат @username)");
     }
     const normalizedPhone = normalizePhone(state.organizer_phone);
@@ -417,6 +429,11 @@ function CreateEventPageInner() {
       return;
     }
 
+    if (!state.organizer_fee_confirmed) {
+      setError("Перед отправкой нужно оплатить оргвзнос 100 ₽");
+      setPaymentOpen(true);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -442,6 +459,8 @@ function CreateEventPageInner() {
           organizer_name: state.organizer_name.trim(),
           organizer_telegram: normalizedTelegram ?? state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
+          organizer_fee_confirmed: state.organizer_fee_confirmed,
+          organizer_fee_payment_id: state.organizer_fee_payment_id,
         }),
       });
 
@@ -460,6 +479,26 @@ function CreateEventPageInner() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleTestPayment() {
+    if (paymentStatus === "processing") return;
+    setPaymentStatus("processing");
+    try {
+      await new Promise((r) => setTimeout(r, 700));
+      const paymentId = `test_${Date.now()}`;
+      setState((s) => ({
+        ...s,
+        organizer_fee_confirmed: true,
+        organizer_fee_payment_id: paymentId,
+      }));
+      setPaymentStatus("paid");
+      setPaymentOpen(false);
+      toast.success("Оплата подтверждена (тест)");
+    } catch {
+      setPaymentStatus("failed");
+      toast.error("Не удалось подтвердить оплату");
     }
   }
 
@@ -601,6 +640,7 @@ function CreateEventPageInner() {
                 <Input
                   placeholder="Telegram (обязательно, формат @username)"
                   value={state.organizer_telegram}
+                  className={telegramInvalid ? "border-[rgb(var(--danger-rgb)/0.7)] focus-visible:ring-[rgb(var(--danger-rgb)/0.45)]" : ""}
                   onChange={(e) => setState((s) => ({ ...s, organizer_telegram: e.target.value }))}
                   onBlur={(e) => {
                     const value = e.target.value.trim();
@@ -609,15 +649,24 @@ function CreateEventPageInner() {
                     setState((s) => ({ ...s, organizer_telegram: `@${value}` }));
                   }}
                 />
-                <p className="text-[11px] text-text3">Важно: укажи @username. Это обязательное поле.</p>
+                {telegramInvalid ? (
+                  <p className="text-[11px] text-[rgb(var(--danger-rgb))]">Неверный формат. Пример: @username</p>
+                ) : (
+                  <p className="text-[11px] text-text3">Важно: укажи @username. Это обязательное поле.</p>
+                )}
               </div>
               <div className="space-y-1">
                 <Input
                   placeholder="Контактный телефон (обязательно)"
                   value={state.organizer_phone}
+                  className={phoneInvalid ? "border-[rgb(var(--danger-rgb)/0.7)] focus-visible:ring-[rgb(var(--danger-rgb)/0.45)]" : ""}
                   onChange={(e) => setState((s) => ({ ...s, organizer_phone: e.target.value }))}
                 />
-                <p className="text-[11px] text-text3">Формат: 8XXXXXXXXXX, +7XXXXXXXXXX или +8XXXXXXXXXX. Телефон скрыт в профиле.</p>
+                {phoneInvalid ? (
+                  <p className="text-[11px] text-[rgb(var(--danger-rgb))]">Неверный формат. Пример: 8XXXXXXXXXX или +7XXXXXXXXXX</p>
+                ) : (
+                  <p className="text-[11px] text-text3">Формат: 8XXXXXXXXXX, +7XXXXXXXXXX или +8XXXXXXXXXX. Телефон скрыт в профиле.</p>
+                )}
               </div>
               <div className="mt-2 rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3 text-xs text-text2">
                 Организационный взнос <strong className="text-text">100 ₽</strong> оплачивается на финальном шаге перед отправкой на модерацию.
@@ -682,7 +731,30 @@ function CreateEventPageInner() {
           </div>
         </div>
       </div>
-    </PageShell>
+    
+      <Dialog open={paymentOpen} onOpenChange={(open) => {
+        setPaymentOpen(open);
+        if (!open) setPaymentStatus("idle");
+      }}>
+        <DialogHeader className="border-b border-[color:var(--border-soft)] px-4 py-3">
+          <DialogTitle>Тестовая оплата</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 px-4 pb-5 pt-2">
+          <p className="text-sm text-text2">Оплата 100 ₽ идёт на счёт MeetAp. Сейчас тестовый платёж без списаний.</p>
+          {paymentStatus === "failed" ? (
+            <p className="text-xs text-[rgb(var(--danger-rgb))]">Не удалось подтвердить оплату. Попробуй ещё раз.</p>
+          ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button onClick={handleTestPayment} disabled={paymentStatus === "processing"} className="flex-1">
+              {paymentStatus === "processing" ? "Проводим оплату..." : "Оплатить 100 ₽"}
+            </Button>
+            <Button variant="secondary" onClick={() => setPaymentOpen(false)} className="flex-1">
+              Отмена
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+</PageShell>
   );
 }
 

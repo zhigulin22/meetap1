@@ -303,19 +303,16 @@ export default function EventsHub() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-6 shadow-soft">
+        <div className="mt-5 rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-6 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] px-5 py-2.5 text-[15px] font-semibold text-text">
-                Москва
-              </span>
               <span className="text-[15px] text-text2">Фильтры: категории, дата, бесплатно, поиск компании</span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-7 text-[15px] font-semibold text-white shadow-[0_16px_30px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-8 text-[16px] font-semibold text-white shadow-[0_18px_34px_rgba(122,84,255,0.48)] transition active:scale-[0.98]"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
@@ -323,7 +320,7 @@ export default function EventsHub() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-12 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] px-7 text-[15px] font-semibold text-text transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] px-8 text-[16px] font-semibold text-text transition active:scale-[0.98]"
               >
                 <RefreshCcw className="h-4 w-4" /> Сбросить
               </button>
@@ -395,7 +392,7 @@ export default function EventsHub() {
           )}
         </div>
       ) : (
-        <div className="rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-6 text-center">
+        <div className="rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-6 text-center">
           <p className="text-lg font-semibold text-text">Событий нет по фильтрам</p>
           <p className="mt-1 text-[15px] text-text2">Попробуй изменить фильтры или обновить список.</p>
           <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
@@ -442,7 +439,7 @@ export default function EventsHub() {
                   key={tab.key}
                   type="button"
                   onClick={() => setDraftFilters((prev) => ({ ...prev, dateFilter: tab.key }))}
-                  className={`rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
+                  className={`rounded-full px-5 py-3 text-[15px] font-semibold transition active:scale-[0.98] ${
                     draftFilters.dateFilter === tab.key
                       ? "bg-[image:var(--grad-primary)] text-white shadow-[0_12px_24px_rgba(122,84,255,0.3)]"
                       : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
@@ -463,7 +460,7 @@ export default function EventsHub() {
                   key={tab.key}
                   type="button"
                   onClick={() => setDraftFilters((prev) => ({ ...prev, category: tab.key }))}
-                  className={`whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
+                  className={`whitespace-nowrap rounded-full px-5 py-3 text-[15px] font-semibold transition active:scale-[0.98] ${
                     draftFilters.category === tab.key
                       ? "bg-[image:var(--grad-primary)] text-white shadow-[0_14px_26px_rgba(122,84,255,0.3)]"
                       : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
@@ -479,7 +476,7 @@ export default function EventsHub() {
             <button
               type="button"
               onClick={() => setDraftFilters((prev) => ({ ...prev, freeOnly: !prev.freeOnly }))}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 font-semibold transition active:scale-[0.98] ${
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-[15px] font-semibold transition active:scale-[0.98] ${
                 draftFilters.freeOnly
                   ? "bg-[rgb(var(--sky-rgb)/0.35)] text-white border-[rgb(var(--sky-rgb)/0.6)]"
                   : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
@@ -491,7 +488,7 @@ export default function EventsHub() {
             <button
               type="button"
               onClick={() => setDraftFilters((prev) => ({ ...prev, lookingOnly: !prev.lookingOnly }))}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 font-semibold transition active:scale-[0.98] ${
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-[15px] font-semibold transition active:scale-[0.98] ${
                 draftFilters.lookingOnly
                   ? "bg-[rgb(var(--violet-rgb)/0.35)] text-white border-[rgb(var(--violet-rgb)/0.6)]"
                   : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb))] text-text"
@@ -506,14 +503,14 @@ export default function EventsHub() {
           <button
             type="button"
             onClick={resetDraftFilters}
-            className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-5 py-2.5 text-sm font-semibold text-text"
+            className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-6 py-3 text-[15px] font-semibold text-text"
           >
             <RefreshCcw className="h-4 w-4" /> Сбросить
           </button>
           <button
             type="button"
             onClick={applyDraftFilters}
-            className="inline-flex items-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(122,84,255,0.35)]"
+            className="inline-flex items-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-6 py-3 text-[15px] font-semibold text-white shadow-[0_12px_24px_rgba(122,84,255,0.35)]"
           >
             Применить
           </button>

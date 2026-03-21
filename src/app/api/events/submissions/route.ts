@@ -7,6 +7,21 @@ import { normalizeTelegramContact, sendEventSubmissionToTelegramModerationBot } 
 import { trackEvent } from "@/server/analytics";
 import { busyResponse, checkRateLimit, clientKeyFromRequest, withConcurrencyLimit } from "@/server/runtime-guard";
 
+
+function normalizePhoneValue(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return null;
+  let num = digits;
+  if (num.length === 10) num = `7${num}`;
+  if (num.length === 11 && num.startsWith("8")) num = `7${num.slice(1)}`;
+  if (num.length === 12 && (num.startsWith("7") || num.startsWith("8"))) num = num.slice(1);
+  if (num.length !== 11) return null;
+  if (!num.startsWith("7")) return null;
+  return `+${num}`;
+}
+
 const schema = z
   .object({
     title: z.string().trim().min(3).max(120),
@@ -56,14 +71,8 @@ const schema = z
     if (data.city.trim() !== "Москва") {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Пока доступен только город Москва", path: ["city"] });
     }
-
-    const phone = data.organizer_phone.replace(/[^0-9+]/g, "");
-    const digits = phone.replace(/[^0-9]/g, "");
-    let phoneNum = digits;
-    if (phoneNum.length === 10) phoneNum = `7${phoneNum}`;
-    if (phoneNum.length === 11 && phoneNum.startsWith("8")) phoneNum = `7${phoneNum.slice(1)}`;
-    const phoneValid = phoneNum.length === 11 && (phoneNum.startsWith("7") || phoneNum.startsWith("8"));
-    if (!phoneValid) {
+    const normalizedPhone = normalizePhoneValue(data.organizer_phone);
+    if (!normalizedPhone) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Телефон: формат 7/8/+7/+8", path: ["organizer_phone"] });
     }
 
@@ -106,6 +115,7 @@ export async function POST(req: Request) {
     return fail("Укажи формат события", 422, { code: "VALIDATION", fields: ["Формат"] });
   }
   const resolvedFormat = resolvedMode === "looking_company" ? "looking" : resolvedMode === "collect_group" ? "group" : "organize";
+  const safeFormat = resolvedFormat || "organize";
 
   const tg = normalizeTelegramContact(parsed.data.telegram_contact);
   if (!tg) {
@@ -130,7 +140,7 @@ export async function POST(req: Request) {
         user_id: userId,
         title: parsed.data.title,
         category: parsed.data.category,
-        format: resolvedFormat,
+        format: safeFormat,
         short_description: parsed.data.short_description,
         full_description: parsed.data.full_description,
         city: parsed.data.city,
@@ -149,7 +159,7 @@ export async function POST(req: Request) {
         telegram_contact: tg,
         organizer_telegram: tg,
         organizer_name: parsed.data.organizer_name ?? null,
-        organizer_phone: parsed.data.organizer_phone ?? null,
+        organizer_phone: normalizePhoneValue(parsed.data.organizer_phone) ?? parsed.data.organizer_phone ?? null,
         participant_limit: parsed.data.participant_limit ?? null,
         looking_for_count: parsed.data.looking_for_count ?? null,
         moderator_comment: parsed.data.moderator_comment ?? null,

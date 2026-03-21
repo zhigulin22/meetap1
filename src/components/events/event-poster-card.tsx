@@ -46,7 +46,7 @@ export function EventPosterCard({
   onJoin: (eventId: string) => Promise<void> | void;
 }) {
   return (
-    <article className="dual-edge overflow-hidden rounded-[28px] bg-[rgb(var(--surface-1-rgb)/0.92)]">
+    <article className="dual-edge overflow-hidden rounded-[32px] bg-[rgb(var(--surface-1-rgb)/0.92)]">
       <div className="relative">
         <Image
           src={event.cover_url || "https://placehold.co/1200x800/0c1326/8b9bd6?text=EVENT"}
@@ -121,12 +121,12 @@ export function EventPosterCard({
 
         <div className="grid grid-cols-2 gap-3">
           <Link href={`/events/${event.id}`} className="w-full">
-            <Button variant="secondary" className="w-full h-12 rounded-2xl">
+            <Button variant="secondary" className="w-full h-12">
               Посмотреть
             </Button>
           </Link>
           {event.joined ? (
-            <span className="inline-flex h-12 items-center justify-center rounded-2xl border border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.16)] text-sm font-semibold text-text">
+            <span className="inline-flex h-12 items-center justify-center rounded-full border border-[rgb(var(--teal-rgb)/0.34)] bg-[rgb(var(--teal-rgb)/0.16)] text-sm font-semibold text-text">
               Вы идёте
             </span>
           ) : (
@@ -134,7 +134,7 @@ export function EventPosterCard({
               type="button"
               disabled={joining}
               onClick={() => onJoin(event.id)}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[image:var(--grad-primary)] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.3)] transition hover:brightness-[1.03] disabled:opacity-60 active:scale-[0.98]"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-[image:var(--grad-primary)] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgb(var(--violet-rgb)/0.3)] transition hover:brightness-[1.03] disabled:opacity-60 active:scale-[0.98]"
             >
               {joining ? "..." : "Я иду"}
             </button>

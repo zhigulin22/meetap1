@@ -21,6 +21,33 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
 const REQUIRE_ORGANIZER_FEE = true;
 const ORGANIZER_FEE_RUB = 100;
 
+async function getPrimaryMediaUrl(eventId: string) {
+  const { data } = await supabaseAdmin
+    .from("event_media")
+    .select("storage_bucket,storage_path,is_primary")
+    .eq("event_id", eventId)
+    .order("is_primary", { ascending: false })
+    .limit(1);
+  const row = data?.[0];
+  if (!row?.storage_bucket || !row?.storage_path) return null;
+  return supabaseAdmin.storage.from(row.storage_bucket).getPublicUrl(row.storage_path).data.publicUrl;
+}
+
+function normalizePhoneValue(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return null;
+  let num = digits;
+  if (num.length === 10) num = `7${num}`;
+  if (num.length === 11 && num.startsWith("8")) num = `7${num.slice(1)}`;
+  if (num.length === 12 && (num.startsWith("7") || num.startsWith("8"))) num = num.slice(1);
+  if (num.length !== 11) return null;
+  if (!num.startsWith("7")) return null;
+  return `+${num}`;
+}
+
+
 type SubmitBody = {
   title?: string;
   category?: string;
@@ -94,6 +121,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (error || !event) return fail("Событие не найдено", 404);
 
     const ownerId = (event as any).created_by_user_id ?? (event as any).creator_user_id ?? null;
+    const primaryMediaUrl = (event as any).cover_url || (event as any).image_url || (await getPrimaryMediaUrl(params.id));
+    const coverUrls = [primaryMediaUrl].filter(Boolean) as string[];
     if (ownerId && String(ownerId) !== String(userId)) {
       return fail("Нет доступа", 403);
     }
@@ -108,9 +137,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ends_at: (event as any).ends_at ?? body?.ends_at ?? null,
       short_description: (event as any).short_description ?? body?.short_description ?? "",
       full_description: (event as any).full_description ?? body?.full_description ?? "",
-      organizer_telegram: (event as any).organizer_telegram || body?.organizer_telegram || "",
-      organizer_phone: (event as any).organizer_phone || body?.organizer_phone || "",
-      organizer_name: (event as any).organizer_name || body?.organizer_name || "",
+      organizer_telegram: body?.organizer_telegram ?? (event as any).organizer_telegram ?? "",
+      organizer_phone: body?.organizer_phone ?? (event as any).organizer_phone ?? "",
+      organizer_name: body?.organizer_name ?? (event as any).organizer_name ?? "",
     };
 
     const format = (event as any).social_mode === "looking_company"
@@ -118,6 +147,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       : (event as any).social_mode === "collect_group"
         ? "group"
         : "organize";
+
+    const safeFormat = format || "organize";
 
     const missing: string[] = [];
     if (!merged.title) missing.push(REQUIRED_FIELD_LABELS.title);
@@ -138,13 +169,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     const normalizedTelegram = normalizeTelegramContact(merged.organizer_telegram);
-
-    const phoneDigits = String(merged.organizer_phone || "").replace(/[^0-9]/g, "");
-    let phoneNum = phoneDigits;
-    if (phoneNum.length === 10) phoneNum = `7${phoneNum}`;
-    if (phoneNum.length === 11 && phoneNum.startsWith("8")) phoneNum = `7${phoneNum.slice(1)}`;
-    const phoneValid = phoneNum.length === 11 && (phoneNum.startsWith("7") || phoneNum.startsWith("8"));
-    if (!phoneValid) {
+    const normalizedPhone = normalizePhoneValue(merged.organizer_phone);
+    if (!normalizedPhone) {
       return fail("Телефон организатора: формат 7/8/+7/+8", 422, {
         code: "VALIDATION",
         fields: [REQUIRED_FIELD_LABELS.organizer_phone],
@@ -212,10 +238,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         paymentUrl: (event as any).payment_url ?? null,
         paymentNote: (event as any).payment_note ?? null,
         telegramContact: normalizedTelegram,
-        organizerPhone: merged.organizer_phone || null,
+        organizerPhone: normalizedPhone || null,
         shortDescription: merged.short_description,
         fullDescription: merged.full_description,
-        coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
+        coverUrls: coverUrls,
         userId,
       });
 
@@ -235,8 +261,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         user_id: userId,
         event_id: params.id,
         title: merged.title,
-        format: format,
-        mode: format,
+        format: safeFormat,
+        mode: safeFormat,
         category: merged.category,
         city: merged.city,
         venue: merged.venue_name || null,
@@ -246,12 +272,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         short_description: merged.short_description,
         full_description: merged.full_description,
         organizer_telegram: normalizedTelegram,
-        organizer_phone: merged.organizer_phone || null,
+        organizer_phone: normalizedPhone || null,
         organizer_name: merged.organizer_name || null,
         is_paid: Boolean((event as any).is_paid),
         price_text: (event as any).price_text ?? null,
         payment_url: (event as any).payment_url ?? null,
         payment_note: (event as any).payment_note ?? null,
+        cover_urls: coverUrls,
+        cover_image_url: coverUrls[0] ?? null,
         status: "pending_review",
         moderation_status: "pending",
         trust_confirmed: true,
@@ -283,9 +311,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       paymentUrl: (event as any).payment_url ?? null,
       paymentNote: (event as any).payment_note ?? null,
       telegramContact: normalizedTelegram,
+      organizerPhone: normalizedPhone || null,
       shortDescription: merged.short_description,
       fullDescription: merged.full_description,
-      coverUrls: [(event as any).cover_url ?? (event as any).image_url].filter(Boolean) as string[],
+      coverUrls: coverUrls,
       userId,
     });
 

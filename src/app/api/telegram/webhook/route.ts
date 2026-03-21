@@ -54,29 +54,52 @@ async function logSubmissionAction(input: {
   submissionId: string;
   action: string;
   actorUserId?: string | null;
+  actorTelegramId?: string | null;
   note?: string;
   payload?: Record<string, unknown>;
 }) {
-  const schema = await getSchemaSnapshot(["event_submission_moderation_log"]);
+  const schema = await getSchemaSnapshot(["event_submission_moderation_log", "moderation_actions"]);
   const cols = asSet(schema, "event_submission_moderation_log");
-  if (!cols.size) return;
+  const modCols = asSet(schema, "moderation_actions");
 
-  const insertPayload = pickExistingColumns(
-    {
-      submission_id: input.submissionId,
-      action: input.action,
-      actor_user_id: input.actorUserId ?? null,
-      via: "telegram_bot",
-      note: input.note ?? null,
-      payload: input.payload ?? {},
-    },
-    cols,
-  );
+  if (cols.size) {
+    const insertPayload = pickExistingColumns(
+      {
+        submission_id: input.submissionId,
+        action: input.action,
+        actor_user_id: input.actorUserId ?? null,
+        via: "telegram_bot",
+        note: input.note ?? null,
+        payload: input.payload ?? {},
+      },
+      cols,
+    );
 
-  try {
-    await supabaseAdmin.from("event_submission_moderation_log").insert(insertPayload);
-  } catch {
-    // ignore log errors
+    try {
+      await supabaseAdmin.from("event_submission_moderation_log").insert(insertPayload);
+    } catch {
+      // ignore log errors
+    }
+  }
+
+  if (modCols.size) {
+    const insertPayload = pickExistingColumns(
+      {
+        submission_id: input.submissionId,
+        admin_id: input.actorUserId ?? null,
+        admin_telegram_id: input.actorTelegramId ?? null,
+        action: input.action,
+        notes: input.note ?? null,
+        created_at: new Date().toISOString(),
+      },
+      modCols,
+    );
+
+    try {
+      await supabaseAdmin.from("moderation_actions").insert(insertPayload);
+    } catch {
+      // ignore log errors
+    }
   }
 }
 
@@ -204,9 +227,10 @@ async function handleModerationCallback(payload: any) {
   const allowedIds = parseIdList(env.TELEGRAM_MODERATION_ADMIN_IDS);
   const allowedByEnv = allowedIds.includes(tgUserId);
 
-  const [{ data: submission }, actor] = await Promise.all([
+  const [{ data: submission }, actor, schema] = await Promise.all([
     supabaseAdmin.from("event_submissions").select("*").eq("id", submissionId).maybeSingle(),
     resolveAdminByTelegram(tgUserId),
+    getSchemaSnapshot(["event_submissions", "events", "users"]),
   ]);
 
   if (!submission) {
@@ -222,44 +246,94 @@ async function handleModerationCallback(payload: any) {
   }
 
   const moderatorUserId = actor.adminUserId ?? null;
-  if ((["approved","rejected"].includes(submission.moderation_status))) {
+  const submissionCols = asSet(schema, "event_submissions");
+  const eventsCols = asSet(schema, "events");
+  const moderationStatus = String(submission.moderation_status ?? "pending");
+  const activeModeratorId = submission.moderated_by ? String(submission.moderated_by) : null;
+  const activeModeratorTelegram = submission.moderator_telegram_id ? String(submission.moderator_telegram_id) : null;
+
+  if (["approved", "rejected"].includes(moderationStatus)) {
     await answerCallbackQuery(callbackId, "Уже обработано");
     await sendTelegramMessage(chatId, `ℹ️ Заявка <code>${submissionId}</code> уже обработана.`);
     return true;
   }
-  if ((submission.moderation_status === "in_review" && submission.moderated_by && String(submission.moderated_by) !== String(moderatorUserId))) {
-    await answerCallbackQuery(callbackId, "Уже в работе");
-    await sendTelegramMessage(chatId, "⏳ Заявка уже в работе у другого модератора.");
+
+  if (moderationStatus === "in_review") {
+    if (activeModeratorId && String(activeModeratorId) !== String(moderatorUserId)) {
+      await answerCallbackQuery(callbackId, "Уже в работе");
+      await sendTelegramMessage(chatId, "⏳ Заявка уже в работе у другого модератора.");
+      return true;
+    }
+    if (activeModeratorTelegram && String(activeModeratorTelegram) !== String(tgUserId)) {
+      await answerCallbackQuery(callbackId, "Уже в работе");
+      await sendTelegramMessage(chatId, "⏳ Заявка уже в работе у другого модератора.");
+      return true;
+    }
+  }
+
+  if (action !== "take" && moderationStatus !== "in_review") {
+    await answerCallbackQuery(callbackId, "Сначала возьми в работу");
+    await sendTelegramMessage(chatId, "Сначала нажми «Взять в работу», затем выбирай действие.");
     return true;
   }
 
   if (action === "take") {
-    if (submission.moderation_status && submission.moderation_status !== "pending") {
+    if (moderationStatus === "in_review" && (activeModeratorId || activeModeratorTelegram)) {
       await answerCallbackQuery(callbackId, "Уже в работе");
-      await sendTelegramMessage(chatId, "⏳ Заявка уже взята в работу другим модератором.");
+      await sendTelegramMessage(chatId, "🧷 Ты уже взял(а) эту заявку в работу. Выбери действие ниже:");
+      await sendTelegramMessage(chatId, "Доступные действия:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Одобрить", callback_data: `eventmod:approve:${submissionId}` },
+              { text: "❌ Отклонить", callback_data: `eventmod:reject:${submissionId}` },
+            ],
+            [{ text: "🟨 Запросить уточнение", callback_data: `eventmod:need_info:${submissionId}` }],
+          ],
+        },
+      });
       return true;
     }
+
+    if (moderationStatus !== "pending" && moderationStatus !== "in_review") {
+      await answerCallbackQuery(callbackId, "Уже обработано");
+      await sendTelegramMessage(chatId, "⏳ Заявка уже обработана или закрыта.");
+      return true;
+    }
+
+    const now = new Date().toISOString();
+    const takePayload = pickExistingColumns(
+      {
+        moderation_status: "in_review",
+        moderated_by: moderatorUserId,
+        moderated_at: now,
+        moderator_telegram_id: tgUserId,
+        updated_at: now,
+      },
+      submissionCols,
+    );
+
     let updateRes = await supabaseAdmin
       .from("event_submissions")
-      .update({ moderation_status: "in_review", moderated_by: moderatorUserId, moderated_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update(takePayload)
       .eq("id", submissionId)
       .eq("moderation_status", "pending")
       .select("id")
       .maybeSingle();
 
-    if (updateRes.error) {
+    if (!updateRes.data?.id) {
       updateRes = await supabaseAdmin
         .from("event_submissions")
-        .update({ moderation_status: "in_review", updated_at: new Date().toISOString() })
+        .update(takePayload)
         .eq("id", submissionId)
-        .eq("moderation_status", "pending")
+        .is("moderation_status", null)
         .select("id")
         .maybeSingle();
     }
 
     if (!updateRes.data?.id) {
       await answerCallbackQuery(callbackId, "Уже в работе");
-      await sendTelegramMessage(chatId, "⏳ Заявка уже в работе.");
+      await sendTelegramMessage(chatId, "⏳ Заявка уже в работе у другого модератора.");
       return true;
     }
 
@@ -269,10 +343,22 @@ async function handleModerationCallback(payload: any) {
       actorUserId: moderatorUserId,
       note: "Taken in review via Telegram",
       payload: { telegramUserId: tgUserId },
+      actorTelegramId: tgUserId,
     });
 
     await answerCallbackQuery(callbackId, "Взято в работу");
-    await sendTelegramMessage(chatId, `🧷 Заявка <code>${submissionId}</code> взята в работу${actor.adminName ? ` (${actor.adminName})` : ""}.`);
+    await sendTelegramMessage(chatId, `🧷 Ты взял(а) в работу: <b>${submission.title ?? "Событие"}</b> (<code>${submissionId}</code>)`);
+    await sendTelegramMessage(chatId, "Выбери действие:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Одобрить", callback_data: `eventmod:approve:${submissionId}` },
+            { text: "❌ Отклонить", callback_data: `eventmod:reject:${submissionId}` },
+          ],
+          [{ text: "🟨 Запросить уточнение", callback_data: `eventmod:need_info:${submissionId}` }],
+        ],
+      },
+    });
     return true;
   }
 
@@ -285,6 +371,7 @@ async function handleModerationCallback(payload: any) {
         actorUserId: moderatorUserId,
         note: "Approved via Telegram callback",
         payload: { eventId, telegramUserId: tgUserId },
+        actorTelegramId: tgUserId,
       });
 
       await answerCallbackQuery(callbackId, "Одобрено");
@@ -292,30 +379,49 @@ async function handleModerationCallback(payload: any) {
       return true;
     }
 
-    const status = action === "reject" ? "rejected" : "flagged";
+    const status = action === "reject" ? "rejected" : "clarification_needed";
     const nextEventStatus = action === "reject" ? "hidden" : "pending_review";
+    const now = new Date().toISOString();
 
-    const updatePayload = {
-      moderation_status: status,
-      moderation_reason: action === "reject" ? "Отклонено модератором" : "Нужны уточнения от автора",
-      moderated_by: moderatorUserId,
-      moderated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const resUpdate = await supabaseAdmin
-      .from("event_submissions")
-      .update(updatePayload)
-      .eq("id", submissionId);
+    const updatePayload = pickExistingColumns(
+      {
+        moderation_status: status,
+        moderation_reason: action === "reject" ? "Отклонено модератором" : "Запросить уточнение от автора",
+        moderated_by: moderatorUserId,
+        moderated_at: now,
+        moderator_telegram_id: tgUserId,
+        status: action === "reject" ? "rejected" : "pending_review",
+        updated_at: now,
+      },
+      submissionCols,
+    );
+
+    const resUpdate = await supabaseAdmin.from("event_submissions").update(updatePayload).eq("id", submissionId);
 
     if (resUpdate.error) {
-      await supabaseAdmin
-        .from("event_submissions")
-        .update({ moderation_status: status, moderation_reason: updatePayload.moderation_reason, updated_at: updatePayload.updated_at })
-        .eq("id", submissionId);
+      const fallbackPayload = pickExistingColumns(
+        {
+          moderation_status: status,
+          moderation_reason: updatePayload.moderation_reason,
+          updated_at: updatePayload.updated_at,
+        },
+        submissionCols,
+      );
+      await supabaseAdmin.from("event_submissions").update(fallbackPayload).eq("id", submissionId);
     }
 
     if (submission.event_id) {
-      await supabaseAdmin.from("events").update({ moderation_status: status, status: nextEventStatus, updated_at: new Date().toISOString() }).eq("id", submission.event_id);
+      const eventUpdate = pickExistingColumns(
+        {
+          moderation_status: status,
+          status: nextEventStatus,
+          updated_at: now,
+        },
+        eventsCols,
+      );
+      if (Object.keys(eventUpdate).length) {
+        await supabaseAdmin.from("events").update(eventUpdate).eq("id", submission.event_id);
+      }
     }
 
     await logSubmissionAction({
@@ -324,14 +430,15 @@ async function handleModerationCallback(payload: any) {
       actorUserId: moderatorUserId,
       note: `Set status ${status} via Telegram callback`,
       payload: { telegramUserId: tgUserId },
+      actorTelegramId: tgUserId,
     });
 
-    await answerCallbackQuery(callbackId, action === "reject" ? "Отклонено" : "Запрошено уточнение");
+    await answerCallbackQuery(callbackId, action === "reject" ? "Отклонено" : "Запросить уточнение");
     await sendTelegramMessage(
       chatId,
       action === "reject"
         ? `❌ Заявка <code>${submissionId}</code> отклонена`
-        : `🟨 По заявке <code>${submissionId}</code> запрошено уточнение`,
+        : `🟨 По заявке <code>${submissionId}</code> отправлен запрос уточнений`,
     );
   } catch (error) {
     await answerCallbackQuery(callbackId, "Ошибка обработки");

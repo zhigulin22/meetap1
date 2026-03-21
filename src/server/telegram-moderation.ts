@@ -40,14 +40,14 @@ function parseChatIds(raw: string | null | undefined) {
 export function normalizeTelegramContact(value: string) {
   const raw = value.trim();
   if (!raw) return null;
-
-  if (/^https?:\/\/(t\.me|telegram\.me)\//i.test(raw)) return raw;
-  if (/^t\.me\//i.test(raw)) return `https://${raw}`;
-  if (raw.startsWith("@") && raw.length >= 3) return raw;
-  if (!raw.startsWith("@") && raw.length >= 3) return `@${raw}`;
-
+  const urlMatch = raw.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([A-Za-z0-9_]{3,32})/i);
+  if (urlMatch?.[1]) return `https://t.me/${urlMatch[1]}`;
+  const atMatch = raw.match(/@([A-Za-z0-9_]{3,32})/);
+  if (atMatch?.[1]) return `@${atMatch[1]}`;
+  if (/^[A-Za-z0-9_]{3,32}$/.test(raw)) return `@${raw}`;
   return null;
 }
+
 
 
 async function sendMessage(token: string, chatId: string, payload: Record<string, unknown>) {
@@ -104,18 +104,15 @@ export async function sendEventSubmissionToTelegramModerationBot(input: Submissi
     `<b>Кратко:</b> ${input.shortDescription}`,
     `<b>Полное:</b> ${input.fullDescription}`,
     "",
+    "",
+    "🧷 Сначала нажми «Взять в работу», затем появятся кнопки одобрения.",
+    "",
     `<b>Обложки:</b>`,
     ...(input.coverUrls.length ? input.coverUrls.map((u) => `• ${u}`) : ["• —"]),
   ];
 
   const inlineKeyboard = {
-    inline_keyboard: [
-      [
-        { text: "✅ Одобрить", callback_data: `eventmod:approve:${input.id}` },
-        { text: "❌ Отклонить", callback_data: `eventmod:reject:${input.id}` },
-      ],
-      [{ text: "🟨 Запросить уточнение", callback_data: `eventmod:need_info:${input.id}` }],
-    ],
+    inline_keyboard: [[{ text: "🧷 Взять в работу", callback_data: `eventmod:take:${input.id}` }]],
   };
 
   const payload = {

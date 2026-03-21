@@ -150,6 +150,10 @@ const CANDIDATE_COLUMNS: Record<string, string[]> = {
     "moderator_comment",
     "moderation_status",
     "moderation_reason",
+    "status",
+    "moderated_by",
+    "moderated_at",
+    "moderator_telegram_id",
     "published_event_id",
     "created_at",
     "updated_at",
@@ -247,7 +251,17 @@ const CANDIDATE_COLUMNS: Record<string, string[]> = {
   feature_flags: ["id", "key", "enabled", "rollout", "scope", "payload", "updated_at"],
   experiments: ["id", "key", "variants", "rollout_percent", "status", "primary_metric", "updated_at", "created_at"],
   alerts: ["id", "type", "metric", "threshold", "status", "created_at", "updated_at"],
-  moderation_actions: ["id", "action", "target_type", "target_id", "created_at"],
+  moderation_actions: [
+    "id",
+    "submission_id",
+    "target_type",
+    "target_id",
+    "admin_id",
+    "admin_telegram_id",
+    "action",
+    "notes",
+    "created_at",
+  ],
 };
 
 function isMissingTableError(message?: string) {

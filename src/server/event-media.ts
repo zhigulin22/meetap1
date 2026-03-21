@@ -87,10 +87,21 @@ export async function uploadEventImage(params: {
   }
 
   const shouldMakePrimary = params.makePrimary ?? true;
-  if (shouldMakePrimary && eventsCols.has("primary_media_id")) {
+  if (shouldMakePrimary && eventsCols.size) {
     await supabaseAdmin.from("event_media").update({ is_primary: false }).eq("event_id", params.eventId);
     await supabaseAdmin.from("event_media").update({ is_primary: true }).eq("id", media.id);
-    await supabaseAdmin.from("events").update({ primary_media_id: media.id }).eq("id", params.eventId);
+    const updateEvent = pickExistingColumns(
+      {
+        primary_media_id: media.id,
+        cover_url: publicUrl,
+        image_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      },
+      eventsCols,
+    );
+    if (Object.keys(updateEvent).length) {
+      await supabaseAdmin.from("events").update(updateEvent).eq("id", params.eventId);
+    }
   }
 
   return { id: media.id, url: publicUrl, path };
