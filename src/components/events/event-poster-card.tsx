@@ -46,33 +46,33 @@ export function EventPosterCard({
   onJoin: (eventId: string) => Promise<void> | void;
 }) {
   return (
-    <article className="dual-edge overflow-hidden rounded-[32px] bg-[rgb(var(--surface-1-rgb)/0.92)]">
+    <article className="dual-edge overflow-hidden rounded-[32px] bg-[linear-gradient(160deg,rgba(18,24,52,0.96),rgba(12,18,40,0.96))]">
       <div className="relative">
         <Image
           src={event.cover_url || "https://placehold.co/1200x800/0c1326/8b9bd6?text=EVENT"}
           alt={event.title}
           width={1200}
           height={800}
-          className="h-56 w-full object-cover"
+          className="h-60 w-full object-cover"
           unoptimized
         />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,18,36,0.1),rgba(10,16,32,0.75))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,24,0.1),rgba(8,12,24,0.78))]" />
 
-        <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
+        <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
           {event.category || "Событие"}
           <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-[10px] font-semibold text-white">
             Trend
           </span>
         </div>
 
-        <div className="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
+        <div className="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--sky-rgb)/0.4)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
           <CalendarDays className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
           {formatDateTimeRange(event.starts_at, event.ends_at)}
         </div>
 
         <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
           <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-white">{event.title}</h3>
-          <span className="shrink-0 rounded-full border border-[rgb(var(--gold-rgb)/0.45)] bg-[rgb(var(--gold-rgb)/0.26)] px-3 py-1.5 text-xs font-semibold text-[#5b3f14]">
+          <span className="shrink-0 rounded-full border border-[rgb(var(--gold-rgb)/0.5)] bg-[rgb(var(--gold-rgb)/0.28)] px-3 py-1.5 text-xs font-semibold text-white">
             {getPriceText(event)}
           </span>
         </div>

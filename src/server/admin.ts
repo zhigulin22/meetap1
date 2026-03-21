@@ -6,6 +6,21 @@ import { type AdminRole, isAdminRole } from "@/lib/admin-rbac";
 export const ADMIN_PORTAL_ROLES = ["admin", "super_admin"] as const;
 export const ADMIN_ROLES = ADMIN_PORTAL_ROLES;
 
+
+function parseAdminIds(raw?: string | null) {
+  if (!raw) return [] as string[];
+  return raw
+    .split(/[;,\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function isBootstrapAdmin(userId: string) {
+  const raw = process.env.ADMIN_USER_IDS || process.env.MEETAP_ADMIN_IDS || process.env.SUPER_ADMIN_IDS;
+  const ids = parseAdminIds(raw);
+  return ids.includes(userId);
+}
+
 export class AdminAccessError extends Error {
   code: "UNAUTHORIZED" | "FORBIDDEN" | "MISSING_ENV" | "DB";
   hint?: string;
@@ -87,7 +102,16 @@ async function resolveAdminContext() {
     throw new AdminAccessError("FORBIDDEN", "User is blocked or missing", "Проверь user record и блокировки");
   }
 
-  const role = (data.role ?? "user") as string;
+  let role = (data.role ?? "user") as string;
+  if (!ADMIN_PORTAL_ROLES.includes(role as (typeof ADMIN_PORTAL_ROLES)[number]) && isBootstrapAdmin(userId)) {
+    role = "admin";
+    try {
+      await supabaseAdmin.from("users").update({ role: "admin" }).eq("id", userId);
+    } catch {
+      // ignore bootstrap update failures
+    }
+  }
+
   if (!ADMIN_PORTAL_ROLES.includes(role as (typeof ADMIN_PORTAL_ROLES)[number])) {
     throw new AdminAccessError(
       "FORBIDDEN",

@@ -62,12 +62,12 @@ export function EventSocialCard({
   onToggleCompanion: (eventId: string) => Promise<void> | void;
 }) {
   return (
-    <article className="dual-edge relative overflow-hidden rounded-[32px] bg-[rgb(var(--surface-1-rgb)/0.92)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgb(var(--sky-rgb)/0.12),transparent_42%),radial-gradient(circle_at_92%_8%,rgb(var(--violet-rgb)/0.12),transparent_40%)]" />
+    <article className="dual-edge relative overflow-hidden rounded-[32px] bg-[linear-gradient(160deg,rgba(18,24,52,0.96),rgba(12,18,40,0.96))]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgb(var(--sky-rgb)/0.16),transparent_42%),radial-gradient(circle_at_92%_8%,rgb(var(--violet-rgb)/0.16),transparent_40%)]" />
       <div className="relative p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.14)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-3 py-1.5 text-[12px] font-semibold text-[rgb(var(--text-rgb))]">
               {socialLabel(event.social_mode)}
             </div>
             <h3 className="text-lg font-semibold leading-tight text-text">{event.title}</h3>
@@ -111,11 +111,11 @@ export function EventSocialCard({
         <p className="mt-3 line-clamp-3 text-sm text-text2">{event.short_description || event.full_description || "Описание скоро появится."}</p>
 
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.24)] bg-[rgb(var(--teal-rgb)/0.08)] p-3">
+          <div className="rounded-full border border-[rgb(var(--teal-rgb)/0.3)] bg-[rgb(var(--teal-rgb)/0.12)] p-3">
             <p className="mb-1 text-text3">Идут</p>
             <p className="text-base font-semibold text-text">{event.going_count}</p>
           </div>
-          <div className="rounded-full border border-[rgb(var(--sky-rgb)/0.24)] bg-[rgb(var(--sky-rgb)/0.08)] p-3">
+          <div className="rounded-full border border-[rgb(var(--sky-rgb)/0.3)] bg-[rgb(var(--sky-rgb)/0.12)] p-3">
             <p className="mb-1 text-text3">Ищут компанию</p>
             <p className="text-base font-semibold text-text">{event.companion_count}</p>
           </div>

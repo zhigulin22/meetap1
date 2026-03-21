@@ -23,40 +23,38 @@ type Question = {
 };
 
 const QUESTIONS: Question[] = [
-  { id: "q1", trait: "extraversion", text: "Я легко начинаю разговор с незнакомыми людьми вживую", group: "Социальная энергия" },
-  { id: "q2", trait: "extraversion", reverse: true, text: "После общения мне часто нужно время побыть одному", group: "Социальная энергия" },
+  { id: "q1", trait: "extraversion", text: "Мне легко знакомиться вживую, даже если я один/одна", group: "Социальная энергия" },
+  { id: "q2", trait: "extraversion", reverse: true, text: "После активного общения мне нужен заметный отдых", group: "Социальная энергия" },
+  { id: "q3", trait: "extraversion", text: "Мне чаще комфортнее встречаться в компании, чем один на один", group: "Формат общения" },
+  { id: "q4", trait: "extraversion", reverse: true, text: "Я предпочитаю тихие встречи без большой компании", group: "Формат общения" },
 
-  { id: "q3", trait: "extraversion", reverse: true, text: "Мне комфортнее встречаться один на один, чем в компании", group: "Формат общения" },
-  { id: "q4", trait: "extraversion", text: "Мне нравится знакомиться через события и активности", group: "Формат общения" },
+  { id: "q5", trait: "openness", text: "Мне интересны новые форматы событий и люди из других сфер", group: "Открытость" },
+  { id: "q6", trait: "openness", reverse: true, text: "Я предпочитаю заранее знакомые места и проверенный круг", group: "Открытость" },
+  { id: "q7", trait: "openness", text: "Я люблю пробовать новое даже без полного плана", group: "Открытость" },
+  { id: "q8", trait: "openness", text: "Мне важно, чтобы у встречи был смысл: тема, цель или контекст", group: "Контекст" },
 
-  { id: "q5", trait: "openness", text: "Мне интересны новые места, форматы и люди из других сфер", group: "Открытость" },
-  { id: "q6", trait: "openness", reverse: true, text: "Я чаще выбираю проверенные места и привычный круг", group: "Открытость" },
-
-  { id: "q7", trait: "openness", text: "Мне важно, чтобы у встречи был смысл: тема, цель или событие", group: "Контекст" },
-  { id: "q8", trait: "openness", reverse: true, text: "Мне проще общаться без заранее заданной темы", group: "Контекст" },
-
-  { id: "q9", trait: "conscientiousness", text: "Если договорились о встрече — я придерживаюсь плана и времени", group: "Надёжность" },
+  { id: "q9", trait: "conscientiousness", text: "Если договорились, я подтверждаю встречу и прихожу вовремя", group: "Надёжность" },
   { id: "q10", trait: "conscientiousness", reverse: true, text: "Я могу отменить или изменить планы в последний момент", group: "Надёжность" },
-
-  { id: "q11", trait: "conscientiousness", text: "Мне важно заранее понимать где, когда и как пройдёт встреча", group: "Планирование" },
+  { id: "q11", trait: "conscientiousness", text: "Мне комфортнее, когда встреча заранее организована", group: "Планирование" },
   { id: "q12", trait: "conscientiousness", reverse: true, text: "Спонтанные встречи мне даются легче, чем запланированные", group: "Планирование" },
 
-  { id: "q13", trait: "agreeableness", text: "В общении для меня важны уважение и мягкая подача", group: "Стиль общения" },
-  { id: "q14", trait: "agreeableness", reverse: true, text: "Я предпочитаю прямой стиль даже если он резкий", group: "Стиль общения" },
-
-  { id: "q15", trait: "agreeableness", text: "Мне важно совпадение ценностей и уважение границ", group: "Ценности" },
-  { id: "q16", trait: "agreeableness", reverse: true, text: "Меня раздражает, когда люди слишком долго обсуждают чувства", group: "Ценности" },
+  { id: "q13", trait: "agreeableness", text: "В общении для меня важны уважение и границы", group: "Стиль общения" },
+  { id: "q14", trait: "agreeableness", reverse: true, text: "Я предпочитаю прямоту, даже если она звучит резко", group: "Стиль общения" },
+  { id: "q15", trait: "agreeableness", text: "Мне важен поддерживающий и тёплый тон диалога", group: "Стиль общения" },
+  { id: "q16", trait: "agreeableness", reverse: true, text: "Я могу спорить жёстко, если уверен в своей позиции", group: "Ценности" },
 
   { id: "q17", trait: "neuroticism", text: "Если человек долго не отвечает, я начинаю переживать", group: "Комфорт" },
-  { id: "q18", trait: "neuroticism", reverse: true, text: "Я спокойно отношусь к паузам в переписке", group: "Комфорт" },
+  { id: "q18", trait: "neuroticism", reverse: true, text: "Я спокойно отношусь к паузам и молчанию", group: "Комфорт" },
+  { id: "q19", trait: "neuroticism", text: "Неопределённость в отношениях вызывает у меня тревогу", group: "Комфорт" },
+  { id: "q20", trait: "neuroticism", reverse: true, text: "Я легко отпускаю, если что-то не складывается", group: "Комфорт" },
 ];
 
 
 const OPTIONS = [
-  { value: 1, short: "1", label: "Не про меня" },
-  { value: 2, short: "2", label: "Слабо" },
+  { value: 1, short: "1", label: "Совсем не про меня" },
+  { value: 2, short: "2", label: "Скорее нет" },
   { value: 3, short: "3", label: "Нейтрально" },
-  { value: 4, short: "4", label: "Похоже" },
+  { value: 4, short: "4", label: "Скорее да" },
   { value: 5, short: "5", label: "Очень похоже" },
 ];
 
@@ -137,9 +135,9 @@ export default function PsychTestPage() {
     return (
       <PageShell>
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-4 p-5">
             <h1 className="font-display text-lg font-semibold text-text">Перед тестом нужно пройти интро</h1>
-            <p className="text-sm text-muted">Открой страницу психотеста из настроек профиля, прочитай зачем он нужен и подтверди согласие.</p>
+            <p className="text-sm text-text2">Открой страницу психотеста из настроек профиля, прочитай зачем он нужен и подтверди согласие.</p>
             <Link href="/profile/me/psych-test" className="block">
               <Button className="w-full">Перейти к интро</Button>
             </Link>
@@ -191,18 +189,18 @@ export default function PsychTestPage() {
   return (
     <PageShell>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-        <Card className="overflow-hidden border-borderStrong">
+        <Card className="overflow-hidden rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(145deg,rgba(18,24,50,0.96),rgba(12,18,40,0.98))]">
           <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--violet-rgb)/0.32),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--sky-rgb)/0.45),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
-          <CardContent className="-mt-8 space-y-2 p-4">
+          <CardContent className="-mt-10 space-y-3 p-5">
             <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] p-2"><Brain className="h-5 w-5" /></div>
-              <h1 className="text-xl font-semibold">Психологический профиль</h1>
+              <div className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-2.5"><Brain className="h-5 w-5" /></div>
+              <h1 className="text-xl font-semibold">Психопрофиль</h1>
             </div>
-            <p className="text-sm text-muted">Шкала 1–5: 1 — не про меня, 5 — полностью про меня.</p>
+            <p className="text-sm text-text2">Шкала 1–5: 1 — не про меня, 5 — полностью про меня.</p>
             <div className="mt-2 h-2 w-full rounded-full bg-[rgb(var(--surface-3-rgb)/0.6)]">
               <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))]" style={{ width: `${progress}%` }} />
             </div>
-            <div className="flex items-center justify-between text-xs text-muted">
+            <div className="flex items-center justify-between text-xs text-text3">
               <span>{stepLabel}</span>
               <span>Заполнено: {answeredCount}/{QUESTIONS.length}</span>
             </div>
@@ -210,15 +208,15 @@ export default function PsychTestPage() {
         </Card>
 
         {currentChunk ? (
-          <Card className="border-border">
-            <CardContent className="space-y-3 p-4">
+          <Card className="rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+            <CardContent className="space-y-4 p-5">
               <div>
                 <p className="text-sm font-semibold text-text">{currentChunk[0]?.group}</p>
                 <p className="text-xs text-text2">Ответь честно — это улучшит рекомендации</p>
               </div>
               <div className="space-y-3">
                 {currentChunk.map((q) => (
-                  <div key={q.id} className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] p-3">
+                  <div key={q.id} className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-4">
                     <p className="text-sm font-medium">{q.text}</p>
                     <div className="mt-3 grid grid-cols-5 gap-2">
                       {OPTIONS.map((option) => {
@@ -227,10 +225,10 @@ export default function PsychTestPage() {
                           <button
                             key={`${q.id}-${option.value}`}
                             onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
-                            className={`rounded-xl border px-0 py-2 text-center text-sm transition ${
+                            className={`rounded-full border px-0 py-2.5 text-center text-sm font-semibold transition ${
                               active
-                                ? "border-[rgb(var(--violet-rgb)/0.7)] bg-[rgb(var(--violet-rgb)/0.3)] text-white"
-                                : "border-border bg-[rgb(var(--surface-1-rgb)/0.7)] text-text2 hover:bg-[rgb(var(--surface-2-rgb)/0.8)]"
+                                ? "border-[rgb(var(--violet-rgb)/0.7)] bg-[image:var(--grad-primary)] text-white shadow-[0_10px_20px_rgba(122,84,255,0.35)]"
+                                : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] text-text2 hover:bg-[rgb(var(--surface-2-rgb)/0.9)]"
                             }`}
                           >
                             {option.short}
@@ -238,7 +236,7 @@ export default function PsychTestPage() {
                         );
                       })}
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-text3">
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-text3">
                       <span>1 — не про меня</span>
                       <span>3 — нейтрально</span>
                       <span>5 — полностью про меня</span>
@@ -249,8 +247,8 @@ export default function PsychTestPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border">
-            <CardContent className="space-y-3 p-4">
+          <Card className="rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+            <CardContent className="space-y-4 p-5">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-action" />
                 <p className="text-sm font-semibold">Дополнительные ответы</p>

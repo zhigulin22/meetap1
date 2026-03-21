@@ -40,11 +40,13 @@ function parseChatIds(raw: string | null | undefined) {
 export function normalizeTelegramContact(value: string) {
   const raw = value.trim();
   if (!raw) return null;
-  const urlMatch = raw.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([A-Za-z0-9_]{3,32})/i);
+  const compact = raw.replace(/\s+/g, "");
+  if (compact.startsWith("@") && compact.length >= 4) return compact;
+  const urlMatch = compact.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([^\s/]{3,64})/i);
   if (urlMatch?.[1]) return `https://t.me/${urlMatch[1]}`;
-  const atMatch = raw.match(/@([A-Za-z0-9_]{3,32})/);
+  const atMatch = compact.match(/@([^\s/]{3,64})/);
   if (atMatch?.[1]) return `@${atMatch[1]}`;
-  if (/^[A-Za-z0-9_]{3,32}$/.test(raw)) return `@${raw}`;
+  if (/^[^\s/]{3,64}$/.test(compact)) return `@${compact}`;
   return null;
 }
 
