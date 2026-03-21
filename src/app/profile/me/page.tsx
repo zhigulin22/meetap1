@@ -156,12 +156,12 @@ export default function MyProfilePage() {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <Button size="sm" onClick={() => router.push("/profile/me/edit")} className="h-9 px-4">Редактировать</Button>
-                    <Button size="sm" variant="secondary" onClick={() => router.push("/settings")} className="h-9 px-4">
+                    <Button onClick={() => router.push("/profile/me/edit")} className="h-12 px-6">Редактировать</Button>
+                    <Button variant="secondary" onClick={() => router.push("/settings")} className="h-12 px-6">
                       <Settings className="mr-1 h-4 w-4" /> Настройки
                     </Button>
                     {isAdmin ? (
-                      <Button size="sm" variant="secondary" onClick={() => router.push("/admin")} className="h-9 px-4">
+                      <Button variant="secondary" onClick={() => router.push("/admin")} className="h-12 px-6">
                         Открыть Admin
                       </Button>
                     ) : null}
@@ -259,7 +259,7 @@ export default function MyProfilePage() {
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`h-10 rounded-xl text-xs font-semibold transition ${
+                className={`h-12 rounded-2xl text-sm font-semibold transition ${
                   activeTab === tab
                     ? "bg-[image:var(--grad-primary)] text-white shadow-[0_10px_24px_rgba(122,84,255,0.35)]"
                     : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] text-text2"
@@ -275,7 +275,7 @@ export default function MyProfilePage() {
           <CardContent className="p-4 text-center">
             <p className="text-sm font-semibold text-text">Пока нет контента</p>
             <p className="text-xs text-text2">Создай пост или DUO, чтобы наполнить профиль</p>
-            <Button className="mt-3" onClick={() => router.push("/feed")}>Перейти в ленту</Button>
+            <Button className="mt-3 h-12" onClick={() => router.push("/feed")}>Перейти в ленту</Button>
           </CardContent>
         </Card>
       </div>

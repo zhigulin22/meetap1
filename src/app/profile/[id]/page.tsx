@@ -156,8 +156,16 @@ export default function ProfilePage() {
   const showQuote = privacy.show_quote !== false && Boolean(quote);
   const showPsychotype = privacy.show_psychotype !== false && Boolean(psych?.style);
   const university = p.student_verified ? p.student_university || p.university : null;
+  const about = (p.bio ?? "").trim();
+  const showAbout = Boolean(about);
   const keyInterests = interests.filter((i: string) => typeof i === "string" && i.trim().length > 1).slice(0, 8);
+  const showInterests = privacy.show_interests !== false && keyInterests.length > 0;
+  const showFacts = privacy.show_facts !== false && facts.length > 0;
   const duoCount = allItems.filter((post) => post.type === "daily_duo").length;
+  const icebreakers = [
+    ...(compat?.common?.slice(0, 2) ?? []),
+    ...commonEvents.slice(0, 1).map((ev) => `Событие: ${ev.title || "Без названия"}`),
+  ].filter(Boolean);
 
   async function handleConnect() {
     try {
@@ -234,13 +242,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button onClick={handleConnect} className="h-10 px-4">
+                <Button onClick={handleConnect} className="h-12 px-6">
                   <HeartHandshake className="mr-2 h-4 w-4" /> Познакомиться
                 </Button>
-                <Button variant="secondary" onClick={() => router.push(`/chats/${p.id}`)} className="h-10 px-4">
+                <Button variant="secondary" onClick={() => router.push(`/chats/${p.id}`)} className="h-12 px-6">
                   <MessageCircle className="mr-2 h-4 w-4" /> Написать
                 </Button>
-                <Button variant="secondary" onClick={() => router.push(`/events?invite=${p.id}`)} className="h-10 px-4">
+                <Button variant="secondary" onClick={() => router.push(`/events?invite=${p.id}`)} className="h-12 px-6">
                   Пригласить на событие
                 </Button>
               </div>
@@ -271,6 +279,30 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
+        {showAbout ? (
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-text">О себе</p>
+              <p className="mt-1 text-sm text-text2">{about}</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {showFacts ? (
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-text">Факты</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {facts.slice(0, 6).map((fact: string) => (
+                  <span key={fact} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
+                    {fact}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {compat ? (
           <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
             <CardContent className="space-y-3 p-4">
@@ -279,7 +311,7 @@ export default function ProfilePage() {
                   <p className="text-xs text-text3">Совместимость</p>
                   <p className="text-2xl font-semibold text-text">{compat.score}%</p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => setShowWhy((v) => !v)}>
+                <Button variant="secondary" onClick={() => setShowWhy((v) => !v)}>
                   Почему мы совпали <ChevronDown className={`ml-2 h-4 w-4 transition ${showWhy ? "rotate-180" : ""}`} />
                 </Button>
               </div>
@@ -302,11 +334,11 @@ export default function ProfilePage() {
           </Card>
         ) : null}
 
-        {compat?.common?.length ? (
+        {icebreakers.length ? (
           <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">Повод написать</p>
-              <p className="mt-1 text-sm text-text2">Можно начать с темы: {compat.common.slice(0, 3).join(", ")}</p>
+              <p className="mt-1 text-sm text-text2">Можно начать с: {icebreakers.slice(0, 3).join(", ")}</p>
             </CardContent>
           </Card>
         ) : null}
@@ -383,13 +415,13 @@ export default function ProfilePage() {
           </div>
         ) : null}
 
-        {keyInterests.length ? (
+        {showInterests ? (
           <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">Интересы</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {keyInterests.map((interest: string) => (
-                  <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2 py-0.5 text-xs text-text2">
+                  <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
                     {interest}
                   </span>
                 ))}

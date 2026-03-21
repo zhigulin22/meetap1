@@ -19,9 +19,9 @@ const buttonVariants = cva(
           "bg-danger text-white shadow-[0_10px_22px_rgb(var(--danger-rgb)/0.24)] hover:brightness-[0.98] focus-visible:ring-danger/35",
       },
       size: {
-        default: "h-12 px-6",
-        sm: "h-10 px-4 text-sm",
-        lg: "h-14 px-7 text-base",
+        default: "h-12 px-7",
+        sm: "h-11 px-5 text-sm",
+        lg: "h-14 px-8 text-base",
         icon: "h-12 w-12",
       },
     },

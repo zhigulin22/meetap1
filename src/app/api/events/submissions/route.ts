@@ -24,14 +24,14 @@ const schema = z
     price: z.number().min(0).nullable().optional(),
     payment_url: z.string().url().nullable().optional(),
     payment_note: z.string().trim().max(500).nullable().optional(),
-    telegram_contact: z.string().trim().min(5).max(80),
+    telegram_contact: z.string().trim().min(3).max(80),
     event_id: z.string().uuid().optional(),
     participant_limit: z.number().int().min(1).max(5000).nullable().optional(),
     looking_for_count: z.number().int().min(1).max(5000).nullable().optional(),
     moderator_comment: z.string().trim().max(600).nullable().optional(),
     trust_confirmed: z.boolean(),
     organizer_name: z.string().trim().min(2).max(120).optional(),
-    organizer_phone: z.string().trim().min(6).max(30),
+    organizer_phone: z.string().trim().min(6).max(40),
     organizer_fee_confirmed: z.boolean().optional().default(false),
   })
   .superRefine((data, ctx) => {
@@ -62,7 +62,7 @@ const schema = z
     let phoneNum = digits;
     if (phoneNum.length === 10) phoneNum = `7${phoneNum}`;
     if (phoneNum.length === 11 && phoneNum.startsWith("8")) phoneNum = `7${phoneNum.slice(1)}`;
-    const phoneValid = phoneNum.length === 11 && phoneNum.startsWith("7");
+    const phoneValid = phoneNum.length === 11 && (phoneNum.startsWith("7") || phoneNum.startsWith("8"));
     if (!phoneValid) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Телефон: формат 7/8/+7/+8", path: ["organizer_phone"] });
     }

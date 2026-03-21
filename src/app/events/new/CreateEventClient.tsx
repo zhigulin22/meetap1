@@ -61,24 +61,25 @@ function normalizePhone(value: string) {
   const digits = raw.replace(/[^0-9]/g, "");
   if (digits.length < 10) return null;
   let num = digits;
-  if (num.length == 10) {
-    num = "7" + num;
-  }
-  if (num.length == 11 && num.startsWith("8")) {
-    num = "7" + num.slice(1);
-  }
-  if (num.length != 11) return null;
-  if (!num.startsWith("7")) return null;
+  if (num.length === 10) num = `7${num}`;
+  if (num.length === 11 && num.startsWith("8")) num = `7${num.slice(1)}`;
+  if (num.length !== 11) return null;
+  if (!num.startsWith("7") && !num.startsWith("8")) return null;
   return `+${num}`;
 }
 
-function isValidTelegram(value: string) {
+function normalizeTelegram(value: string) {
   const raw = value.trim();
-  if (!raw) return false;
-  if (/^https?:\/\/(t\.me|telegram\.me)\/[A-Za-z0-9_]{4,32}\/?$/i.test(raw)) return true;
-  if (/^t\.me\/[A-Za-z0-9_]{4,32}\/?$/i.test(raw)) return true;
-  if (/^@?[A-Za-z0-9_]{4,32}$/i.test(raw)) return true;
-  return false;
+  if (!raw) return null;
+  if (/^https?:\/\/(t\.me|telegram\.me)\//i.test(raw)) return raw;
+  if (/^t\.me\//i.test(raw)) return `https://${raw}`;
+  if (raw.startsWith("@") && raw.length >= 3) return raw;
+  if (!raw.startsWith("@") && raw.length >= 3) return `@${raw}`;
+  return null;
+}
+
+function isValidTelegram(value: string) {
+  return Boolean(normalizeTelegram(value));
 }
 
 
@@ -228,10 +229,11 @@ function CreateEventPageInner() {
   const requiredWhenWhere = state.date && state.start_time && state.venue.trim();
   const requiredDescription = state.short_description.trim().length >= 10 && state.full_description.trim().length >= 20;
   const telegramValue = state.organizer_telegram.trim();
+  const normalizedTelegram = normalizeTelegram(telegramValue);
   const normalizedPhone = normalizePhone(state.organizer_phone);
   const requiredContacts =
     state.organizer_name.trim() &&
-    isValidTelegram(telegramValue) &&
+    Boolean(normalizedTelegram) &&
     normalizedPhone &&
     state.organizer_fee_confirmed;
 
@@ -278,7 +280,7 @@ function CreateEventPageInner() {
           is_free: !state.is_paid,
           price_text: state.price_text.trim(),
           organizer_name: state.organizer_name.trim(),
-          organizer_telegram: state.organizer_telegram.trim(),
+          organizer_telegram: normalizedTelegram ?? state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
           organizer_fee_confirmed: state.organizer_fee_confirmed,
           social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
@@ -350,7 +352,8 @@ function CreateEventPageInner() {
         is_free: !state.is_paid,
         price_text: state.price_text.trim(),
         organizer_name: state.organizer_name.trim(),
-        organizer_telegram: state.organizer_telegram.trim(),
+        organizer_telegram: normalizedTelegram ?? state.organizer_telegram.trim(),
+        organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
         social_mode: state.format === "looking" ? "looking_company" : state.format === "group" ? "collect_group" : "organize",
       }),
     });
@@ -388,8 +391,10 @@ function CreateEventPageInner() {
     if (state.city.trim() !== "Москва") {
       missing.push("Город (доступна Москва)");
     }
-    if (!isValidTelegram(state.organizer_telegram)) {
-      missing.push("Telegram организатора (неверный формат)");
+    if (!state.organizer_telegram.trim()) {
+      missing.push("Telegram организатора");
+    } else if (!normalizedTelegram) {
+      missing.push("Telegram организатора (формат @username)");
     }
     const normalizedPhone = normalizePhone(state.organizer_phone);
     if (!normalizedPhone) {
@@ -430,7 +435,7 @@ function CreateEventPageInner() {
           short_description: state.short_description.trim(),
           full_description: state.full_description.trim(),
           organizer_name: state.organizer_name.trim(),
-          organizer_telegram: state.organizer_telegram.trim(),
+          organizer_telegram: normalizedTelegram ?? state.organizer_telegram.trim(),
           organizer_phone: normalizedPhone ?? state.organizer_phone.trim(),
           organizer_fee_confirmed: state.organizer_fee_confirmed,
         }),
@@ -593,6 +598,12 @@ function CreateEventPageInner() {
                   placeholder="Telegram (обязательно, формат @username)"
                   value={state.organizer_telegram}
                   onChange={(e) => setState((s) => ({ ...s, organizer_telegram: e.target.value }))}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (!value) return;
+                    if (value.startsWith("@") || value.includes("t.me") || value.includes("telegram.me")) return;
+                    setState((s) => ({ ...s, organizer_telegram: `@${value}` }));
+                  }}
                 />
                 <p className="text-[11px] text-text3">Важно: укажи @username. Это обязательное поле.</p>
               </div>

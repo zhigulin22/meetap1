@@ -41,12 +41,10 @@ export function normalizeTelegramContact(value: string) {
   const raw = value.trim();
   if (!raw) return null;
 
-  if (/^https?:\/\/(t\.me|telegram\.me)\/[A-Za-z0-9_]{4,32}\/?$/i.test(raw)) return raw;
-  if (/^t\.me\/[A-Za-z0-9_]{4,32}\/?$/i.test(raw)) return `https://${raw}`;
-  if (/^@?[A-Za-z0-9_]{4,32}$/i.test(raw)) {
-    const username = raw.startsWith("@") ? raw.slice(1) : raw;
-    return `@${username}`;
-  }
+  if (/^https?:\/\/(t\.me|telegram\.me)\//i.test(raw)) return raw;
+  if (/^t\.me\//i.test(raw)) return `https://${raw}`;
+  if (raw.startsWith("@") && raw.length >= 3) return raw;
+  if (!raw.startsWith("@") && raw.length >= 3) return `@${raw}`;
 
   return null;
 }

@@ -142,7 +142,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     let phoneNum = phoneDigits;
     if (phoneNum.length === 10) phoneNum = `7${phoneNum}`;
     if (phoneNum.length === 11 && phoneNum.startsWith("8")) phoneNum = `7${phoneNum.slice(1)}`;
-    const phoneValid = phoneNum.length === 11 && phoneNum.startsWith("7");
+    const phoneValid = phoneNum.length === 11 && (phoneNum.startsWith("7") || phoneNum.startsWith("8"));
     if (!phoneValid) {
       return fail("Телефон организатора: формат 7/8/+7/+8", 422, {
         code: "VALIDATION",
