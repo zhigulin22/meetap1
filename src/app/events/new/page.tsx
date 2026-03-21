@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, PlusCircle, TrendingUp, Users2 } from "lucide-react";
+import { CalendarDays, PlusCircle, TrendingUp, Users2, ShieldCheck } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,11 @@ export default function OrganizerDashboard() {
 
   const summary = summaryQuery.data;
   const categories = useMemo(() => summary?.events.by_category ?? {}, [summary]);
+  const trustScore = useMemo(() => {
+    const approved = summary?.totals.approved ?? 0;
+    const base = approved > 0 ? 30 : 10;
+    return Math.min(100, base + approved * 12);
+  }, [summary]);
 
   return (
     <PageShell>
@@ -109,6 +114,28 @@ export default function OrganizerDashboard() {
               <p className="mt-2 text-2xl font-semibold text-text">{summary?.totals.rejected ?? 0}</p>
             </div>
           </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-4">
+              <div className="flex items-center justify-between text-xs text-text2">
+                <span>Уровень доверия организатора</span>
+                <span>{trustScore}%</span>
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[rgb(var(--surface-3-rgb)/0.9)]">
+                <div className="h-full rounded-full bg-[image:var(--grad-primary)]" style={{ width: `${trustScore}%` }} />
+              </div>
+              <p className="mt-2 text-[11px] text-text3">Одобренные события повышают доверие и скорость модерации.</p>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-4">
+              <div className="flex items-start gap-2 text-xs text-text2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 text-[rgb(var(--violet-rgb))]" />
+                <div>
+                  <p className="text-sm font-semibold text-text">Как проходит модерация</p>
+                  <p className="mt-1">Новая заявка → В работе → Одобрено или Уточнение. Статус виден в истории.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -134,9 +161,12 @@ export default function OrganizerDashboard() {
                         </div>
                         <span className={`rounded-full border px-2 py-1 text-xs ${statusClass(item.moderation_status)}`}>{statusLabel(item.moderation_status)}</span>
                       </div>
-                      {item.event_id ? (
-                        <Link href={`/events/${item.event_id}`} className="mt-2 inline-flex text-xs text-[rgb(var(--sky-rgb))]">Открыть событие</Link>
-                      ) : null}
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-text3">
+                        <span>Статус: {statusLabel(item.moderation_status)}</span>
+                        {item.event_id ? (
+                          <Link href={`/events/${item.event_id}`} className="text-[rgb(var(--sky-rgb))]">Открыть событие</Link>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -163,7 +193,10 @@ export default function OrganizerDashboard() {
                 </div>
               </div>
               <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3">
-                <p className="text-xs text-text3">Событий по категориям</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text3">Событий по категориям</p>
+                  <TrendingUp className="h-4 w-4 text-[rgb(var(--sky-rgb))]" />
+                </div>
                 <div className="mt-2 space-y-2 text-xs text-text2">
                   {Object.keys(categories).length ? (
                     Object.entries(categories).map(([key, value]) => (

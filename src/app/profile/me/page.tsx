@@ -16,6 +16,8 @@ import {
   Trophy,
   UserCircle,
   ShieldCheck,
+  Sparkles,
+  Flame,
   type LucideIcon,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
@@ -79,6 +81,10 @@ function humanGoal(profile: any) {
   return prefs.goal || prefs.intent || prefs.purpose || prefs.dating_goal || "";
 }
 
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 export default function MyProfilePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("Посты");
@@ -104,67 +110,78 @@ export default function MyProfilePage() {
   const psychSummary = psychProfile?.summary || psychProfile?.style || "";
   const university = profile?.student_verified ? profile?.student_university || profile?.university : null;
 
+  const profileScore = useMemo(() => {
+    if (!profile) return 0;
+    let score = 0;
+    if (profile.avatar_url) score += 15;
+    if (profile.name) score += 10;
+    if (profile.username) score += 10;
+    if (profile.city) score += 8;
+    if (profile.bio) score += 10;
+    if (Array.isArray(profile.interests) && profile.interests.length) score += 10;
+    if (psychSummary) score += 10;
+    if (goal) score += 10;
+    if (profile.student_verified) score += 10;
+    if (quote) score += 5;
+    return clampPercent(score);
+  }, [profile, psychSummary, goal, quote]);
+
+  const activityScore = useMemo(() => {
+    const raw = stats.posts * 8 + stats.events * 10 + stats.connects * 6;
+    return clampPercent(raw);
+  }, [stats]);
+
+  const streak = Math.min(7, Math.max(1, Math.round((stats.posts + stats.events + stats.connects) / 2) || 1));
+
   return (
     <PageShell>
       <div className="mx-auto max-w-3xl space-y-4">
-        <Card className="relative overflow-hidden border-[color:var(--border-strong)] bg-[linear-gradient(140deg,rgba(12,16,32,0.98),rgba(8,10,22,0.98))] shadow-card">
-          <div className="pointer-events-none absolute -top-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.35),transparent_70%)] blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 right-6 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.28),transparent_72%)] blur-3xl" />
+        <Card className="relative overflow-hidden border-[color:var(--border-strong)] bg-[linear-gradient(150deg,rgba(12,16,34,0.98),rgba(8,12,26,0.98))] shadow-card">
+          <div className="pointer-events-none absolute -top-24 left-[55%] h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.35),transparent_70%)] blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 right-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.24),transparent_70%)] blur-3xl" />
           <CardContent className="relative p-6">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-1 flex-col gap-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.4),transparent_70%)] blur-2xl" />
-                      <div className="rounded-full p-[4px]" style={{ background: "var(--grad-primary)" }}>
-                        <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
-                          <Image
-                            src={profile?.avatar_url || "https://placehold.co/320x320"}
-                            alt={profile?.name || "avatar"}
-                            width={240}
-                            height={240}
-                            className="h-40 w-40 rounded-full object-cover"
-                            unoptimized
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h1 className="text-3xl font-semibold text-text">{profile?.name || "Профиль"}</h1>
-                      {profile?.username ? <p className="mt-1 text-sm text-text2">@{profile.username}</p> : null}
-                      {university ? <p className="mt-1 text-xs text-text3">{university}</p> : null}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {profile?.city ? (
-                          <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] px-2 py-0.5 text-xs text-text2">
-                            {profile.city}
-                          </span>
-                        ) : null}
-                        {profile?.student_verified ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-xs text-text">
-                            <ShieldCheck className="h-3.5 w-3.5" /> ВУЗ подтвержден
-                          </span>
-                        ) : null}
-                        {profile?.telegram_verified ? (
-                          <span className="rounded-full border border-[rgb(var(--success-rgb)/0.4)] bg-[rgb(var(--success-rgb)/0.16)] px-2 py-0.5 text-xs text-text">
-                            Верифицирован
-                          </span>
-                        ) : null}
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="relative">
+                    <div className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.4),transparent_70%)] blur-2xl" />
+                    <div className="rounded-full p-[4px]" style={{ background: "var(--grad-primary)" }}>
+                      <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
+                        <Image
+                          src={profile?.avatar_url || "https://placehold.co/320x320"}
+                          alt={profile?.name || "avatar"}
+                          width={240}
+                          height={240}
+                          className="h-36 w-36 rounded-full object-cover"
+                          unoptimized
+                        />
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <Button onClick={() => router.push("/profile/me/edit")} className="h-12 px-6">Редактировать</Button>
-                    <Button variant="secondary" onClick={() => router.push("/settings")} className="h-12 px-6">
-                      <Settings className="mr-1 h-4 w-4" /> Настройки
-                    </Button>
-                    {isAdmin ? (
-                      <Button variant="secondary" onClick={() => router.push("/admin")} className="h-12 px-6">
-                        Открыть Admin
-                      </Button>
-                    ) : null}
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-3xl font-semibold text-text">{profile?.name || "Профиль"}</h1>
+                      {profile?.telegram_verified ? (
+                        <span className="rounded-full border border-[rgb(var(--success-rgb)/0.4)] bg-[rgb(var(--success-rgb)/0.16)] px-2 py-0.5 text-xs text-text">
+                          Верифицирован
+                        </span>
+                      ) : null}
+                    </div>
+                    {profile?.username ? <p className="mt-1 text-sm text-text2">@{profile.username}</p> : null}
+                    {university ? <p className="mt-1 text-xs text-text3">🎓 {university} · подтверждено</p> : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {profile?.city ? (
+                        <span className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.7)] px-2 py-0.5 text-xs text-text2">
+                          {profile.city}
+                        </span>
+                      ) : null}
+                      {profile?.student_verified ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-xs text-text">
+                          <ShieldCheck className="h-3.5 w-3.5" /> ВУЗ подтвержден
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
@@ -178,6 +195,48 @@ export default function MyProfilePage() {
                     <p className="mt-1 text-sm text-text">{psychSummary || "Пройди психотест для точного профиля"}</p>
                   </div>
                 </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3">
+                    <div className="flex items-center justify-between text-xs text-text2">
+                      <span>Сила профиля</span>
+                      <span>{profileScore}%</span>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[rgb(var(--surface-3-rgb)/0.9)]">
+                      <div className="h-full rounded-full bg-[image:var(--grad-primary)]" style={{ width: `${profileScore}%` }} />
+                    </div>
+                    <p className="mt-2 text-[11px] text-text3">Заполни профиль, чтобы чаще попадать в рекомендации.</p>
+                  </div>
+                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3">
+                    <div className="flex items-center justify-between text-xs text-text2">
+                      <span>Активность недели</span>
+                      <span>{activityScore}%</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[rgb(var(--surface-3-rgb)/0.9)]">
+                        <div className="h-full rounded-full bg-[image:var(--grad-accent)]" style={{ width: `${activityScore}%` }} />
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.4)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-[11px] text-text">
+                        <Flame className="h-3 w-3" /> {streak} дней
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-text3">Делись контентом и ходи на события, чтобы рост был стабильным.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => router.push("/profile/me/edit")} className="h-12 px-6">
+                  Редактировать
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/settings")} className="h-12 px-6">
+                  <Settings className="mr-1 h-4 w-4" /> Настройки
+                </Button>
+                {isAdmin ? (
+                  <Button variant="secondary" onClick={() => router.push("/admin")} className="h-12 px-6">
+                    Открыть Admin
+                  </Button>
+                ) : null}
               </div>
             </div>
 
@@ -216,12 +275,14 @@ export default function MyProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
-          <CardContent className="p-4">
-            <p className="text-sm font-semibold text-text">Цитата</p>
-            <p className="mt-1 text-sm text-text2">{quote || "Добавь личную цитату в редактировании профиля"}</p>
-          </CardContent>
-        </Card>
+        {quote ? (
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-text">Цитата</p>
+              <p className="mt-1 text-sm text-text2">{quote}</p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
           <CardContent className="p-4">

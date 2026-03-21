@@ -53,7 +53,7 @@ type CommonPerson = {
   interests?: string[] | null;
 };
 
-const tabs = ["all", "duo", "photos", "videos"] as const;
+const tabs = ["all", "duo", "photos", "videos", "events"] as const;
 
 type TabKey = (typeof tabs)[number];
 
@@ -63,6 +63,7 @@ const tabLabels: TabLabel[] = [
   { key: "duo", label: "DUO" },
   { key: "photos", label: "Фото" },
   { key: "videos", label: "Видео" },
+  { key: "events", label: "События" },
 ];
 
 function humanGoal(profile: any) {
@@ -188,20 +189,20 @@ export default function ProfilePage() {
   return (
     <PageShell>
       <div className="space-y-4">
-        <Card className="overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.98)] shadow-card">
-          <CardContent className="relative space-y-4 p-5">
+        <Card className="overflow-hidden rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(18,24,52,0.98),rgba(10,14,30,0.98))] shadow-card">
+          <CardContent className="relative space-y-5 p-6">
             <div className="pointer-events-none absolute -top-20 left-1/2 h-60 w-60 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.26),transparent_70%)] blur-3xl" />
 
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
-                <div className="relative h-32 w-32 rounded-full p-[3px]" style={{ background: "var(--grad-primary)" }}>
+                <div className="relative h-36 w-36 rounded-full p-[3px]" style={{ background: "var(--grad-primary)" }}>
                   <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
                     <Image
                       src={p.avatar_url || "https://placehold.co/260"}
                       alt={p.name}
                       width={160}
                       height={160}
-                      className="h-28 w-28 rounded-full object-cover"
+                      className="h-32 w-32 rounded-full object-cover"
                       unoptimized
                     />
                   </div>
@@ -283,7 +284,7 @@ export default function ProfilePage() {
           <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">О себе</p>
-              <p className="mt-1 text-sm text-text2">{about}</p>
+              <p className="mt-1 line-clamp-3 text-sm text-text2">{about}</p>
             </CardContent>
           </Card>
         ) : null}
@@ -338,7 +339,13 @@ export default function ProfilePage() {
           <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">Повод написать</p>
-              <p className="mt-1 text-sm text-text2">Можно начать с: {icebreakers.slice(0, 3).join(", ")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {icebreakers.slice(0, 3).map((item) => (
+                  <span key={item} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
+                    {item}
+                  </span>
+                ))}
+              </div>
             </CardContent>
           </Card>
         ) : null}
@@ -465,7 +472,7 @@ export default function ProfilePage() {
                       key={post.id}
                       type="button"
                       onClick={() => openPost(post, 0)}
-                      className="relative overflow-hidden rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)]"
+                      className={`relative overflow-hidden rounded-2xl border ${isDuo ? "border-[rgb(var(--violet-rgb)/0.55)] shadow-[0_12px_24px_rgba(118,84,255,0.25)]" : "border-[color:var(--border-soft)]"} bg-[rgb(var(--surface-1-rgb)/0.9)]`}
                     >
                       {isDuo && duoShots.length >= 2 ? (
                         <div className="grid h-48 w-full grid-cols-2">
@@ -478,7 +485,7 @@ export default function ProfilePage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                       <div className="absolute left-2 top-2 flex gap-1">
                         {post.type === "daily_duo" ? (
-                          <span className="rounded-full bg-[rgb(var(--violet-rgb)/0.8)] px-2 py-0.5 text-[10px] text-white">DUO</span>
+                          <span className="rounded-full border border-[rgb(var(--violet-rgb)/0.6)] bg-[rgb(var(--violet-rgb)/0.65)] px-2 py-0.5 text-[10px] text-white">DUO</span>
                         ) : null}
                       </div>
                       <div className="absolute bottom-2 left-2 flex items-center gap-2 text-[10px] text-white">

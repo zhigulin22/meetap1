@@ -228,6 +228,31 @@ export default function FeedPage() {
           </Button>
         </div>
 
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-4">
+            <div className="flex items-center justify-between text-xs text-text2">
+              <span>Прогресс недели</span>
+              <span>68%</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[rgb(var(--surface-3-rgb)/0.9)]">
+              <div className="h-full rounded-full bg-[image:var(--grad-primary)]" style={{ width: "68%" }} />
+            </div>
+            <p className="mt-2 text-[11px] text-text3">2 DUO, 3 события, 5 реакций до следующего уровня.</p>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-text2">Ежедневный DUO</p>
+                <p className="text-sm font-semibold text-text">Снять DUO сегодня</p>
+              </div>
+              <span className="rounded-full border border-[rgb(var(--violet-rgb)/0.45)] bg-[rgb(var(--violet-rgb)/0.2)] px-2 py-1 text-[11px] text-text">🔥 Серия 3 дня</span>
+            </div>
+            <Button variant="secondary" className="mt-3 h-9" onClick={() => setCreateOpen(true)}>
+              Открыть DUO
+            </Button>
+          </div>
+        </div>
+
         <div className="mt-4 flex flex-wrap gap-2">
           {[
             { value: "all", label: "Все" },
