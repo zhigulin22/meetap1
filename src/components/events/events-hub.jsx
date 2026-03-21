@@ -266,7 +266,7 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-6 rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(180deg,rgba(18,24,50,0.96),rgba(10,14,30,0.98))] p-7 shadow-[0_34px_72px_rgba(7,10,26,0.7)]">
+      <div className="mb-6 rounded-[36px] bg-[linear-gradient(180deg,rgba(18,24,50,0.96),rgba(10,14,30,0.98))] p-7 shadow-[0_34px_72px_rgba(7,10,26,0.7)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-[34px] font-semibold tracking-tight text-text">События</h1>
