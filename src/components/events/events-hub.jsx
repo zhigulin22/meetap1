@@ -266,17 +266,21 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-6 rounded-[32px] border border-[color:var(--border-strong)] bg-[linear-gradient(180deg,rgba(16,22,48,0.98),rgba(12,18,36,0.94))] p-6 shadow-[0_24px_60px_rgba(10,16,36,0.55)]">
+      <div className="mb-6 rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(14,20,40,0.98),rgba(10,14,30,0.96))] p-7 shadow-[0_28px_64px_rgba(6,10,24,0.6)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-text">События</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-text">События</h1>
             <p className="text-sm text-text2">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
-            <Button className="h-12 rounded-full px-6 text-sm font-semibold shadow-[0_12px_24px_rgba(122,84,255,0.35)]">
+            <Button className="h-12 rounded-full px-6 text-sm font-semibold shadow-[0_16px_30px_rgba(122,84,255,0.45)]">
               + Добавить
             </Button>
           </Link>
+        </div>
+
+        <div className="mt-4">
+          <div className="signature-line" />
         </div>
 
         <div className="mt-5">
@@ -287,9 +291,9 @@ export default function EventsHub() {
                 key={tab.key}
                 type="button"
                 onClick={() => setFeed(tab.key)}
-                className={`h-12 rounded-full px-6 text-sm font-semibold transition active:scale-[0.98] ${
+                className={`h-12 rounded-full px-6 text-[15px] font-semibold transition active:scale-[0.98] ${
                   feed === tab.key
-                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_14px_28px_rgba(122,84,255,0.4)]"
+                    ? "bg-[image:var(--grad-primary)] text-white shadow-[0_16px_30px_rgba(122,84,255,0.45)]"
                     : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
                 }`}
               >
@@ -299,14 +303,19 @@ export default function EventsHub() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-5 shadow-soft">
+        <div className="mt-5 rounded-[26px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-5 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-text2">Фильтры: категории, дата, бесплатно, поиск компании</div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] px-4 py-2 text-sm font-semibold text-text">
+                Москва
+              </span>
+              <span className="text-sm text-text2">Фильтры: категории, дата, бесплатно, поиск компании</span>
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-6 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(122,84,255,0.38)] transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--grad-primary)] px-6 text-[15px] font-semibold text-white shadow-[0_16px_30px_rgba(122,84,255,0.4)] transition active:scale-[0.98]"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Фильтры{activeFilters.length ? " · " + activeFilters.length : ""}
@@ -314,7 +323,7 @@ export default function EventsHub() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-12 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-6 text-sm font-semibold text-text transition active:scale-[0.98]"
+                className="inline-flex h-12 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] px-6 text-[15px] font-semibold text-text transition active:scale-[0.98]"
               >
                 <RefreshCcw className="h-4 w-4" /> Сбросить
               </button>

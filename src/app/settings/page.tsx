@@ -52,7 +52,7 @@ function SettingsRow({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-2xl shadow-soft border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)] px-4 py-3 text-sm text-text transition hover:bg-[rgb(var(--surface-3-rgb)/0.8)]"
+      className="flex items-center justify-between rounded-2xl shadow-soft border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)] px-5 py-4 text-sm text-text transition hover:bg-[rgb(var(--surface-3-rgb)/0.85)]"
     >
       <span className="flex min-w-0 items-center gap-3">
         <span
@@ -87,7 +87,7 @@ export default function SettingsPage() {
       <div className="space-y-4">
         {sections.map((section) => (
           <div key={section.title} className="rounded-2xl shadow-soft border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.82)] p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-text3">{section.title}</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text3">{section.title}</p>
             <div className="space-y-2">
               {section.items.map((item) => (
                 <SettingsRow key={item.href} {...item} />

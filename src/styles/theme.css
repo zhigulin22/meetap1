@@ -1,31 +1,31 @@
 :root {
-  --bg: #080b17;
-  --surface-1: #0f1730;
-  --surface-2: #141f3d;
-  --surface-3: #1a2850;
+  --bg: #0a0f1f;
+  --surface-1: #111a30;
+  --surface-2: #151f3a;
+  --surface-3: #1b2747;
 
-  --divider: rgba(110, 125, 200, 0.22);
-  --border-soft: rgba(120, 140, 210, 0.32);
-  --border: rgba(120, 140, 220, 0.46);
-  --border-strong: rgba(160, 180, 245, 0.7);
+  --divider: rgba(120, 140, 210, 0.24);
+  --border-soft: rgba(130, 150, 220, 0.28);
+  --border: rgba(140, 165, 235, 0.42);
+  --border-strong: rgba(170, 190, 255, 0.7);
 
-  --text: #f7f9ff;
-  --text-2: #e3ecff;
-  --text-3: #c6d4f5;
-  --disabled: #6c7aa5;
+  --text: #f4f7ff;
+  --text-2: #d6def5;
+  --text-3: #a9b6da;
+  --disabled: #6f7da9;
 
-  --primary-blue: #577bff;
-  --primary-blue-pressed: #4565f2;
-  --primary-soft: rgba(87, 123, 255, 0.26);
+  --primary-blue: #5b79ff;
+  --primary-blue-pressed: #4b66f0;
+  --primary-soft: rgba(91, 121, 255, 0.28);
 
-  --accent-violet: #9a6bff;
+  --accent-violet: #9f6bff;
   --accent-violet-pressed: #8452ff;
-  --violet-soft: rgba(154, 107, 255, 0.34);
+  --violet-soft: rgba(159, 107, 255, 0.36);
 
   --link-sky: #7cc4ff;
-  --success-mint: #2dbf8a;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --success-mint: #27c08a;
+  --warning: #f4b740;
+  --danger: #ff5c6c;
 
   --event-gold: #f0bf63;
   --event-gold-soft: rgba(240, 191, 99, 0.24);
@@ -34,43 +34,43 @@
   --badge-citrus: #ffd43b;
   --badge-aqua: #30cba0;
 
-  --grad-primary: linear-gradient(135deg, #4f6bff 0%, #8b5cff 100%);
-  --grad-hero-1: radial-gradient(circle at 18% 18%, rgba(87, 123, 255, 0.28), transparent 58%);
-  --grad-hero-2: radial-gradient(circle at 82% 12%, rgba(154, 107, 255, 0.3), transparent 62%);
-  --grad-hero-3: radial-gradient(circle at 70% 86%, rgba(124, 196, 255, 0.2), transparent 60%);
+  --grad-primary: linear-gradient(135deg, #5876ff 0%, #8f5cff 100%);
+  --grad-hero-1: radial-gradient(circle at 12% 12%, rgba(88, 118, 255, 0.38), transparent 58%);
+  --grad-hero-2: radial-gradient(circle at 86% 10%, rgba(159, 107, 255, 0.38), transparent 62%);
+  --grad-hero-3: radial-gradient(circle at 70% 88%, rgba(124, 196, 255, 0.22), transparent 64%);
   --grad-event: linear-gradient(135deg, #f0bf63 0%, #ffe0a6 100%);
   --grad-badge: linear-gradient(135deg, #9a7bff 0%, #ffd43b 100%);
 
-  --radius-lg: 26px;
-  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-md: 22px;
   --radius-sm: 14px;
 
-  --shadow-card: 0 24px 54px rgba(6, 10, 24, 0.55);
-  --shadow-soft: 0 14px 30px rgba(6, 10, 24, 0.42);
+  --shadow-card: 0 26px 60px rgba(6, 10, 24, 0.6);
+  --shadow-soft: 0 14px 28px rgba(6, 10, 24, 0.45);
 
-  --bg-rgb: 8 11 23;
-  --surface-1-rgb: 15 23 48;
-  --surface-2-rgb: 20 31 61;
-  --surface-3-rgb: 26 40 80;
-  --border-rgb: 120 140 220;
-  --border-strong-rgb: 160 180 245;
+  --bg-rgb: 10 15 31;
+  --surface-1-rgb: 17 26 48;
+  --surface-2-rgb: 21 31 58;
+  --surface-3-rgb: 27 39 71;
+  --border-rgb: 140 165 235;
+  --border-strong-rgb: 170 190 255;
 
-  --text-rgb: 247 249 255;
-  --text-2-rgb: 227 236 255;
-  --text-3-rgb: 198 212 245;
-  --disabled-rgb: 108 122 165;
+  --text-rgb: 244 247 255;
+  --text-2-rgb: 214 222 245;
+  --text-3-rgb: 169 182 218;
+  --disabled-rgb: 111 125 169;
 
-  --peach-rgb: 87 123 255;
-  --peach-pressed-rgb: 69 101 242;
-  --teal-rgb: 154 107 255;
+  --peach-rgb: 91 121 255;
+  --peach-pressed-rgb: 75 102 240;
+  --teal-rgb: 159 107 255;
   --teal-hover-rgb: 132 82 255;
   --sky-rgb: 124 196 255;
-  --success-rgb: 45 191 138;
-  --amber-rgb: 245 158 11;
-  --danger-rgb: 239 68 68;
+  --success-rgb: 39 192 138;
+  --amber-rgb: 244 183 64;
+  --danger-rgb: 255 92 108;
   --gold-rgb: 240 191 99;
 
-  --violet-rgb: 154 107 255;
+  --violet-rgb: 159 107 255;
   --citrus-rgb: 255 212 59;
   --badge-aqua-rgb: 48 203 160;
 
