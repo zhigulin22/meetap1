@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
+  BadgeCheck,
   CalendarClock,
   ChevronDown,
   HeartHandshake,
@@ -90,6 +91,18 @@ function postCover(post: PostItem) {
   return cover || post.photos[0]?.url || "https://placehold.co/600x800";
 }
 
+function humanAge(profile: any) {
+  const b = profile?.birthdate || profile?.birthday;
+  if (!b) return null;
+  try {
+    const birth = new Date(b);
+    const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+    return Number.isFinite(age) ? age : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -158,10 +171,11 @@ export default function ProfilePage() {
   const university = p.student_verified ? p.student_university || p.university : null;
   const about = (p.bio ?? "").trim();
   const showAbout = Boolean(about);
-  const keyInterests = interests.filter((i: string) => typeof i === "string" && i.trim().length > 1).slice(0, 8);
+  const keyInterests = interests.filter((i: string) => typeof i === "string" && i.trim().length > 1).slice(0, 10);
   const showInterests = privacy.show_interests !== false && keyInterests.length > 0;
   const showFacts = privacy.show_facts !== false && facts.length > 0;
   const duoCount = allItems.filter((post) => post.type === "daily_duo").length;
+  const age = humanAge(p);
   const icebreakers = [
     ...(compat?.common?.slice(0, 2) ?? []),
     ...commonEvents.slice(0, 1).map((ev) => `Событие: ${ev.title || "Без названия"}`),
@@ -188,86 +202,97 @@ export default function ProfilePage() {
   return (
     <PageShell>
       <div className="space-y-4">
-        <Card className="overflow-hidden rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(22,30,62,0.96),rgba(14,20,44,0.98))] shadow-card">
-          <CardContent className="relative space-y-5 p-6">
-            <div className="pointer-events-none absolute -top-20 left-1/2 h-60 w-60 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.26),transparent_70%)] blur-3xl" />
+        <Card className="overflow-hidden rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(165deg,rgba(24,32,68,0.98),rgba(12,18,40,0.98))] shadow-card">
+          <div className="relative h-[58vh] min-h-[420px]">
+            <Image
+              src={p.avatar_url || "https://placehold.co/1200x1600?text=MEETAP"}
+              alt={p.name}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,24,0.08),rgba(8,12,24,0.88))]" />
 
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="relative h-36 w-36 rounded-full p-[3px]" style={{ background: "var(--grad-primary)" }}>
-                  <div className="rounded-full bg-[rgb(var(--surface-1-rgb))] p-[2px]">
-                    <Image
-                      src={p.avatar_url || "https://placehold.co/260"}
-                      alt={p.name}
-                      width={160}
-                      height={160}
-                      className="h-32 w-32 rounded-full object-cover"
-                      unoptimized
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-semibold text-text">{p.name}</h1>
-                    {p.username ? <span className="text-xs text-text3">@{p.username}</span> : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-text2">
-                    {privacy.show_city === false || !p.city ? null : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-2 py-0.5">
-                        <MapPin className="h-3.5 w-3.5" /> {p.city}
-                      </span>
-                    )}
-                    {privacy.show_work === false || !p.work ? null : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] px-2 py-0.5">
-                        {p.work}
-                      </span>
-                    )}
-                    {privacy.show_university === false || !university ? null : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.4)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-text">
-                        🎓 {university} · подтверждено
-                      </span>
-                    )}
-                  </div>
-                  {keyInterests.length ? (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {keyInterests.map((interest: string) => (
-                        <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2 py-0.5 text-[11px] text-text2">
-                          {interest}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={handleConnect} className="h-12 px-6">
-                  <HeartHandshake className="mr-2 h-4 w-4" /> Познакомиться
-                </Button>
-                <Button variant="secondary" onClick={() => router.push(`/chats/${p.id}`)} className="h-12 px-6">
-                  <MessageCircle className="mr-2 h-4 w-4" /> Написать
-                </Button>
-                <Button variant="secondary" onClick={() => router.push(`/events?invite=${p.id}`)} className="h-12 px-6">
-                  Пригласить на событие
-                </Button>
-              </div>
+            <div className="absolute left-5 top-5 flex items-center gap-2 rounded-full border border-[rgb(var(--violet-rgb)/0.55)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-3 py-1 text-xs text-text">
+              <Sparkles className="h-4 w-4" /> {compat?.score ?? 0}% совместимость
             </div>
 
+            <div className="absolute bottom-5 left-5 right-5 space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h1 className="text-3xl font-semibold text-white">
+                    {p.name}
+                    {age ? <span className="ml-2 text-lg text-text2">{age}</span> : null}
+                  </h1>
+                  {p.username ? <p className="text-sm text-text2">@{p.username}</p> : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={handleConnect} className="h-12 px-6">
+                    <HeartHandshake className="mr-2 h-4 w-4" /> Познакомиться
+                  </Button>
+                  <Button variant="secondary" onClick={() => router.push(`/chats/${p.id}`)} className="h-12 px-6">
+                    <MessageCircle className="mr-2 h-4 w-4" /> Написать
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-text2">
+                {privacy.show_city === false || !p.city ? null : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2 py-0.5">
+                    <MapPin className="h-3.5 w-3.5" /> {p.city}
+                  </span>
+                )}
+                {privacy.show_work === false || !p.work ? null : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2 py-0.5">
+                    {p.work}
+                  </span>
+                )}
+                {privacy.show_university === false || !university ? null : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.5)] bg-[rgb(var(--violet-rgb)/0.2)] px-2 py-0.5 text-text">
+                    🎓 {university} · подтверждено
+                  </span>
+                )}
+                {p.telegram_verified ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--success-rgb)/0.5)] bg-[rgb(var(--success-rgb)/0.18)] px-2 py-0.5 text-text">
+                    <BadgeCheck className="h-3.5 w-3.5" /> Верифицирован
+                  </span>
+                ) : null}
+              </div>
+
+              {showInterests ? (
+                <div className="flex flex-wrap gap-2">
+                  {keyInterests.slice(0, 6).map((interest: string) => (
+                    <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-2.5 py-1 text-xs text-text">
+                      {interest}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <CardContent className="space-y-4 p-6">
             {(goal || showPsychotype) ? (
               <div className="grid gap-2 md:grid-cols-2">
                 {goal ? (
-                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3">
+                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] p-3">
                     <p className="text-xs text-text3">Цель знакомства</p>
                     <p className="mt-1 text-sm text-text">{goal}</p>
                   </div>
                 ) : null}
                 {showPsychotype ? (
-                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] p-3">
+                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] p-3">
                     <p className="text-xs text-text3">Краткий психотип</p>
                     <p className="mt-1 text-sm text-text">{psych.style}</p>
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+
+            {showAbout ? (
+              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] p-4">
+                <p className="text-sm font-semibold text-text">О себе</p>
+                <p className="mt-1 line-clamp-3 text-sm text-text2">{about}</p>
               </div>
             ) : null}
 
@@ -279,40 +304,16 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {showAbout ? (
-          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
-            <CardContent className="p-4">
-              <p className="text-sm font-semibold text-text">О себе</p>
-              <p className="mt-1 line-clamp-3 text-sm text-text2">{about}</p>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {showFacts ? (
-          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
-            <CardContent className="p-4">
-              <p className="text-sm font-semibold text-text">Факты</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {facts.slice(0, 6).map((fact: string) => (
-                  <span key={fact} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
-                    {fact}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
         {compat ? (
-          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
             <CardContent className="space-y-3 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-text3">Совместимость</p>
+                  <p className="text-xs text-text3">Почему вы совпали</p>
                   <p className="text-2xl font-semibold text-text">{compat.score}%</p>
                 </div>
                 <Button variant="secondary" onClick={() => setShowWhy((v) => !v)}>
-                  Почему мы совпали <ChevronDown className={`ml-2 h-4 w-4 transition ${showWhy ? "rotate-180" : ""}`} />
+                  Показать причины <ChevronDown className={`ml-2 h-4 w-4 transition ${showWhy ? "rotate-180" : ""}`} />
                 </Button>
               </div>
               {showWhy ? (
@@ -335,7 +336,7 @@ export default function ProfilePage() {
         ) : null}
 
         {icebreakers.length ? (
-          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">Повод написать</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -352,7 +353,7 @@ export default function ProfilePage() {
         {(duoCount || data.stats.events || commonEvents.length || commonPeople.length) ? (
           <div className="grid gap-2 md:grid-cols-2">
             {duoCount ? (
-              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgb(var(--violet-rgb)/0.2)] text-[rgb(var(--violet-rgb))]">
                     <Images className="h-5 w-5" />
@@ -365,7 +366,7 @@ export default function ProfilePage() {
               </Card>
             ) : null}
             {data.stats.events ? (
-              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgb(var(--sky-rgb)/0.2)] text-[rgb(var(--sky-rgb))]">
                     <CalendarClock className="h-5 w-5" />
@@ -378,7 +379,7 @@ export default function ProfilePage() {
               </Card>
             ) : null}
             {commonEvents.length ? (
-              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
                 <CardContent className="p-4">
                   <p className="text-sm font-semibold text-text">Общие события</p>
                   <div className="mt-2 space-y-2">
@@ -398,7 +399,7 @@ export default function ProfilePage() {
               </Card>
             ) : null}
             {commonPeople.length ? (
-              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+              <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
                 <CardContent className="p-4">
                   <p className="text-sm font-semibold text-text">Общие люди</p>
                   <div className="mt-3 flex -space-x-2">
@@ -421,8 +422,23 @@ export default function ProfilePage() {
           </div>
         ) : null}
 
+        {showFacts ? (
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-text">Факты</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {facts.slice(0, 6).map((fact: string) => (
+                  <span key={fact} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
+                    {fact}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {showInterests ? (
-          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">Интересы</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -436,7 +452,7 @@ export default function ProfilePage() {
           </Card>
         ) : null}
 
-        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)]">
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.96)]">
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-text">Контент</p>
