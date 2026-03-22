@@ -17,7 +17,6 @@ import {
   UserCircle,
   ShieldCheck,
   Sparkles,
-  Flame,
   type LucideIcon,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
@@ -131,12 +130,10 @@ export default function MyProfilePage() {
     return clampPercent(raw);
   }, [stats]);
 
-  const streak = Math.min(7, Math.max(1, Math.round((stats.posts + stats.events + stats.connects) / 2) || 1));
-
   return (
     <PageShell>
       <div className="mx-auto max-w-3xl space-y-4">
-        <Card className="relative overflow-hidden border-[color:var(--border-strong)] bg-[linear-gradient(150deg,rgba(12,16,34,0.98),rgba(8,12,26,0.98))] shadow-card">
+        <Card className="relative overflow-hidden border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(22,30,62,0.96),rgba(14,20,44,0.98))] shadow-card">
           <div className="pointer-events-none absolute -top-24 left-[55%] h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.35),transparent_70%)] blur-3xl" />
           <div className="pointer-events-none absolute -bottom-24 right-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgb(var(--sky-rgb)/0.24),transparent_70%)] blur-3xl" />
           <CardContent className="relative p-6">
@@ -197,7 +194,7 @@ export default function MyProfilePage() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3">
+                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-3">
                     <div className="flex items-center justify-between text-xs text-text2">
                       <span>Сила профиля</span>
                       <span>{profileScore}%</span>
@@ -207,18 +204,13 @@ export default function MyProfilePage() {
                     </div>
                     <p className="mt-2 text-[11px] text-text3">Заполни профиль, чтобы чаще попадать в рекомендации.</p>
                   </div>
-                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] p-3">
+                  <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-3">
                     <div className="flex items-center justify-between text-xs text-text2">
                       <span>Активность недели</span>
                       <span>{activityScore}%</span>
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-[rgb(var(--surface-3-rgb)/0.9)]">
-                        <div className="h-full rounded-full bg-[image:var(--grad-accent)]" style={{ width: `${activityScore}%` }} />
-                      </div>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(var(--violet-rgb)/0.4)] bg-[rgb(var(--violet-rgb)/0.18)] px-2 py-0.5 text-[11px] text-text">
-                        <Flame className="h-3 w-3" /> {streak} дней
-                      </span>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[rgb(var(--surface-3-rgb)/0.9)]">
+                      <div className="h-full rounded-full bg-[image:var(--grad-primary)]" style={{ width: `${activityScore}%` }} />
                     </div>
                     <p className="mt-2 text-[11px] text-text3">Делись контентом и ходи на события, чтобы рост был стабильным.</p>
                   </div>
@@ -257,7 +249,7 @@ export default function MyProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgb(var(--violet-rgb)/0.2)] text-[rgb(var(--violet-rgb))]">
@@ -276,7 +268,7 @@ export default function MyProfilePage() {
         </Card>
 
         {quote ? (
-          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+          <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
             <CardContent className="p-4">
               <p className="text-sm font-semibold text-text">Цитата</p>
               <p className="mt-1 text-sm text-text2">{quote}</p>
@@ -284,7 +276,7 @@ export default function MyProfilePage() {
           </Card>
         ) : null}
 
-        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
           <CardContent className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <div>
@@ -332,7 +324,7 @@ export default function MyProfilePage() {
           </div>
         </div>
 
-        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
           <CardContent className="p-4 text-center">
             <p className="text-sm font-semibold text-text">Пока нет контента</p>
             <p className="text-xs text-text2">Создай пост или DUO, чтобы наполнить профиль</p>

@@ -152,7 +152,6 @@ export default function ProfilePage() {
   const commonPeople = data.common_people ?? [];
   const goal = humanGoal(p);
   const psych = p.personality_profile ?? null;
-  const traits = psych?.traits ?? null;
   const quote = p.preferences?.quote ?? "";
   const showQuote = privacy.show_quote !== false && Boolean(quote);
   const showPsychotype = privacy.show_psychotype !== false && Boolean(psych?.style);
@@ -189,7 +188,7 @@ export default function ProfilePage() {
   return (
     <PageShell>
       <div className="space-y-4">
-        <Card className="overflow-hidden rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(18,24,52,0.98),rgba(10,14,30,0.98))] shadow-card">
+        <Card className="overflow-hidden rounded-[36px] border border-[color:var(--border-strong)] bg-[linear-gradient(160deg,rgba(22,30,62,0.96),rgba(14,20,44,0.98))] shadow-card">
           <CardContent className="relative space-y-5 p-6">
             <div className="pointer-events-none absolute -top-20 left-1/2 h-60 w-60 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--violet-rgb)/0.26),transparent_70%)] blur-3xl" />
 
