@@ -20,10 +20,6 @@
 - `/profile/me`
 - `/admin`
 
-<<<<<<< HEAD
-## Environment
-Создай `.env.local` по примеру `.env.example`.
-=======
 - `/` — landing
 - `/register` — Telegram phone verification + name
 - `/login` — вход по номеру и паролю
@@ -36,7 +32,9 @@
 - `/profile/me` — мой профиль и настройки
 - `/profile/psych-test` — отдельная страница психологического теста
 - `/admin` — панель администратора
->>>>>>> origin/develop-tema
+
+## Environment
+Создай `.env.local` по примеру `.env.example`.
 
 Основные:
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -57,7 +55,6 @@
 - `TELEGRAM_MODERATION_MOCK` (true в local, чтобы не слать в бота)
 - `QA_BOTS_CONTROL_TOKEN`, `QA_BOTS_PASSWORD`, `DEMO_AUTH_ENABLED` (optional)
 
-<<<<<<< HEAD
 Импорт событий:
 - `KUDAGO_BASE_URL` (default `https://kudago.com/public-api/v1.4`)
 - `TIMEPAD_BASE_URL` (default `https://api.timepad.ru/v1`)
@@ -65,6 +62,29 @@
 - `EXTERNAL_IMPORT_TIMEOUT_MS` (default `6500`)
 - `CRON_SECRET` (optional)
 - `APP_ENV=local|vercel`
+
+## Supabase setup
+
+1. Создай проект в [Supabase](https://supabase.com).
+2. Выполни SQL-миграции по порядку:
+   - `supabase/migrations/001_init.sql`
+   - `supabase/migrations/002_comments.sql`
+   - `supabase/migrations/003_personality_profile.sql`
+   - `supabase/migrations/004_password_auth.sql`
+   - `supabase/migrations/005_user_sessions.sql`
+   - `supabase/migrations/006_admin_analytics.sql`
+   - `supabase/migrations/007_google_auth.sql`
+   - `supabase/seed.sql`
+3. В настройках Supabase → Authentication → Providers включи **Google** и добавь OAuth Client ID и Secret.
+4. В Supabase → Authentication → URL Configuration добавь Redirect URL:
+   ```
+   https://<your-domain>/api/auth/google/callback
+   ```
+
+### Telegram (опционально)
+
+5. Создай бота через [@BotFather](https://t.me/BotFather), получи username и token.
+6. Настрой Telegram webhook.
 
 ## Migrations
 Выполни все миграции из `supabase/migrations` по порядку.
@@ -93,54 +113,6 @@ FACE_DETECT_MIN_CONFIDENCE=0.35
 ```
 
 Run Python AI service (separate terminal):
-=======
-Скопируй `.env.example` в `.env.local` и заполни значениями:
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# App URL (used in OAuth redirects)
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Telegram (optional if using Google auth only)
-NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your_bot_username
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
-
-# Face detection tuning
-FACE_DETECT_MODEL=gpt-4o-mini
-FACE_DETECT_MIN_CONFIDENCE=0.35
-```
-
-## Supabase setup
-
-1. Создай проект в [Supabase](https://supabase.com).
-2. Выполни SQL-миграции по порядку:
-   - `supabase/migrations/001_init.sql`
-   - `supabase/migrations/002_comments.sql`
-   - `supabase/migrations/003_personality_profile.sql`
-   - `supabase/migrations/004_password_auth.sql`
-   - `supabase/migrations/005_user_sessions.sql`
-   - `supabase/migrations/006_admin_analytics.sql`
-   - `supabase/migrations/007_google_auth.sql`
-   - `supabase/seed.sql`
-3. В настройках Supabase → Authentication → Providers включи **Google** и добавь OAuth Client ID и Secret.
-4. В Supabase → Authentication → URL Configuration добавь Redirect URL:
-   ```
-   https://<your-domain>/api/auth/google/callback
-   ```
-
-### Telegram (опционально)
-
-5. Создай бота через [@BotFather](https://t.me/BotFather), получи username и token.
-6. Настрой Telegram webhook:
->>>>>>> origin/develop-tema
 
 ```bash
 cd ai_service
@@ -204,14 +176,10 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 - `GET/PATCH /api/profile/me`
 - `POST /api/profile/avatar`
 - `POST /api/profile/psych-test`
-<<<<<<< HEAD
-- `GET /api/profile/:id`
-=======
 - `GET  /api/profile/:id`
 
 ### AI
 - `POST /api/ai/face-validate`
->>>>>>> origin/develop-tema
 - `POST /api/ai/icebreaker`
 
 ### Admin
@@ -235,7 +203,13 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 - Лента скрывает `shadow_banned` пользователей.
 - Face validation выполняется через Python AI service; Next.js обращается по `AI_SERVICE_URL`.
 
-<<<<<<< HEAD
+- Daily Duo has mobile camera flow: front shot → back shot → editor → publish.
+- Feed lock is active if `users.last_post_at` older than 7 days.
+- Comments persist in DB and open as chat-style modal.
+- Face validation uses multi-pass consensus with model fallback and adjustable confidence threshold.
+- Admin panel доступен только пользователям с `role = 'admin'` в таблице `users`.
+- Google OAuth flow создаёт пользователя в Supabase Auth + в кастомной таблице `users`.
+
 ## Checklist after deploy
 1. `POST /api/admin/import-events` вернул `ok=true`.
 2. В `event_import_jobs` есть `status=ok` и заполненный `stats_json`.
@@ -249,11 +223,3 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 4. `/events` показывает карточки, не `0`.
 5. Кнопка «Добавить событие» открывает форму с первого клика.
 6. Submission уходит в `event_submissions` со статусом `pending`.
-=======
-- Daily Duo has mobile camera flow: front shot → back shot → editor → publish.
-- Feed lock is active if `users.last_post_at` older than 7 days.
-- Comments persist in DB and open as chat-style modal.
-- Face validation uses multi-pass consensus with model fallback and adjustable confidence threshold.
-- Admin panel доступен только пользователям с `role = 'admin'` в таблице `users`.
-- Google OAuth flow создаёт пользователя в Supabase Auth + в кастомной таблице `users`.
->>>>>>> origin/develop-tema
