@@ -266,11 +266,11 @@ export default function EventsHub() {
 
   return (
     <PageShell>
-      <div className="mb-6 rounded-[36px] bg-[linear-gradient(180deg,rgba(18,24,50,0.96),rgba(10,14,30,0.98))] p-7 shadow-[0_34px_72px_rgba(7,10,26,0.7)]">
+      <div className="mb-6 rounded-[36px] bg-[linear-gradient(180deg,rgba(26,36,70,0.96),rgba(18,26,52,0.98))] p-7 shadow-[0_34px_72px_rgba(7,10,26,0.7)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-[34px] font-semibold tracking-tight text-text">События</h1>
-            <p className="text-[16px] text-text2">Афиша и социальный слой знакомств · Москва</p>
+            <p className="text-[16px] text-text">Афиша и социальный слой знакомств · Москва</p>
           </div>
           <Link href="/events/new" className="inline-flex">
             <Button size="lg" className="rounded-full px-8 text-[16px] font-semibold shadow-[0_18px_34px_rgba(122,84,255,0.55)]">
@@ -284,7 +284,7 @@ export default function EventsHub() {
         </div>
 
         <div className="mt-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text3">Режим</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text2">Режим</p>
           <div className="mt-3 flex flex-wrap gap-3">
             {feedTabs.map((tab) => (
               <button
@@ -294,7 +294,7 @@ export default function EventsHub() {
                 className={`h-12 rounded-full px-6 text-[15px] font-semibold transition active:scale-[0.98] ${
                   feed === tab.key
                     ? "bg-[image:var(--grad-primary)] text-white shadow-[0_16px_30px_rgba(122,84,255,0.45)]"
-                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] text-text"
+                    : "border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] text-text"
                 }`}
               >
                 {tab.label}
@@ -303,13 +303,13 @@ export default function EventsHub() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.94)] p-6 shadow-soft">
+        <div className="mt-5 rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.92)] p-6 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--sky-rgb)/0.4)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-4 py-2 text-[14px] font-semibold text-text">
                 Москва
               </span>
-              <span className="text-[14px] text-text2">Фильтры: категории, дата, бесплатно, поиск компании</span>
+              <span className="text-[14px] text-text">Фильтры: категории, дата, бесплатно, поиск компании</span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -340,7 +340,7 @@ export default function EventsHub() {
               key={chip.label}
               type="button"
               onClick={chip.onRemove}
-              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)] px-3 py-1.5 text-text2 transition hover:text-text"
+              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-3 py-1.5 text-text2 transition hover:text-text"
             >
               {chip.label}
               <span className="text-text3">×</span>
@@ -350,7 +350,7 @@ export default function EventsHub() {
       )}
 
       {staleInfo && (
-        <div className="mb-3 rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.7)] px-3 py-2 text-xs text-text2">
+        <div className="mb-3 rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.8)] px-3 py-2 text-xs text-text2">
           Показаны последние доступные данные. Обновлено {new Date(staleInfo.at).toLocaleString("ru-RU")}.
         </div>
       )}
@@ -362,7 +362,7 @@ export default function EventsHub() {
       )}
 
       {!eventsQuery.isLoading && eventsQuery.isError && !items.length ? (
-        <div className="rounded-2xl border border-border bg-[rgb(var(--surface-2-rgb)/0.7)] px-3 py-3 text-sm">
+        <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.8)] px-3 py-3 text-sm">
           <p className="text-sm">Не удалось загрузить события.</p>
           <p className="text-xs text-text2">Проверь соединение и попробуй снова.</p>
           <Button className="mt-2" onClick={() => eventsQuery.refetch()}>
@@ -397,7 +397,7 @@ export default function EventsHub() {
       ) : (
         <div className="rounded-[32px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-6 text-center">
           <p className="text-lg font-semibold text-text">Событий нет по фильтрам</p>
-          <p className="mt-1 text-[16px] text-text2">Попробуй изменить фильтры или обновить список.</p>
+          <p className="mt-1 text-[16px] text-text">Попробуй изменить фильтры или обновить список.</p>
           <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button onClick={resetFilters}>Сбросить фильтры</Button>
             <Button variant="secondary" onClick={() => eventsQuery.refetch()}>
