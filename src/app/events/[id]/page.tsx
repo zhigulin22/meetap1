@@ -3,15 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-<<<<<<< HEAD
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ExternalLink, MapPin, MessageCircleHeart, Users2 } from "lucide-react";
-=======
-import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send } from "lucide-react";
->>>>>>> origin/develop-tema
+import { CalendarClock, ExternalLink, MapPin, MessageCircleHeart, Send, Users2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { ApiClientError, api } from "@/lib/api-client";
 import type { EventListItem } from "@/components/events/types";
@@ -276,118 +270,117 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <div className="space-y-4 p-4">
+          <div className=”space-y-4 p-4”>
             {errorBanner ? (
-              <div className="rounded-xl border border-[rgb(var(--danger-rgb)/0.2)] bg-[rgb(var(--danger-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
+              <div className=”rounded-xl border border-[rgb(var(--danger-rgb)/0.2)] bg-[rgb(var(--danger-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]”>
                 {errorBanner}
               </div>
             ) : null}
 
-            {event.status && event.status !== "published" ? (
-              <div className="rounded-xl border border-[rgb(var(--warning-rgb)/0.2)] bg-[rgb(var(--warning-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--warning-rgb))]">
-                {event.status === "draft"
-                  ? "Черновик. Событие видно только вам."
-                  : event.status === "pending_review"
-                    ? "На модерации. Скоро появится в “Идём вместе”."
-                    : "Событие временно скрыто"}
+            {event.status && event.status !== “published” ? (
+              <div className=”rounded-xl border border-[rgb(var(--warning-rgb)/0.2)] bg-[rgb(var(--warning-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--warning-rgb))]”>
+                {event.status === “draft”
+                  ? “Черновик. Событие видно только вам.”
+                  : event.status === “pending_review”
+                    ? “На модерации. Скоро появится в \”Идём вместе\”.”
+                    : “Событие временно скрыто”}
               </div>
             ) : null}
 
-            <section className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
-              <p className="text-xs uppercase tracking-wide text-text3">О мероприятии</p>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-text2">
-                {event.full_description || event.short_description || "Описание скоро появится."}
+            <section className=”rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4”>
+              <p className=”text-xs uppercase tracking-wide text-text3”>О мероприятии</p>
+              <p className=”mt-2 whitespace-pre-line text-sm leading-relaxed text-text2”>
+                {event.full_description || event.short_description || “Описание скоро появится.”}
               </p>
             </section>
 
-            <section className="grid gap-2 md:grid-cols-2">
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
-                <p className="text-xs uppercase tracking-wide text-text3">Где и когда</p>
-                <p className="mt-2 text-sm text-text">{formatDate(event.starts_at)}</p>
-                {event.ends_at ? <p className="mt-1 text-xs text-text3">До {formatDate(event.ends_at)}</p> : null}
+            <section className=”grid gap-2 md:grid-cols-2”>
+              <div className=”rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4”>
+                <p className=”text-xs uppercase tracking-wide text-text3”>Где и когда</p>
+                <p className=”mt-2 text-sm text-text”>{formatDate(event.starts_at)}</p>
+                {event.ends_at ? <p className=”mt-1 text-xs text-text3”>До {formatDate(event.ends_at)}</p> : null}
                 {event.venue_name || event.venue_address ? (
-                  <p className="mt-1 text-sm text-text2">{event.venue_name || event.venue_address}</p>
+                  <p className=”mt-1 text-sm text-text2”>{event.venue_name || event.venue_address}</p>
                 ) : null}
-                {event.city ? <p className="mt-1 text-sm text-text2">{event.city}</p> : null}
+                {event.city ? <p className=”mt-1 text-sm text-text2”>{event.city}</p> : null}
               </div>
-              <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
-                <p className="text-xs uppercase tracking-wide text-text3">Стоимость и формат</p>
-                <p className="mt-2 text-sm text-text">
-                  {event.is_paid ? event.price_note || (event.price ? `от ${event.price} ₽` : "Платное") : "Бесплатно"}
+              <div className=”rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4”>
+                <p className=”text-xs uppercase tracking-wide text-text3”>Стоимость и формат</p>
+                <p className=”mt-2 text-sm text-text”>
+                  {event.is_paid ? event.price_note || (event.price ? `от ${event.price} ₽` : “Платное”) : “Бесплатно”}
                 </p>
-                {event.source_kind === "community" ? (
-                  <p className="mt-1 text-sm text-text2">Формат: {socialModeLabel(event.social_mode)}</p>
+                {event.source_kind === “community” ? (
+                  <p className=”mt-1 text-sm text-text2”>Формат: {socialModeLabel(event.social_mode)}</p>
                 ) : null}
               </div>
             </section>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-[rgb(var(--teal-rgb)/0.22)] bg-[rgb(var(--teal-rgb)/0.08)] p-3">
-                <p className="text-xs text-text3">Идут</p>
-                <p className="text-lg font-semibold text-text">{data.going_count}</p>
+            <div className=”grid grid-cols-2 gap-2”>
+              <div className=”rounded-xl border border-[rgb(var(--teal-rgb)/0.22)] bg-[rgb(var(--teal-rgb)/0.08)] p-3”>
+                <p className=”text-xs text-text3”>Идут</p>
+                <p className=”text-lg font-semibold text-text”>{data.going_count}</p>
               </div>
-              <div className="rounded-xl border border-[rgb(var(--sky-rgb)/0.22)] bg-[rgb(var(--sky-rgb)/0.08)] p-3">
-                <p className="text-xs text-text3">Ищут компанию</p>
-                <p className="text-lg font-semibold text-text">{data.companion_count}</p>
+              <div className=”rounded-xl border border-[rgb(var(--sky-rgb)/0.22)] bg-[rgb(var(--sky-rgb)/0.08)] p-3”>
+                <p className=”text-xs text-text3”>Ищут компанию</p>
+                <p className=”text-lg font-semibold text-text”>{data.companion_count}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className=”grid grid-cols-1 gap-2 sm:grid-cols-3”>
               {data.joined ? (
-                <span className="inline-flex h-11 items-center justify-center rounded-xl border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.14)] text-sm font-semibold text-text">
+                <span className=”inline-flex h-11 items-center justify-center rounded-xl border border-[rgb(var(--teal-rgb)/0.32)] bg-[rgb(var(--teal-rgb)/0.14)] text-sm font-semibold text-text”>
                   Вы идёте
                 </span>
               ) : (
-                <Button type="button" onClick={joinEvent} disabled={joining} className="h-11 text-sm">
-                  {joining ? "..." : "Я иду"}
+                <Button type=”button” onClick={joinEvent} disabled={joining} className=”h-11 text-sm”>
+                  {joining ? “...” : “Я иду”}
                 </Button>
               )}
 
-              {event.source_kind === "community" ? (
+              {event.source_kind === “community” ? (
                 <button
-                  type="button"
+                  type=”button”
                   disabled={companionLoading}
                   onClick={toggleCompanion}
                   className={`inline-flex h-11 items-center justify-center gap-1 rounded-xl border px-4 text-sm font-semibold transition disabled:opacity-60 active:scale-[0.98] ${
                     data.looking_company
-                      ? "border-[rgb(var(--teal-rgb)/0.42)] bg-[rgb(var(--teal-rgb)/0.14)] text-text"
-                      : "border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text hover:bg-[rgb(var(--surface-2-rgb))]"
+                      ? “border-[rgb(var(--teal-rgb)/0.42)] bg-[rgb(var(--teal-rgb)/0.14)] text-text”
+                      : “border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] text-text hover:bg-[rgb(var(--surface-2-rgb))]”
                   }`}
                 >
-                  <MessageCircleHeart className="h-4 w-4" />
-                  {companionLoading ? "..." : data.looking_company ? "Ищу компанию" : "Ищу с кем пойти"}
+                  <MessageCircleHeart className=”h-4 w-4” />
+                  {companionLoading ? “...” : data.looking_company ? “Ищу компанию” : “Ищу с кем пойти”}
                 </button>
               ) : event.external_url ? (
                 <a
                   href={event.external_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-11 items-center justify-center gap-1 rounded-xl border border-[rgb(var(--gold-rgb)/0.42)] bg-[rgb(var(--gold-rgb)/0.22)] px-4 text-sm font-semibold text-[rgb(244,216,140)] transition hover:brightness-[1.02] active:scale-[0.98]"
+                  target=”_blank”
+                  rel=”noreferrer”
+                  className=”inline-flex h-11 items-center justify-center gap-1 rounded-xl border border-[rgb(var(--gold-rgb)/0.42)] bg-[rgb(var(--gold-rgb)/0.22)] px-4 text-sm font-semibold text-[rgb(244,216,140)] transition hover:brightness-[1.02] active:scale-[0.98]”
                 >
                   Купить билет
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className=”h-4 w-4” />
                 </a>
               ) : null}
 
-              <Button type="button" variant="secondary" onClick={() => refetch()} className="h-11 text-sm">
-                {isFetching ? "Обновляем..." : "Обновить"}
+              <Button type=”button” variant=”secondary” onClick={() => refetch()} className=”h-11 text-sm”>
+                {isFetching ? “Обновляем...” : “Обновить”}
               </Button>
 
-              {data.is_owner && (event.status === "draft" || event.status === "pending_review") ? (
-                <Button variant="secondary" onClick={() => window.location.assign(`/events/new/create?draftId=${event.id}`)}>
+              {data.is_owner && (event.status === “draft” || event.status === “pending_review”) ? (
+                <Button variant=”secondary” onClick={() => window.location.assign(`/events/new/create?draftId=${event.id}`)}>
                   Редактировать
                 </Button>
               ) : null}
 
-              {data.is_owner && event.status === "draft" ? (
+              {data.is_owner && event.status === “draft” ? (
                 <Button
                   onClick={async () => {
                     try {
-                      await api(`/api/events/${event.id}/submit`, { method: "POST" });
+                      await api(`/api/events/${event.id}/submit`, { method: “POST” });
                       await refetch();
                     } catch (e) {
-                      setErrorBanner(e instanceof ApiClientError ? e.message : "Не удалось отправить на модерацию");
+                      setErrorBanner(e instanceof ApiClientError ? e.message : “Не удалось отправить на модерацию”);
                     }
                   }}
                 >
@@ -396,79 +389,76 @@ export default function EventDetailPage() {
               ) : null}
             </div>
 
-            <section className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4">
-              <p className="text-xs uppercase tracking-wide text-text3">Контакты</p>
-              {event.source_kind === "community" ? (
+            <section className=”rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-4”>
+              <p className=”text-xs uppercase tracking-wide text-text3”>Контакты</p>
+              {event.source_kind === “community” ? (
                 <>
-                  <p className="mt-2 text-sm text-text2">Организатор: {event.organizer_name || "Организатор"}</p>
-                  <p className="mt-1 text-sm text-text2">
-                    {event.organizer_telegram ? `Telegram: ${event.organizer_telegram}` : "Контакт организатора уточняется"}
+                  <p className=”mt-2 text-sm text-text2”>Организатор: {event.organizer_name || “Организатор”}</p>
+                  <p className=”mt-1 text-sm text-text2”>
+                    {event.organizer_telegram ? `Telegram: ${event.organizer_telegram}` : “Контакт организатора уточняется”}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-text2">Источник: {event.external_source || "Партнёрская афиша"}</p>
+                  <p className=”mt-2 text-sm text-text2”>Источник: {event.external_source || “Партнёрская афиша”}</p>
                   {event.external_url ? (
                     <a
                       href={event.external_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-sm text-[rgb(var(--sky-rgb))] hover:opacity-85"
+                      target=”_blank”
+                      rel=”noreferrer”
+                      className=”mt-2 inline-flex items-center gap-1 text-sm text-[rgb(var(--sky-rgb))] hover:opacity-85”
                     >
                       Открыть оригинал
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      <ExternalLink className=”h-3.5 w-3.5” />
                     </a>
                   ) : null}
                 </>
               )}
             </section>
 
-            <section className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3">
-              <p className="mb-2 text-sm font-semibold text-text">Кто уже идёт</p>
+            <section className=”rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.66)] p-3”>
+              <p className=”mb-2 text-sm font-semibold text-text”>Кто уже идёт</p>
               <Input
                 value={participantSearch}
                 onChange={(e) => setParticipantSearch(e.target.value)}
-                placeholder="Поиск участника"
-                className="mb-2 h-10"
+                placeholder=”Поиск участника”
+                className=”mb-2 h-10”
               />
 
-              <div className="space-y-2">
+              <div className=”space-y-2”>
                 {filteredParticipants.length ? (
                   filteredParticipants.map((person) => (
                     <Link
                       key={person.id}
                       href={`/profile/${person.id}`}
-                      className="tap-press flex items-center justify-between rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-2"
+                      className=”tap-press flex items-center justify-between rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] p-2”
                     >
-                      <span className="flex items-center gap-2 text-sm text-text">
+                      <span className=”flex items-center gap-2 text-sm text-text”>
                         <Image
-                          src={person.avatar_url || "https://placehold.co/80/f0f3ff/6b74b6?text=U"}
-                          alt={person.name || "Участник"}
+                          src={person.avatar_url || “https://placehold.co/80/f0f3ff/6b74b6?text=U”}
+                          alt={person.name || “Участник”}
                           width={40}
                           height={40}
-                          className="h-8 w-8 rounded-full border border-[rgb(var(--teal-rgb)/0.24)] object-cover"
+                          className=”h-8 w-8 rounded-full border border-[rgb(var(--teal-rgb)/0.24)] object-cover”
                           unoptimized
                         />
-                        {person.name || "Участник"}
+                        {person.name || “Участник”}
                       </span>
-                      <span className="text-xs text-text2">Профиль</span>
+                      <span className=”text-xs text-text2”>Профиль</span>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-lg border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-xs text-text2">
+                  <div className=”rounded-lg border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb))] px-3 py-2 text-xs text-text2”>
                     Участники пока не найдены по текущему фильтру.
                   </div>
                 )}
               </div>
             </section>
+
+            {data.joined && <EventChat eventId={params.id} />}
           </div>
         </div>
       </article>
-=======
-          <EventChat eventId={params.id} />
-        </CardContent>
-      </Card>
->>>>>>> origin/develop-tema
     </PageShell>
   );
 }

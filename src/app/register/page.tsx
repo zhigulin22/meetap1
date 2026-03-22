@@ -276,20 +276,6 @@ function RegisterContent() {
     setStep(ONBOARD_STEPS[idx - 1]);
   }
 
-<<<<<<< HEAD
-  return (
-    <main className="mx-auto min-h-screen w-full max-w-md px-4 py-6">
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <Card className="overflow-hidden border-borderStrong bg-surface/90 backdrop-blur-2xl">
-          <div className="h-24 bg-[radial-gradient(circle_at_15%_15%,rgb(var(--mint-rgb) / 0.35),transparent_45%),radial-gradient(circle_at_85%_15%,rgb(var(--blue-rgb) / 0.35),transparent_40%)]" />
-          <CardContent className="space-y-4 p-5">
-            <div>
-              <h1 className="text-2xl font-semibold">Вход в Meetap</h1>
-              <p className="text-sm text-muted">Как в Telegram: номер, код из бота, затем имя для нового аккаунта.</p>
-              <Link href="/login" className="mt-1 block text-sm text-action underline">
-                Войти по номеру и паролю
-              </Link>
-=======
   // ── Shared styles ─────────────────────────────────────────────────────────────
   const inputCls = "w-full rounded-xl border border-[#7c3aed]/25 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-muted/50 focus:border-[#7c3aed]/60 focus:ring-2 focus:ring-[#7c3aed]/20";
   const btnPrimary = "w-full rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#3b82f6] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#7c3aed]/30 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50";
@@ -345,7 +331,6 @@ function RegisterContent() {
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-6 text-xs text-muted/50">
                 Переходим в ленту...
               </motion.p>
->>>>>>> origin/develop-tema
             </div>
           )}
 
@@ -360,27 +345,6 @@ function RegisterContent() {
                 <p className="text-xs text-muted">
                   Шаг {onboardIdx + 1} из {ONBOARD_STEPS.length} · {ONBOARD_LABELS[step as OnboardStep]}
                 </p>
-<<<<<<< HEAD
-
-                {telegramDeepLink ? (
-                  <a
-                    href={telegramDeepLink}
-                    target="_blank"
-                    className="inline-flex rounded-lg border border-border bg-surface2/56 px-3 py-2 text-sm text-action hover:bg-surface2/72"
-                  >
-                    Открыть Telegram-бота
-                  </a>
-                ) : null}
-
-                <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
-                <Button onClick={() => submitCode(false)} disabled={loading} className="w-full">
-                  Продолжить
-                </Button>
-                <Button variant="secondary" onClick={reset} className="w-full">
-                  Изменить номер
-                </Button>
-=======
->>>>>>> origin/develop-tema
               </div>
 
               {/* Card */}

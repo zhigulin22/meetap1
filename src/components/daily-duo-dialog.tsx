@@ -75,19 +75,12 @@ export function DailyDuoDialog({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-<<<<<<< HEAD
-=======
   const pinchDistRef = useRef<number | null>(null);
   const pinchZoomStartRef = useRef<number>(1);
 
-  const [captureStep, setCaptureStep] = useState<CaptureStep>("front");
-  const [phase, setPhase] = useState<Phase>("capture_front");
-  const [facing, setFacing] = useState<"user" | "environment">("user");
-  const [zoom, setZoom] = useState(1);
->>>>>>> origin/develop-tema
-
   const [phase, setPhase] = useState<Phase>("capture");
   const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [zoom, setZoom] = useState(1);
   const [photo, setPhoto] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("none");
@@ -215,26 +208,12 @@ export function DailyDuoDialog({
 
     if (!blob) return;
 
-<<<<<<< HEAD
     setPhoto(fileFromBlob(blob, `photo-${Date.now()}.jpg`));
-=======
-    if (captureStep === "front") {
-      setFront(fileFromBlob(blob, `front-${Date.now()}.jpg`));
-      setCaptureStep("back");
-      setPhase("capture_back");
-      setFacing("environment");
-      setZoom(1);
-      return;
-    }
-
-    setBack(fileFromBlob(blob, `back-${Date.now()}.jpg`));
->>>>>>> origin/develop-tema
     setPhase("edit");
   }
 
   function onGalleryPick(file?: File) {
     if (!file) return;
-<<<<<<< HEAD
     setPhoto(file);
     setPhase("edit");
   }
@@ -242,35 +221,6 @@ export function DailyDuoDialog({
   function resetToCapture() {
     setPhoto(null);
     setPhase("capture");
-=======
-    if (captureStep === "front") {
-      setFront(file);
-      setCaptureStep("back");
-      setPhase("capture_back");
-      setFacing("environment");
-      setZoom(1);
-      return;
-    }
-
-    setBack(file);
-    setPhase("edit");
-  }
-
-  function resetTo(step: CaptureStep) {
-    if (step === "front") {
-      setFront(null);
-      setBack(null);
-      setCaptureStep("front");
-      setPhase("capture_front");
-      setFacing("user");
-      setZoom(1);
-      return;
-    }
-
-    setBack(null);
-    setCaptureStep("back");
-    setPhase("capture_back");
-    setFacing("environment");
     setZoom(1);
   }
 
@@ -303,7 +253,6 @@ export function DailyDuoDialog({
 
   function handleTouchEnd() {
     pinchDistRef.current = null;
->>>>>>> origin/develop-tema
   }
 
   async function publish() {
@@ -363,31 +312,11 @@ export function DailyDuoDialog({
 
             {/* Top gradient */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
-<<<<<<< HEAD
-            <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
-              <button onClick={() => onOpenChange(false)} className="rounded-full bg-black/45 px-3 py-1 text-sm">
-                Закрыть
-              </button>
-              <div className="rounded-full bg-black/45 px-3 py-1 text-xs">Сделай кадр</div>
-=======
             {/* Bottom gradient */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/75 to-transparent" />
 
-            {/* Front photo thumbnail — shown only in step 2 */}
-            {phase === "capture_back" && frontPreview && (
-              <div className="absolute left-4 top-20 z-10">
-                <div className="relative h-20 w-[52px] overflow-hidden rounded-xl border-2 border-white/40 shadow-lg">
-                  <img src={frontPreview} alt="front" className="h-full w-full object-cover" />
-                  <div className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#52CC83] text-[9px] font-bold text-[#04120a]">
-                    1
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Top controls */}
             <div className="absolute left-0 right-0 top-5 flex items-center justify-between px-4">
->>>>>>> origin/develop-tema
               <button
                 onClick={() => onOpenChange(false)}
                 className="rounded-full bg-black/50 px-3 py-1.5 text-sm backdrop-blur-sm"

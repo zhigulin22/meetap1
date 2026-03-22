@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-<<<<<<< HEAD
-import { Calendar, Home, MessageCircle, Search, User } from "lucide-react";
-=======
-import { Calendar, Home, MessageSquare, Search, User } from "lucide-react";
->>>>>>> origin/develop-tema
+import { Calendar, Home, MessageCircle, MessageSquare, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -34,13 +30,8 @@ export function BottomTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-<<<<<<< HEAD
               "tap-press flex min-w-16 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-1.5 text-[11px] transition",
               active ? "text-text" : "text-text3 hover:text-text2",
-=======
-              "flex min-w-12 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[10px] transition",
-              active ? "bg-white/10 text-action" : "text-muted hover:text-text",
->>>>>>> origin/develop-tema
             )}
           >
             <span
