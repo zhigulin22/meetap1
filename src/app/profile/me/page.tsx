@@ -139,7 +139,7 @@ export default function MyProfilePage() {
               <Sparkles className="h-4 w-4" /> {stats.connects + 40}% профиль
             </div>
 
-            <div className="absolute bottom-5 left-5 right-5 space-y-3">
+            <div className="absolute bottom-5 left-5 right-5 flex flex-col gap-3">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h1 className="text-3xl font-semibold text-white">
@@ -147,17 +147,6 @@ export default function MyProfilePage() {
                     {age ? <span className="ml-2 text-lg text-text2">{age}</span> : null}
                   </h1>
                   {profile?.username ? <p className="text-sm text-text2">@{profile.username}</p> : null}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => router.push("/profile/me/edit")} className="h-12 px-6">Редактировать</Button>
-                  <Button variant="secondary" onClick={() => router.push("/settings")} className="h-12 px-6">
-                    <Settings className="mr-1 h-4 w-4" /> Настройки
-                  </Button>
-                  {isAdmin ? (
-                    <Button variant="secondary" onClick={() => router.push("/admin")} className="h-12 px-6">
-                      Открыть Admin
-                    </Button>
-                  ) : null}
                 </div>
               </div>
 
@@ -192,6 +181,19 @@ export default function MyProfilePage() {
           </div>
 
           <CardContent className="space-y-4 p-6">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button onClick={() => router.push("/profile/me/edit")} className="h-11 px-6">
+                Редактировать
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/settings")} className="h-11 px-6">
+                <Settings className="mr-1 h-4 w-4" /> Настройки
+              </Button>
+              {isAdmin ? (
+                <Button variant="secondary" onClick={() => router.push("/admin")} className="h-11 px-6">
+                  Открыть Admin
+                </Button>
+              ) : null}
+            </div>
             {(goal || psychSummary) ? (
               <div className="grid gap-2 md:grid-cols-2">
                 {goal ? (
