@@ -1,5 +1,4 @@
 import { z } from "zod";
-import OpenAI from "openai";
 import { fail, ok } from "@/lib/http";
 import { getServerEnv } from "@/lib/env";
 import { requireAdminUserId } from "@/server/admin";
@@ -8,6 +7,61 @@ import { supabaseAdmin } from "@/supabase/admin";
 const schema = z.object({
   question: z.string().min(3).max(1000),
 });
+
+type AssistantResponse = {
+  summary: string;
+  risks: string[];
+  actions: string[];
+  queries: string[];
+};
+
+const fallback: AssistantResponse = {
+  summary: "AI не ответил вовремя. Используйте готовые метрики ниже.",
+  risks: ["Проверьте открытые флаги и резкий рост жалоб"],
+  actions: ["Проверить top events", "Проверить пользователей с высоким числом флагов"],
+  queries: ["поиск: наркот", "поиск: взрыв", "поиск: заклад"],
+};
+
+function stripTrailingSlash(url: string) {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+async function askPythonAssistant(question: string, snapshot: Record<string, unknown>) {
+  const env = getServerEnv();
+  const baseUrl = stripTrailingSlash(env.AI_SERVICE_URL);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const response = await fetch(`${baseUrl}/v1/admin-assistant`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question, snapshot }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI service failed with status ${response.status}`);
+    }
+
+    const body = (await response.json()) as Partial<AssistantResponse>;
+
+    if (!body.summary || !Array.isArray(body.risks) || !Array.isArray(body.actions) || !Array.isArray(body.queries)) {
+      return fallback;
+    }
+
+    return {
+      summary: String(body.summary),
+      risks: body.risks.map((x) => String(x)).slice(0, 8),
+      actions: body.actions.map((x) => String(x)).slice(0, 8),
+      queries: body.queries.map((x) => String(x)).slice(0, 8),
+    } satisfies AssistantResponse;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -43,47 +97,17 @@ export async function POST(req: Request) {
       users_total: usersCount.count ?? 0,
       open_flags: openFlagsCount.count ?? 0,
       blocked_users: blockedCount.count ?? 0,
-      top_events: [...eventMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
+      top_events: [...eventMap.entries()].sort((a: any, b: any) => b[1] - a[1]).slice(0, 10),
       recent_flags: recentFlags.data ?? [],
       recent_comments: recentComments.data ?? [],
     };
 
-    const env = getServerEnv();
-    const client = new OpenAI({
-      apiKey: env.DEEPSEEK_API_KEY,
-      baseURL: env.DEEPSEEK_BASE_URL,
-    });
-
-    const system = `Ты AI-ассистент админ-панели социальной сети офлайн-знакомств.
-Твоя задача: помогать с метриками, конверсиями, рисками безопасности и приоритетами продукта.
-Нельзя раскрывать лишние персональные данные.
-Ответ строго в JSON: { "summary": string, "risks": string[], "actions": string[], "queries": string[] }`;
-
-    const userMsg = `Вопрос: ${parsed.data.question}\nДанные: ${JSON.stringify(snapshot).slice(0, 12000)}`;
-
-    const response = await Promise.race([
-      client.chat.completions.create({
-        model: "deepseek-chat",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: userMsg },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
-      }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
-    ]);
-
-    if (!response) {
-      return ok({
-        summary: "AI не ответил вовремя. Используйте готовые метрики ниже.",
-        risks: ["Проверьте открытые флаги и резкий рост жалоб"],
-        actions: ["Проверить top events", "Проверить пользователей с высоким числом флагов"],
-        queries: ["поиск: наркот", "поиск: взрыв", "поиск: заклад"],
-      });
+    try {
+      const result = await askPythonAssistant(parsed.data.question, snapshot);
+      return ok(result);
+    } catch {
+      return ok(fallback);
     }
-
-    return ok(JSON.parse(response.choices[0]?.message?.content ?? "{}"));
   } catch {
     return fail("Forbidden", 403);
   }

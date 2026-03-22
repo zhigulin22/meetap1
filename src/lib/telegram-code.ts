@@ -1,7 +1,9 @@
 import { createHash } from "crypto";
 
 export function buildTelegramCode(token: string) {
-  const digest = createHash("sha256").update(`meetap:${token}`).digest("hex");
-  const num = Number.parseInt(digest.slice(0, 12), 16) % 1_000_000;
-  return String(num).padStart(6, "0");
+  const normalized = token.trim();
+  const hash = createHash("sha256").update(normalized).digest("hex");
+  const base10 = parseInt(hash.slice(0, 12), 16);
+  const code = (base10 % 1_000_000).toString().padStart(6, "0");
+  return code;
 }

@@ -24,7 +24,6 @@ export async function POST(req: Request) {
 
   const { login, password } = parsed.data;
 
-  // Determine if login is a phone number or username
   const cleaned = login.replace(/[\s()-]/g, "");
   const isPhone = phoneRegex.test(cleaned.startsWith("+") ? cleaned : `+${cleaned}`);
   const isUsername = usernameRegex.test(login.toLowerCase());
@@ -33,20 +32,20 @@ export async function POST(req: Request) {
     return fail("Введи номер телефона или имя пользователя", 422);
   }
 
-  let user: { id: string; password_hash: string | null } | null = null;
+  let user: { id: string; password_hash: string | null; is_blocked?: boolean; blocked_until?: string | null; deleted_at?: string | null } | null = null;
 
   if (isPhone) {
     const phone = cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
     const { data } = await supabaseAdmin
       .from("users")
-      .select("id,password_hash")
+      .select("id,password_hash,is_blocked,blocked_until,deleted_at")
       .eq("phone", phone)
       .maybeSingle();
     user = data;
   } else {
     const { data } = await supabaseAdmin
       .from("users")
-      .select("id,password_hash")
+      .select("id,password_hash,is_blocked,blocked_until,deleted_at")
       .eq("username", login.toLowerCase())
       .maybeSingle();
     user = data;
@@ -54,6 +53,13 @@ export async function POST(req: Request) {
 
   if (!user?.id || !user.password_hash) {
     return fail("Пользователь не найден или пароль не настроен", 404);
+  }
+
+  const blockedUntil = user.blocked_until ? new Date(user.blocked_until).getTime() : null;
+  const blocked = Boolean(user.is_blocked) && (!blockedUntil || blockedUntil > Date.now());
+
+  if (blocked || user.deleted_at) {
+    return fail("Аккаунт ограничен", 403);
   }
 
   const valid = verifyPassword(password, user.password_hash);

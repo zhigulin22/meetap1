@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Brain, Sparkles } from "lucide-react";
+import { Brain, ChevronLeft, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,46 +19,91 @@ type Question = {
   trait: Trait;
   reverse?: boolean;
   text: string;
+  group: string;
 };
 
 const QUESTIONS: Question[] = [
-  { id: "q1", trait: "openness", text: "Мне интересно исследовать новые подходы и идеи" },
-  { id: "q2", trait: "openness", reverse: true, text: "Я избегаю всего незнакомого" },
-  { id: "q3", trait: "conscientiousness", text: "Я предпочитаю планировать и доводить дела до конца" },
-  { id: "q4", trait: "conscientiousness", reverse: true, text: "Мне сложно держать структуру и режим" },
-  { id: "q5", trait: "extraversion", text: "Я быстро включаюсь в общение с новыми людьми" },
-  { id: "q6", trait: "extraversion", reverse: true, text: "После общения с людьми я чаще устаю" },
-  { id: "q7", trait: "agreeableness", text: "Мне важно быть деликатным и учитывать эмоции других" },
-  { id: "q8", trait: "agreeableness", reverse: true, text: "В споре я чаще иду жёстко до конца" },
-  { id: "q9", trait: "neuroticism", text: "Я легко начинаю переживать из-за неопределённости" },
-  { id: "q10", trait: "neuroticism", reverse: true, text: "Я обычно сохраняю спокойствие в стрессовых ситуациях" },
-  { id: "q11", trait: "openness", text: "Люблю обсуждать смыслы, ценности, долгие идеи" },
-  { id: "q12", trait: "agreeableness", text: "Мне важно строить контакт через доверие и уважение" },
-  { id: "q13", trait: "extraversion", text: "Мне нравится знакомиться в офлайн-движении (ивенты, прогулки)" },
-  { id: "q14", trait: "conscientiousness", text: "Для меня важны договорённости и пунктуальность" },
-  { id: "q15", trait: "neuroticism", reverse: true, text: "Даже в сложном диалоге я умею сохранять баланс" },
+  { id: "q1", trait: "openness", text: "Мне интересно пробовать новые форматы: прогулки, воркшопы, камерные встречи", group: "Интересы" },
+  { id: "q2", trait: "openness", reverse: true, text: "Я предпочитаю знакомиться в привычных и проверенных местах", group: "Интересы" },
+
+  { id: "q3", trait: "extraversion", text: "Я легко завожу разговор с новыми людьми вживую", group: "Социальная энергия" },
+  { id: "q4", trait: "extraversion", reverse: true, text: "Мне комфортнее общаться один на один, чем в группе", group: "Социальная энергия" },
+
+  { id: "q5", trait: "conscientiousness", text: "Если договорились о встрече, я придерживаюсь плана", group: "Надёжность" },
+  { id: "q6", trait: "conscientiousness", reverse: true, text: "Я часто меняю планы в последний момент", group: "Надёжность" },
+
+  { id: "q7", trait: "openness", text: "Мне интереснее люди с нестандартными хобби и опытом", group: "Интересы" },
+  { id: "q8", trait: "openness", reverse: true, text: "Я быстрее сближаюсь с людьми, похожими на меня", group: "Интересы" },
+
+  { id: "q9", trait: "extraversion", text: "Мне нравится знакомиться через события и активные активности", group: "Активность" },
+  { id: "q10", trait: "extraversion", reverse: true, text: "Мне ближе спокойные форматы без шума и людей", group: "Активность" },
+
+  { id: "q11", trait: "conscientiousness", text: "Я люблю заранее понимать план встречи: где, когда, сколько", group: "Темп" },
+  { id: "q12", trait: "conscientiousness", reverse: true, text: "Спонтанные встречи мне обычно даются легче", group: "Темп" },
+
+  { id: "q13", trait: "agreeableness", text: "В общении мне важны уважение и мягкая подача", group: "Стиль общения" },
+  { id: "q14", trait: "agreeableness", reverse: true, text: "Я предпочитаю прямой и жёсткий стиль общения", group: "Стиль общения" },
+
+  { id: "q15", trait: "neuroticism", text: "Если человек долго не отвечает, я начинаю тревожиться", group: "Комфорт" },
+  { id: "q16", trait: "neuroticism", reverse: true, text: "Я спокойно отношусь к паузам в переписке", group: "Комфорт" },
+
+  { id: "q17", trait: "openness", text: "Мне нравится, когда у встречи есть общий смысл: тема, проект, событие", group: "Контекст" },
+  { id: "q18", trait: "openness", reverse: true, text: "Мне легче общаться без заранее заданной темы", group: "Контекст" },
+
+  { id: "q19", trait: "extraversion", text: "После общения мне обычно хочется продолжить контакт", group: "Связь" },
+  { id: "q20", trait: "extraversion", reverse: true, text: "Часто я не хочу продолжать общение после первого знакомства", group: "Связь" },
 ];
 
 const OPTIONS = [
-  { value: 1, label: "Совсем не про меня" },
-  { value: 2, label: "Скорее нет" },
-  { value: 3, label: "Частично" },
-  { value: 4, label: "Скорее да" },
-  { value: 5, label: "Очень похоже" },
+  { value: 1, short: "1", label: "Совсем не про меня" },
+  { value: 2, short: "2", label: "Скорее нет" },
+  { value: 3, short: "3", label: "Нейтрально" },
+  { value: 4, short: "4", label: "Скорее да" },
+  { value: 5, short: "5", label: "Полностью про меня" },
 ];
+
+const PER_STEP = 2;
+
+function chunk<T>(arr: T[], size: number) {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function scoreTrait(answers: Record<string, number>, trait: Trait) {
+  const items = QUESTIONS.filter((q) => q.trait === trait);
+  if (!items.length) return 0;
+  const sum = items.reduce((acc, q) => {
+    const val = answers[q.id] ?? 0;
+    const normalized = q.reverse ? 6 - val : val;
+    return acc + normalized;
+  }, 0);
+  return Math.round((sum / (items.length * 5)) * 100);
+}
 
 export default function PsychTestPage() {
   const router = useRouter();
+  const [agreed, setAgreed] = useState(false);
+  const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [openAnswers, setOpenAnswers] = useState({
-    social_goal: "",
-    deal_breakers: "",
-    conversation_topics: "",
-  });
+  const [openAnswers, setOpenAnswers] = useState({ social_goal: "", deal_breakers: "", conversation_topics: "" });
   const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setAgreed(params.get("agree") === "1");
+  }, []);
+
+  const chunks = useMemo(() => chunk(QUESTIONS, PER_STEP), []);
+  const totalSteps = chunks.length + 1;
+  const progress = Math.round(((step + 1) / totalSteps) * 100);
+  const currentChunk = chunks[step] ?? null;
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
   const ready = answeredCount >= QUESTIONS.length;
+  const canGoNext = currentChunk ? currentChunk.every((q) => Boolean(answers[q.id])) : true;
+  const stepLabel = `Шаг ${Math.min(step + 1, totalSteps)} из ${totalSteps}`;
 
   async function submit() {
     if (!ready) {
@@ -79,7 +125,9 @@ export default function PsychTestPage() {
           openAnswers,
         }),
       });
-      router.push("/profile/me");
+
+      localStorage.removeItem("meetap_psych_reminder_until");
+      setSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка сохранения теста");
     } finally {
@@ -87,76 +135,166 @@ export default function PsychTestPage() {
     }
   }
 
+  if (!agreed) {
+    return (
+      <PageShell>
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <h1 className="font-display text-lg font-semibold text-text">Перед тестом нужно пройти интро</h1>
+            <p className="text-sm text-muted">Открой страницу психотеста из настроек профиля, прочитай зачем он нужен и подтверди согласие.</p>
+            <Link href="/profile/me/psych-test" className="block">
+              <Button className="w-full">Перейти к интро</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
+  if (saved) {
+    const summary = [
+      { label: "Открытость", value: scoreTrait(answers, "openness") },
+      { label: "Надёжность", value: scoreTrait(answers, "conscientiousness") },
+      { label: "Социальная энергия", value: scoreTrait(answers, "extraversion") },
+      { label: "Эмпатия", value: scoreTrait(answers, "agreeableness") },
+      { label: "Стресс-устойчивость", value: 100 - scoreTrait(answers, "neuroticism") },
+    ];
+
+    return (
+      <PageShell>
+        <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
+          <CardContent className="space-y-4 p-6 text-center">
+            <CheckCircle2 className="mx-auto h-10 w-10 text-[rgb(var(--teal-rgb))]" />
+            <h1 className="text-2xl font-semibold">Психопрофиль обновлён</h1>
+            <p className="text-sm text-text2">Мы используем ответы для рекомендаций и совместимости.</p>
+            <div className="grid gap-2 text-left">
+              {summary.map((item) => (
+                <div key={item.label} className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.75)] px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-text2">{item.label}</span>
+                    <span className="font-semibold text-text">{item.value}%</span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-[rgb(var(--surface-3-rgb)/0.6)]">
+                    <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))]" style={{ width: `${item.value}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button onClick={() => router.push("/profile/me")}>В профиль</Button>
+              <Button variant="secondary" onClick={() => router.push("/contacts")}>К людям</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-        <Card className="overflow-hidden border-white/20">
-          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgba(82,204,131,0.38),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(93,121,235,0.5),transparent_45%),linear-gradient(130deg,#0a1238,#0a1b43)]" />
+        <Card className="overflow-hidden border-borderStrong">
+          <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,rgb(var(--violet-rgb)/0.32),transparent_45%),radial-gradient(circle_at_80%_20%,rgb(var(--sky-rgb)/0.45),transparent_45%),linear-gradient(130deg,rgb(var(--surface-2-rgb)),rgb(var(--surface-3-rgb)))]" />
           <CardContent className="-mt-8 space-y-2 p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-white/25 bg-black/20 p-2"><Brain className="h-5 w-5" /></div>
-              <h1 className="text-xl font-semibold">Психологический профиль знакомства</h1>
+              <div className="rounded-xl border border-border bg-[rgb(var(--surface-1-rgb)/0.6)] p-2"><Brain className="h-5 w-5" /></div>
+              <h1 className="text-xl font-semibold">Психологический профиль</h1>
             </div>
-            <p className="text-sm text-muted">
-              Основа: валидированные черты Big Five (адаптированная короткая форма для соцсценариев).
-            </p>
-            <p className="text-xs text-muted">Заполнено: {answeredCount}/{QUESTIONS.length}</p>
+            <p className="text-sm text-muted">Шкала 1–5: 1 — не про меня, 5 — полностью про меня.</p>
+            <div className="mt-2 h-2 w-full rounded-full bg-[rgb(var(--surface-3-rgb)/0.6)]">
+              <div className="h-2 rounded-full bg-[linear-gradient(90deg,rgb(var(--sky-rgb)),rgb(var(--violet-rgb)))]" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>{stepLabel}</span>
+              <span>Заполнено: {answeredCount}/{QUESTIONS.length}</span>
+            </div>
           </CardContent>
         </Card>
 
-        {QUESTIONS.map((q, idx) => (
-          <Card key={q.id} className="border-white/10">
+        {currentChunk ? (
+          <Card className="border-border">
             <CardContent className="space-y-3 p-4">
-              <p className="text-sm font-medium">{idx + 1}. {q.text}</p>
-              <div className="grid grid-cols-1 gap-2">
-                {OPTIONS.map((option) => {
-                  const active = answers[q.id] === option.value;
-                  return (
-                    <button
-                      key={`${q.id}-${option.value}`}
-                      onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
-                      className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                        active
-                          ? "border-[#52CC83]/70 bg-[#52CC83]/18 text-[#dfffea]"
-                          : "border-border bg-black/10 text-muted hover:bg-white/5"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+              <div>
+                <p className="text-sm font-semibold text-text">{currentChunk[0]?.group}</p>
+                <p className="text-xs text-text2">Ответь честно — это улучшит рекомендации</p>
+              </div>
+              <div className="space-y-3">
+                {currentChunk.map((q) => (
+                  <div key={q.id} className="rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.7)] p-3">
+                    <p className="text-sm font-medium">{q.text}</p>
+                    <div className="mt-3 grid grid-cols-5 gap-2">
+                      {OPTIONS.map((option) => {
+                        const active = answers[q.id] === option.value;
+                        return (
+                          <button
+                            key={`${q.id}-${option.value}`}
+                            onClick={() => setAnswers((s) => ({ ...s, [q.id]: option.value }))}
+                            className={`rounded-xl border px-0 py-2 text-center text-sm transition ${
+                              active
+                                ? "border-[rgb(var(--violet-rgb)/0.7)] bg-[rgb(var(--violet-rgb)/0.3)] text-white"
+                                : "border-border bg-[rgb(var(--surface-1-rgb)/0.7)] text-text2 hover:bg-[rgb(var(--surface-2-rgb)/0.8)]"
+                            }`}
+                          >
+                            {option.short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-text3">
+                      <span>1 — не про меня</span>
+                      <span>3 — нейтрально</span>
+                      <span>5 — полностью про меня</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-        ))}
-
-        <Card className="border-white/10">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-action" />
-              <p className="text-sm font-semibold">Дополнительные ответы (свободная форма)</p>
-            </div>
-            <Textarea
-              placeholder="Какой формат знакомства для тебя сейчас важнее всего?"
-              value={openAnswers.social_goal}
-              onChange={(e) => setOpenAnswers((s) => ({ ...s, social_goal: e.target.value }))}
-            />
-            <Textarea
-              placeholder="Что точно не подходит в общении / знакомствах?"
-              value={openAnswers.deal_breakers}
-              onChange={(e) => setOpenAnswers((s) => ({ ...s, deal_breakers: e.target.value }))}
-            />
-            <Textarea
-              placeholder="На какие темы тебе легче всего начать разговор?"
-              value={openAnswers.conversation_topics}
-              onChange={(e) => setOpenAnswers((s) => ({ ...s, conversation_topics: e.target.value }))}
-            />
-          </CardContent>
-        </Card>
+        ) : (
+          <Card className="border-border">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-action" />
+                <p className="text-sm font-semibold">Дополнительные ответы</p>
+              </div>
+              <Textarea
+                placeholder="Какой формат знакомства для тебя сейчас важнее всего?"
+                value={openAnswers.social_goal}
+                onChange={(e) => setOpenAnswers((s) => ({ ...s, social_goal: e.target.value }))}
+              />
+              <Textarea
+                placeholder="Что точно не подходит в общении / знакомствах?"
+                value={openAnswers.deal_breakers}
+                onChange={(e) => setOpenAnswers((s) => ({ ...s, deal_breakers: e.target.value }))}
+              />
+              <Textarea
+                placeholder="На какие темы тебе легче всего начать разговор?"
+                value={openAnswers.conversation_topics}
+                onChange={(e) => setOpenAnswers((s) => ({ ...s, conversation_topics: e.target.value }))}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-2 gap-2 pb-2">
-          <Button variant="secondary" onClick={() => router.push("/profile/me")}>Назад</Button>
-          <Button onClick={submit} disabled={loading || !ready}>{loading ? "Сохраняем..." : "Сохранить тест"}</Button>
+          {step === 0 ? (
+            <Link href="/profile/me/psych-test" className="block">
+              <Button variant="secondary" className="w-full">Назад</Button>
+            </Link>
+          ) : (
+            <Button variant="secondary" className="w-full" onClick={() => setStep((s) => Math.max(0, s - 1))}>
+              <ChevronLeft className="mr-1 h-4 w-4" /> Назад
+            </Button>
+          )}
+          {step < chunks.length ? (
+            <Button onClick={() => canGoNext && setStep((s) => s + 1)} disabled={!canGoNext}>
+              Далее <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={submit} disabled={loading || !ready}>
+              {loading ? "Сохраняем..." : "Сохранить тест"}
+            </Button>
+          )}
         </div>
       </motion.div>
     </PageShell>
