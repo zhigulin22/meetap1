@@ -262,7 +262,7 @@ export default function ProfilePage() {
               {showInterests ? (
                 <div className="flex flex-wrap gap-2">
                   {keyInterests.slice(0, 6).map((interest: string) => (
-                    <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-2.5 py-1 text-xs text-text">
+                    <span key={interest} className="rounded-full border border-[rgb(var(--violet-rgb)/0.6)] bg-[linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.2))] px-3 py-1 text-xs font-semibold text-white shadow-[0_0_12px_rgba(99,102,241,0.25)]">
                       {interest}
                     </span>
                   ))}
@@ -341,7 +341,7 @@ export default function ProfilePage() {
               <p className="text-sm font-semibold text-text">Повод написать</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {icebreakers.slice(0, 3).map((item) => (
-                  <span key={item} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
+                  <span key={item} className="rounded-full border border-[rgb(var(--violet-rgb)/0.5)] bg-[linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.16))] px-3 py-1 text-xs font-semibold text-text shadow-[0_0_10px_rgba(99,102,241,0.2)]">
                     {item}
                   </span>
                 ))}
@@ -428,9 +428,13 @@ export default function ProfilePage() {
               <p className="text-sm font-semibold text-text">Факты</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {facts.slice(0, 6).map((fact: string) => (
-                  <span key={fact} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
-                    {fact}
-                  </span>
+                  <div
+                    key={fact}
+                    className="flex items-center gap-2 rounded-2xl border border-[rgb(var(--violet-rgb)/0.5)] bg-[linear-gradient(160deg,rgba(20,26,54,0.9),rgba(12,16,36,0.9))] px-3 py-2 text-xs font-medium text-text shadow-[0_0_12px_rgba(99,102,241,0.2)]"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-[rgb(var(--violet-rgb))]" />
+                    <span className="text-text">{fact}</span>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -443,7 +447,7 @@ export default function ProfilePage() {
               <p className="text-sm font-semibold text-text">Интересы</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {keyInterests.map((interest: string) => (
-                  <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.85)] px-2.5 py-1 text-xs text-text2">
+                  <span key={interest} className="rounded-full border border-[rgb(var(--violet-rgb)/0.5)] bg-[linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.16))] px-3 py-1 text-xs font-semibold text-text shadow-[0_0_10px_rgba(99,102,241,0.2)]">
                     {interest}
                   </span>
                 ))}

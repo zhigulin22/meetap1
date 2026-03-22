@@ -171,7 +171,7 @@ export default function MyProfilePage() {
               {interests.length ? (
                 <div className="flex flex-wrap gap-2">
                   {interests.map((interest: string) => (
-                    <span key={interest} className="rounded-full border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.9)] px-2.5 py-1 text-xs text-text">
+                    <span key={interest} className="rounded-full border border-[rgb(var(--violet-rgb)/0.6)] bg-[linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.2))] px-3 py-1 text-xs font-semibold text-white shadow-[0_0_12px_rgba(99,102,241,0.25)]">
                       {interest}
                     </span>
                   ))}
