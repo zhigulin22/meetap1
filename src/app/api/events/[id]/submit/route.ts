@@ -223,7 +223,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       .maybeSingle();
 
     if (existing.data?.id) {
-      await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
+      await updateEvent(params.id, { status: "pending", moderation_status: "pending" });
       const sendRes = await sendEventSubmissionToTelegramModerationBot({
         id: existing.data.id,
         title: merged.title,
@@ -280,7 +280,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         payment_note: (event as any).payment_note ?? null,
         cover_urls: coverUrls,
         cover_image_url: coverUrls[0] ?? null,
-        status: "pending_review",
+        status: "pending",
         moderation_status: "pending",
         trust_confirmed: true,
         metadata: { source: "event-submit", event_id: params.id, organizer_fee_confirmed: Boolean(body?.organizer_fee_confirmed), organizer_fee_payment_id: body?.organizer_fee_payment_id ?? null },
@@ -295,7 +295,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return fail(ins.error?.message ?? "Не удалось создать заявку", 500);
     }
 
-    await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
+    await updateEvent(params.id, { status: "pending", moderation_status: "pending" });
 
     const sendRes = await sendEventSubmissionToTelegramModerationBot({
       id: ins.data.id,

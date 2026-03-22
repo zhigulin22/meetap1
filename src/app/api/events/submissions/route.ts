@@ -165,7 +165,7 @@ export async function POST(req: Request) {
         moderator_comment: parsed.data.moderator_comment ?? null,
         trust_confirmed: parsed.data.trust_confirmed,
         moderation_status: "pending",
-        status: "pending_review",
+        status: "pending",
         metadata: { source: "app", version: "events-v3", organizer_fee_confirmed: Boolean(parsed.data.organizer_fee_confirmed) },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
