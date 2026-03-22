@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Home, MessageCircle, MessageSquare, Search, User } from "lucide-react";
+import { Calendar, Home, MessageCircle, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -10,7 +10,6 @@ const tabs = [
   { href: "/events", label: "Ивенты", icon: Calendar },
   { href: "/chats", label: "Чаты", icon: MessageCircle },
   { href: "/contacts", label: "Люди", icon: Search },
-  { href: "/messages", label: "Чаты", icon: MessageSquare },
   { href: "/profile/me", label: "Профиль", icon: User },
 ];
 

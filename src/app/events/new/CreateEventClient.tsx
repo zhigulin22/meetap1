@@ -469,7 +469,7 @@ function CreateEventPageInner() {
         <div className="mx-auto max-w-xl rounded-3xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)] p-6 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-[rgb(var(--teal-rgb))]" />
           <h1 className="mt-3 text-2xl font-semibold">Событие отправлено на модерацию</h1>
-          <p className="mt-2 text-sm text-text2">Модератор проверит событие и опубликует в разделе “Идём вместе”.</p>
+          <p className="mt-2 text-sm text-text2">Модератор проверит событие и опубликует в разделе "Идём вместе".</p>
           {uploadWarning && (
             <p className="mt-2 text-xs text-[rgb(var(--warning-rgb))]">Обложка не загружена: {uploadWarning}</p>
           )}

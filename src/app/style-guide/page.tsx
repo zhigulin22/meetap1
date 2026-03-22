@@ -15,7 +15,7 @@ export default function StyleGuidePage() {
           <CardHeader><CardTitle>Палитра и зоны</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-text2">
             <p><strong className="text-text">Base:</strong> светлая база, blue/violet как identity-акценты.</p>
-            <p><strong className="text-text">Event Gold:</strong> только события и CTA “Пойти”.</p>
+            <p><strong className="text-text">Event Gold:</strong> только события и CTA "Пойти".</p>
             <p><strong className="text-text">Badge Violet/Citrus:</strong> только достижения и момент получения.</p>
             <div className="flex flex-wrap gap-2 pt-1">
               <Pill tone="teal">violet accent</Pill>
@@ -39,7 +39,7 @@ export default function StyleGuidePage() {
           <CardContent className="space-y-2 text-sm text-text2">
             <p>Buttons: primary blue, secondary violet outline, ghost violet, destructive red.</p>
             <p>Tabs: pill with active blue→violet gradient + subtle glow.</p>
-            <p>Cards: light surfaces + dual edge, не плоский “telegram list”.</p>
+            <p>Cards: light surfaces + dual edge, не плоский "telegram list".</p>
             <p>Empty states: причина + что сделать + куда нажать.</p>
           </CardContent>
         </Card>

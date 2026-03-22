@@ -324,13 +324,8 @@ export function DailyDuoDialog({
                 Закрыть
               </button>
 
-              <div className="flex flex-col items-center rounded-2xl bg-black/50 px-4 py-1.5 text-center backdrop-blur-sm">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-white/55">
-                  {phase === "capture_front" ? "1 / 2" : "2 / 2"}
-                </span>
-                <span className="text-sm font-semibold leading-tight">
-                  {phase === "capture_front" ? "Селфи" : "Окружение"}
-                </span>
+              <div className="rounded-full bg-black/50 px-3 py-1.5 text-sm backdrop-blur-sm">
+                Сделай кадр
               </div>
 
               <button

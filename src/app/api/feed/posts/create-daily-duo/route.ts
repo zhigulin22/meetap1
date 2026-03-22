@@ -5,6 +5,7 @@ import { getServerEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
+import { validateFaces } from "@/server/ai";
 
 const captionSchema = z.object({
   caption: z.string().max(220).optional(),

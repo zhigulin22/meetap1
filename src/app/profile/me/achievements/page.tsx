@@ -205,7 +205,7 @@ export default function ProfileAchievementsPage() {
           ) : (
             <div className="rounded-2xl border border-border bg-[rgb(var(--surface-1-rgb)/0.72)] p-4 text-sm text-text2">
               <p>Пока пусто для выбранного фильтра.</p>
-              <p className="mt-1 text-xs text-text3">Сбрось фильтр или открывай “Все”, чтобы увидеть полный каталог.</p>
+              <p className="mt-1 text-xs text-text3">Сбрось фильтр или открывай "Все", чтобы увидеть полный каталог.</p>
             </div>
           )}
         </CardContent>

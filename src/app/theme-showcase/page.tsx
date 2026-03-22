@@ -49,7 +49,7 @@ export default function ThemeShowcasePage() {
           <Card className="border-[rgb(var(--gold-rgb)/0.24)] bg-[rgb(var(--event-surface-rgb)/0.8)]">
             <CardHeader><CardTitle>Event mode</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-text2">Gold только в ивентах и CTA “Пойти”.</p>
+              <p className="text-sm text-text2">Gold только в ивентах и CTA "Пойти".</p>
               <Button variant="event">Пойти</Button>
               <div className="inline-flex rounded-full border border-[rgb(var(--gold-rgb)/0.4)] bg-[rgb(var(--gold-rgb)/0.2)] px-3 py-1 text-xs text-[rgb(142,100,14)]">СЕГОДНЯ</div>
             </CardContent>
