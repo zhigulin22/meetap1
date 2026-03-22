@@ -235,7 +235,7 @@ export default function MyProfilePage() {
               <div className="flex-1">
                 <p className="text-sm font-semibold text-text">Психопрофиль</p>
                 <p className="text-xs text-text2">{psychProfile?.style || "Не пройден"}</p>
-                {needsPsychRefresh ? <p className="mt-1 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест для более точных рекомендаций.</p> : null}
+                {needsPsychRefresh ? <p className="mt-1 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест.</p> : null}
               </div>
               <Link href="/settings/psychotest">
                 <Button variant="secondary" size="sm">{needsPsychRefresh ? "Обновить" : "Открыть"}</Button>
@@ -295,7 +295,7 @@ export default function MyProfilePage() {
         <Card className="border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.92)]">
           <CardContent className="p-4 text-center">
             <p className="text-sm font-semibold text-text">Пока нет контента</p>
-            <p className="text-xs text-text2">Создай пост или DUO, чтобы наполнить профиль</p>
+            <p className="text-xs text-text2">Создай пост или DUO</p>
             <Button className="mt-3 h-12" onClick={() => router.push("/feed")}>Перейти в ленту</Button>
           </CardContent>
         </Card>

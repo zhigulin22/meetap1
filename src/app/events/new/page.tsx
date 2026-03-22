@@ -130,7 +130,7 @@ export default function OrganizerDashboard() {
               <div className="flex items-start gap-2 text-xs text-text2">
                 <ShieldCheck className="mt-0.5 h-4 w-4 text-[rgb(var(--violet-rgb))]" />
                 <div>
-                  <p className="text-sm font-semibold text-text">Как проходит модерация</p>
+                  <p className="text-sm font-semibold text-text">Модерация</p>
                   <p className="mt-1">Новая заявка → В работе → Одобрено или Уточнение. Статус виден в истории.</p>
                 </div>
               </div>

@@ -31,7 +31,7 @@ export default function ProfilePsychIntroPage() {
   }, [psychQuery.data?.updated_at]);
 
   return (
-    <ProfileSettingsLayout title="Психотест" subtitle="Нужен для более точных рекомендаций и подсказок знакомства">
+    <ProfileSettingsLayout title="Психотест" subtitle="Для рекомендаций">
       <Card className="mb-3 overflow-hidden border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.9)]">
         <div className="h-24 bg-[linear-gradient(125deg,rgb(var(--surface-2-rgb)/0.98),rgb(var(--teal-rgb)/0.24),rgb(var(--sky-rgb)/0.28))]" />
         <CardContent className="-mt-6 p-4">
@@ -40,11 +40,10 @@ export default function ProfilePsychIntroPage() {
             {statusText}
           </div>
           {needsRefresh && psychQuery.data?.completed ? (
-            <p className="mb-2 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест — это улучшит рекомендации.</p>
+            <p className="mb-2 text-xs text-[rgb(var(--violet-rgb))]">Пора обновить тест.</p>
           ) : null}
           <p className="text-sm text-text2">
-            Мы используем результаты теста только для внутренних алгоритмов: рекомендации людей, точки пересечения интересов и
-            подсказки первого шага в знакомстве.
+            Результаты используются для рекомендаций.
           </p>
         </CardContent>
       </Card>
@@ -68,7 +67,7 @@ export default function ProfilePsychIntroPage() {
 
       <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.74)] px-3 py-2 text-sm text-text2">
         <input type="checkbox" className="mt-0.5 h-4 w-4 accent-mint" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-        Я понимаю, что результаты используются для внутренних рекомендаций знакомств и подсказок первого шага.
+        Я понимаю, что результаты используются для рекомендаций.
       </label>
 
       <div className="grid grid-cols-2 gap-2">

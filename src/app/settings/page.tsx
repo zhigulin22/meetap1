@@ -82,7 +82,7 @@ export default function SettingsPage() {
     <PageShell>
       <div className="mb-4">
         <h1 className="text-2xl font-semibold">Настройки</h1>
-        <p className="text-xs text-text2">Все разделы — отдельные страницы, как в Telegram</p>
+        <p className="text-xs text-text2">Все разделы — отдельные страницы.</p>
       </div>
 
       <div className="space-y-4">

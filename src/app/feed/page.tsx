@@ -276,17 +276,12 @@ export default function FeedPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-3 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] p-4">
-          <p className="text-xs text-text3">DUO — фирменный формат MeetAp</p>
-          <p className="mt-1 text-sm text-text">Фото с живым контекстом повышает доверие и совместимость.</p>
-          <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>Сделать фото</Button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-[color:var(--border-soft)] bg-[rgb(var(--surface-2-rgb)/0.95)] p-4">
+        <div>
+          <p className="text-xs text-text3">DUO</p>
+          <p className="text-sm text-text">Короткие живые моменты.</p>
         </div>
-        <div className="rounded-2xl border border-[color:var(--border-soft)] bg-[rgb(var(--surface-1-rgb)/0.8)] p-4">
-          <p className="text-xs text-text3">Почему это важно</p>
-          <p className="mt-1 text-sm text-text">Лента фиксирует реальные встречи и помогает понять человека.</p>
-          <Button size="sm" variant="secondary" className="mt-3" onClick={() => setWhyOpen(true)}>Подробнее</Button>
-        </div>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>Сделать DUO</Button>
       </div>
 
       <DailyDuoDialog
@@ -295,16 +290,6 @@ export default function FeedPage() {
         onDone={() => queryClient.invalidateQueries({ queryKey: ["feed"] })}
       />
 
-      <Dialog open={whyOpen} onOpenChange={setWhyOpen}>
-        <DialogHeader>
-          <DialogTitle>Почему лента может быть закрыта</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-2 text-sm text-text2">
-          <p>Лента временно закрывается, если давно не было публикаций.</p>
-          <p>Если на фото два человека, алгоритм точнее рекомендует людей и события.</p>
-          <p className="text-xs text-text3">Это не штраф, а мягкий чеклист для качества рекомендаций.</p>
-        </div>
-      </Dialog>
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogHeader>
