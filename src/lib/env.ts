@@ -4,11 +4,13 @@ const publicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: z.string().min(1),
+  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
 });
 
 const serverSchema = z.object({
   APP_ENV: z.enum(["local", "vercel"]).default("vercel"),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+<<<<<<< HEAD
   OPENAI_API_KEY: z.string().min(1).default("placeholder-openai"),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
@@ -17,6 +19,12 @@ const serverSchema = z.object({
   TELEGRAM_MODERATION_MOCK: z.coerce.boolean().default(false),
   AI_SERVICE_URL: z.string().url().default("http://127.0.0.1:8000"),
   FACE_DETECT_MODEL: z.string().min(1).default("gpt-4o-mini"),
+=======
+  DEEPSEEK_API_KEY: z.string().min(1),
+  DEEPSEEK_BASE_URL: z.string().url().default("https://api.deepseek.com/v1"),
+  TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_WEBHOOK_SECRET: z.string().min(1),
+>>>>>>> origin/develop-tema
   FACE_DETECT_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.35),
   DAILY_DUO_GROUP_BONUS_XP: z.coerce.number().int().min(0).default(100),
   COMPATIBILITY_SEED_COUNT: z.coerce.number().int().min(1).max(50).default(10),
@@ -75,6 +83,7 @@ export function getPublicEnv() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder-anon-key",
     NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:
       process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "placeholder_bot",
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   };
 
   const parsed = publicSchema.parse(source);
@@ -89,6 +98,7 @@ export function getServerEnv() {
     APP_ENV: process.env.APP_ENV ?? "vercel",
     SUPABASE_SERVICE_ROLE_KEY:
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-service-role",
+<<<<<<< HEAD
     OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-openai",
     TELEGRAM_BOT_TOKEN: resolveSecret({
       plain: process.env.TELEGRAM_BOT_TOKEN,
@@ -110,6 +120,13 @@ export function getServerEnv() {
     TELEGRAM_MODERATION_MOCK: process.env.TELEGRAM_MODERATION_MOCK ?? "false",
     AI_SERVICE_URL: process.env.AI_SERVICE_URL ?? "http://127.0.0.1:8000",
     FACE_DETECT_MODEL: process.env.FACE_DETECT_MODEL ?? "gpt-4o-mini",
+=======
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? "placeholder-deepseek",
+    DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com/v1",
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ?? "placeholder-telegram",
+    TELEGRAM_WEBHOOK_SECRET:
+      process.env.TELEGRAM_WEBHOOK_SECRET ?? "placeholder-secret",
+>>>>>>> origin/develop-tema
     FACE_DETECT_MIN_CONFIDENCE: process.env.FACE_DETECT_MIN_CONFIDENCE ?? "0.35",
     DAILY_DUO_GROUP_BONUS_XP: process.env.DAILY_DUO_GROUP_BONUS_XP ?? "100",
     COMPATIBILITY_SEED_COUNT: process.env.COMPATIBILITY_SEED_COUNT ?? "10",

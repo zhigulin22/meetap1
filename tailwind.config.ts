@@ -38,7 +38,7 @@ const config: Config = {
         soft: "var(--shadow-soft)",
         card: "var(--shadow-card)",
         glow: "0 0 0 1px rgb(var(--teal-rgb) / 0.24), 0 14px 34px rgb(var(--teal-rgb) / 0.18)",
-      },
+      },  
       fontFamily: {
         sans: ["var(--font-manrope)", "system-ui", "sans-serif"],
         display: ["var(--font-manrope)", "system-ui", "sans-serif"],

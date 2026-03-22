@@ -7,6 +7,7 @@ type FaceValidation = {
   reason?: string;
 };
 
+<<<<<<< HEAD
 type IcebreakerResponse = {
   messages: string[];
   topic: string;
@@ -114,6 +115,22 @@ export async function validateFaces(input: { imageUrl?: string; base64?: string 
   } catch {
     return fallback;
   }
+=======
+function getClient() {
+  const env = getServerEnv();
+  return new OpenAI({
+    apiKey: env.DEEPSEEK_API_KEY,
+    baseURL: env.DEEPSEEK_BASE_URL,
+  });
+}
+
+// DeepSeek does not support vision — face validation is skipped (passthrough)
+export async function validateFaces(_input: {
+  imageUrl?: string;
+  base64?: string;
+}): Promise<FaceValidation> {
+  return { faces_count: 1, confidence: 1.0, ok: true };
+>>>>>>> origin/develop-tema
 }
 
 export async function buildIcebreaker(input: {
@@ -138,6 +155,7 @@ export async function buildIcebreaker(input: {
   };
 
   try {
+<<<<<<< HEAD
     const ai = await callAiService<Partial<IcebreakerResponse>>(
       "/v1/icebreaker",
       {
@@ -160,6 +178,31 @@ export async function buildIcebreaker(input: {
       approachTips: Array.isArray(ai.approachTips) ? ai.approachTips.map(String).slice(0, 8) : undefined,
       offlineIdeas: Array.isArray(ai.offlineIdeas) ? ai.offlineIdeas.map(String).slice(0, 8) : undefined,
       onlineIdeas: Array.isArray(ai.onlineIdeas) ? ai.onlineIdeas.map(String).slice(0, 8) : undefined,
+=======
+    const client = getClient();
+    const prompt = `Ты помощник по знакомствам. Ответ только JSON.
+Сделай рекомендации для ${input.user1.name}, чтобы познакомиться с ${input.user2.name}.
+Контекст: ${input.context ?? "offline meeting"}
+Интересы ${input.user1.name}: ${input.user1.interests.join(", ") || "не указаны"}
+Интересы ${input.user2.name}: ${input.user2.interests.join(", ") || "не указаны"}`;
+
+    const res = await client.chat.completions.create({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_tokens: 800,
+    });
+
+    const content = res.choices[0]?.message?.content ?? "{}";
+    return JSON.parse(content) as {
+      messages: string[];
+      topic: string;
+      question: string;
+      profileSummary?: string;
+      approachTips?: string[];
+      offlineIdeas?: string[];
+      onlineIdeas?: string[];
+>>>>>>> origin/develop-tema
     };
   } catch {
     return fallback;

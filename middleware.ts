@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/supabase/middleware";
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 
-const protectedRoutes = ["/feed", "/events", "/chats", "/contacts", "/profile", "/admin"];
+const protectedRoutes = ["/feed", "/events", "/chats", "/contacts", "/profile", "/admin", "/messages"];
 const ADMIN_PORTAL_ROLES = ["admin", "super_admin"] as const;
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
 

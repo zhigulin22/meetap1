@@ -7,6 +7,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { buildTelegramCode } from "@/lib/telegram-code";
 import { detectDeviceLabel } from "@/lib/session";
 import { trackEvent } from "@/server/analytics";
+import { hashPassword } from "@/lib/password";
 
 function phoneActorKey(phone: string) {
   return createHash("sha256").update(phone).digest("hex").slice(0, 20);
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     return fail(parsed.error.issues[0]?.message ?? "Invalid request", 422);
   }
 
-  const { token, code, name } = parsed.data;
+  const { token, code, name, username, password } = parsed.data;
   const expectedCode = buildTelegramCode(token);
 
   if (code !== expectedCode) {
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     | null;
 
   if (vErr || !verification || verification.status !== "verified") {
-    return fail("Phone is not verified in Telegram", 403);
+    return fail("Сначала открой бот и получи код — нажми кнопку «Открыть бот»", 403);
   }
 
   const resolvedPhone = verification.verified_phone ?? verification.phone;
@@ -76,26 +77,40 @@ export async function POST(req: Request) {
       return ok({ needsName: true });
     }
 
+    // Check username uniqueness if provided
+    if (username) {
+      const { data: taken } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("username", username)
+        .maybeSingle();
+      if (taken) return fail("Имя пользователя уже занято", 409);
+    }
+
     const authEmail = `${resolvedPhone.replace(/\D/g, "")}@phone.meetap.local`;
-    const password = crypto.randomUUID();
+    const authPassword = crypto.randomUUID();
 
     const auth = await supabaseAdmin.auth.admin.createUser({
       email: authEmail,
-      password,
+      password: authPassword,
       email_confirm: true,
     });
 
     userId = auth.data.user?.id ?? crypto.randomUUID();
 
-    const { error: insertErr } = await supabaseAdmin.from("users").insert({
+    const insertData: Record<string, unknown> = {
       id: userId,
       phone: resolvedPhone,
       name: name.trim(),
       telegram_verified: true,
       telegram_user_id: verification.telegram_user_id,
-      xp: 0,
+      xp: 10,
       level: 1,
-    });
+    };
+    if (username) insertData.username = username;
+    if (password) insertData.password_hash = hashPassword(password);
+
+    const { error: insertErr } = await supabaseAdmin.from("users").insert(insertData);
 
     if (insertErr) {
       return fail(insertErr.message, 500);

@@ -21,7 +21,30 @@ async function sendTelegramMessage(chatId: string, text: string) {
   }).catch(() => null);
 }
 
+// Register webhook once per cold start (fire-and-forget)
+let webhookEnsured = false;
+async function ensureWebhook() {
+  if (webhookEnsured) return;
+  webhookEnsured = true;
+  try {
+    const env = getServerEnv();
+    const pubEnv = getPublicEnv();
+    const appUrl = pubEnv.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+    if (!appUrl || !env.TELEGRAM_BOT_TOKEN) return;
+    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/setWebhook`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: `${appUrl}/api/telegram/webhook` }),
+    });
+  } catch {
+    webhookEnsured = false; // retry next time
+  }
+}
+
 export async function POST(req: NextRequest) {
+  // Register bot webhook in background — needed to receive /start commands
+  ensureWebhook().catch(() => null);
+
   const ip = req.headers.get("x-forwarded-for") ?? "local";
   const rate = checkRateLimit(`start-verification:${ip}`, 5, 10 * 60 * 1000);
   if (!rate.ok) {

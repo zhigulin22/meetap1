@@ -9,6 +9,7 @@
 html,
 body {
   min-height: 100%;
+  color-scheme: dark;
 }
 
 body {

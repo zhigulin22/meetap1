@@ -1,0 +1,23 @@
+{
+  "name": "Meetap",
+  "short_name": "Meetap",
+  "description": "Соцсеть для офлайн-знакомств",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#03070f",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

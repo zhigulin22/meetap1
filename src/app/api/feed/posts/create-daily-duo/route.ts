@@ -4,7 +4,6 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { getServerEnv } from "@/lib/env";
 import { supabaseAdmin } from "@/supabase/admin";
 import { requireUserId } from "@/server/auth";
-import { validateFaces } from "@/server/ai";
 import { trackEvent } from "@/server/analytics";
 
 const captionSchema = z.object({
@@ -49,6 +48,7 @@ export async function POST(req: Request) {
 
     const photoUrl = supabaseAdmin.storage.from("daily-duo").getPublicUrl(photoPath).data.publicUrl;
 
+<<<<<<< HEAD
     let checkPhoto = await validateFaces({ imageUrl: photoUrl });
 
     // Fallback to base64 if URL-based inspection is uncertain.
@@ -59,6 +59,8 @@ export async function POST(req: Request) {
     const facesCount = checkPhoto.faces_count ?? 0;
     const bonusXp = facesCount >= 2 ? env.DAILY_DUO_GROUP_BONUS_XP : 0;
 
+=======
+>>>>>>> origin/develop-tema
     const { data: post, error: postErr } = await supabaseAdmin
       .from("posts")
       .insert({

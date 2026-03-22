@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 
 import "../styles/theme.css";
@@ -11,9 +11,22 @@ const manrope = Manrope({
   variable: "--font-manrope",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#07070e",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
-  title: "Meetap MVP",
-  description: "Meetap social app",
+  title: "Meetap",
+  description: "Соцсеть для офлайн-знакомств",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Meetap",
+  },
 };
 
 export default function RootLayout({
@@ -22,8 +35,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={manrope.variable}>
-      <body className="bg-app text-foreground">
+    <html lang="ru" className={`dark ${manrope.variable}`} suppressHydrationWarning>
+      <body className="bg-app text-foreground font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

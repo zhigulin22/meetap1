@@ -10,12 +10,24 @@ export const startVerificationSchema = z.object({
 });
 
 export const completeRegistrationSchema = z.object({
+<<<<<<< HEAD
   token: z.string().uuid("Некорректный verification token"),
   code: z
     .string()
     .trim()
     .regex(/^\d{6}$/, "Код должен состоять из 6 цифр"),
   name: z.string().trim().min(2).max(80).optional(),
+=======
+  token: z.string().uuid(),
+  code: z.string().regex(/^\d{6}$/, "Код должен состоять из 6 цифр"),
+  name: z.string().min(2).max(40).optional(),
+  username: z.string().regex(/^[a-z0-9_]{3,30}$/).optional(),
+  password: z.string().min(8).max(72).optional(),
+});
+
+export const createDailyDuoSchema = z.object({
+  caption: z.string().max(140).optional(),
+>>>>>>> origin/develop-tema
 });
 
 export const icebreakerSchema = z.object({

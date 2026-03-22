@@ -3,9 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+<<<<<<< HEAD
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, ExternalLink, MapPin, MessageCircleHeart, Users2 } from "lucide-react";
+=======
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Send } from "lucide-react";
+>>>>>>> origin/develop-tema
 import { PageShell } from "@/components/page-shell";
 import { ApiClientError, api } from "@/lib/api-client";
 import type { EventListItem } from "@/components/events/types";
@@ -52,6 +58,105 @@ function mapParticipants(rows: EventParticipantRow[]) {
   return rows
     .map((row) => (Array.isArray(row.users) ? row.users[0] : row.users))
     .filter((u): u is { id: string; name: string; avatar_url: string | null; interests?: string[] } => Boolean(u?.id));
+}
+
+type EventMessage = {
+  id: string;
+  from_user_id: string;
+  content: string;
+  created_at: string;
+  user: { id: string; name: string; avatar_url: string | null };
+};
+
+function EventChat({ eventId }: { eventId: string }) {
+  const qc = useQueryClient();
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const { data } = useQuery({
+    queryKey: ["event-chat", eventId],
+    queryFn: () =>
+      api<{ messages: EventMessage[]; myId: string }>(`/api/messages/event/${eventId}`),
+    refetchInterval: 4000,
+  });
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [data?.messages.length]);
+
+  async function send() {
+    const content = text.trim();
+    if (!content || sending) return;
+    setSending(true);
+    setText("");
+    try {
+      const res = await api<{ message: EventMessage }>(`/api/messages/event/${eventId}`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      });
+      qc.setQueryData<{ messages: EventMessage[]; myId: string }>(
+        ["event-chat", eventId],
+        (prev) => (prev ? { ...prev, messages: [...prev.messages, res.message] } : prev),
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const myId = data?.myId;
+
+  return (
+    <div className="rounded-2xl border border-border bg-black/10 p-3">
+      <p className="mb-2 text-sm font-medium">Чат события</p>
+      <div className="mb-2 max-h-48 space-y-2 overflow-y-auto">
+        {(data?.messages ?? []).length === 0 && (
+          <p className="py-2 text-center text-xs text-muted">Сообщений пока нет</p>
+        )}
+        {(data?.messages ?? []).map((msg) => {
+          const mine = msg.from_user_id === myId;
+          return (
+            <div key={msg.id} className={`flex items-end gap-1.5 ${mine ? "justify-end" : ""}`}>
+              {!mine && (
+                <Image
+                  src={msg.user.avatar_url || "https://placehold.co/100"}
+                  alt={msg.user.name}
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 shrink-0 rounded-full object-cover"
+                  unoptimized
+                />
+              )}
+              <div
+                className={`max-w-[70%] rounded-xl px-2.5 py-1.5 text-xs ${
+                  mine ? "bg-action text-accent" : "border border-border bg-surface"
+                }`}
+              >
+                {!mine && (
+                  <p className="mb-0.5 text-[10px] font-medium text-muted">{msg.user.name}</p>
+                )}
+                <p>{msg.content}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+          placeholder="Сообщение в чат..."
+          maxLength={500}
+          className="flex-1 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs outline-none focus:border-action"
+        />
+        <Button size="icon" className="h-8 w-8" onClick={send} disabled={!text.trim() || sending}>
+          <Send className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default function EventDetailPage() {
@@ -171,6 +276,7 @@ export default function EventDetailPage() {
             </div>
           </div>
 
+<<<<<<< HEAD
           <div className="space-y-4 p-4">
             {errorBanner ? (
               <div className="rounded-xl border border-[rgb(var(--danger-rgb)/0.2)] bg-[rgb(var(--danger-rgb)/0.12)] px-3 py-2 text-xs text-[rgb(var(--danger-rgb))]">
@@ -358,6 +464,11 @@ export default function EventDetailPage() {
           </div>
         </div>
       </article>
+=======
+          <EventChat eventId={params.id} />
+        </CardContent>
+      </Card>
+>>>>>>> origin/develop-tema
     </PageShell>
   );
 }
