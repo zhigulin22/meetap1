@@ -29,3 +29,12 @@ export const icebreakerSchema = z.object({
   }),
   context: z.string().trim().max(500).optional(),
 });
+
+export const faceValidateSchema = z
+  .object({
+    imageUrl: z.string().url().optional(),
+    base64: z.string().min(50).optional(),
+  })
+  .refine((v) => Boolean(v.imageUrl || v.base64), {
+    message: "Передай imageUrl или base64",
+  });

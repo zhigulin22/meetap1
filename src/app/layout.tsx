@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
 
 import "../styles/theme.css";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-
-const manrope = Manrope({
-  subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-manrope",
-});
 
 export const metadata: Metadata = {
   title: "Meetap MVP",
@@ -22,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={manrope.variable}>
+    <html lang="ru">
       <body className="bg-app text-foreground">
         <Providers>{children}</Providers>
       </body>

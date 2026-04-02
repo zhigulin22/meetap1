@@ -223,7 +223,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       .maybeSingle();
 
     if (existing.data?.id) {
-      await updateEvent(params.id, { status: "pending", moderation_status: "pending" });
+      await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
       const sendRes = await sendEventSubmissionToTelegramModerationBot({
         id: existing.data.id,
         title: merged.title,
@@ -295,7 +295,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return fail(ins.error?.message ?? "Не удалось создать заявку", 500);
     }
 
-    await updateEvent(params.id, { status: "pending", moderation_status: "pending" });
+    await updateEvent(params.id, { status: "pending_review", moderation_status: "pending" });
 
     const sendRes = await sendEventSubmissionToTelegramModerationBot({
       id: ins.data.id,
